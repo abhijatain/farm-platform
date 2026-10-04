@@ -15,58 +15,14 @@ from app.schemas.field import (
     FieldResponse,
     PolygonGeometry,
 )
-
+from app.services.ownership import (
+    get_owned_farm,
+    get_owned_field,
+)
 
 router = APIRouter(
     tags=["fields"],
 )
-
-
-def get_owned_farm(
-    farm_id: UUID,
-    user_id: UUID,
-    db: DBSession,
-) -> Farm:
-    farm = db.scalar(
-        select(Farm).where(
-            Farm.id == farm_id,
-            Farm.owner_user_id == user_id,
-        )
-    )
-
-    if farm is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Farm not found.",
-        )
-
-    return farm
-
-
-def get_owned_field(
-    field_id: UUID,
-    user_id: UUID,
-    db: DBSession,
-) -> FarmField:
-    field = db.scalar(
-        select(FarmField)
-        .join(
-            Farm,
-            Farm.id == FarmField.farm_id,
-        )
-        .where(
-            FarmField.id == field_id,
-            Farm.owner_user_id == user_id,
-        )
-    )
-
-    if field is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Field not found.",
-        )
-
-    return field
 
 
 def calculate_area_square_metres(
