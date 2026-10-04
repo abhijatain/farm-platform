@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     activities,
+    auth,
     crop_cycles,
     farms,
     fields,
@@ -11,6 +12,10 @@ from app.api.routes import (
 
 api_router = APIRouter()
 
+
+api_router.include_router(
+    auth.router
+)
 
 api_router.include_router(
     farms.router
