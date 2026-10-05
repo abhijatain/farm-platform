@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+)
 
 
 class Settings(BaseSettings):
@@ -11,6 +14,12 @@ class Settings(BaseSettings):
     firebase_project_id: str
 
     firebase_credentials_path: Path | None = None
+
+    cors_origins: str = (
+        "http://localhost:8081,"
+        "http://127.0.0.1:8081,"
+        "http://192.168.1.8:8081"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
