@@ -1,6 +1,4 @@
-import {
-  auth,
-} from "./firebase";
+import { auth } from "./firebase";
 
 import type {
   Activity,
@@ -11,189 +9,96 @@ import type {
   PolygonGeometry,
   Season,
   TimelineItem,
+  SatelliteObservation,
+  SatelliteAnomalyFeatureCollection,
 } from "../types/api";
 
-
-const API_URL =
-  import.meta.env
-    .VITE_API_URL;
-
+const API_URL = import.meta.env.VITE_API_URL;
 
 if (!API_URL) {
-  throw new Error(
-    "VITE_API_URL is missing.",
-  );
+  throw new Error("VITE_API_URL is missing.");
 }
-
 
 async function apiFetch<T>(
   path: string,
 
-  options:
-    RequestInit = {},
+  options: RequestInit = {},
 ): Promise<T> {
-
-  const firebaseUser =
-    auth.currentUser;
-
+  const firebaseUser = auth.currentUser;
 
   if (!firebaseUser) {
-    throw new Error(
-      "Not authenticated.",
-    );
+    throw new Error("Not authenticated.");
   }
 
+  const token = await firebaseUser.getIdToken();
 
-  const token =
-    await firebaseUser
-      .getIdToken();
+  const headers = new Headers(options.headers);
 
+  headers.set("Authorization", `Bearer ${token}`);
 
-  const headers =
-    new Headers(
-      options.headers,
-    );
-
-
-  headers.set(
-    "Authorization",
-    `Bearer ${token}`,
-  );
-
-
-  if (
-    options.body &&
-    !headers.has(
-      "Content-Type",
-    )
-  ) {
-    headers.set(
-      "Content-Type",
-      "application/json",
-    );
+  if (options.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
-
-  const response =
-    await fetch(
-      `${API_URL}${path}`,
-      {
-        ...options,
-        headers,
-      },
-    );
-
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  });
 
   if (!response.ok) {
-
-    let message =
-      `Request failed (${response.status})`;
-
+    let message = `Request failed (${response.status})`;
 
     try {
-
-      const body =
-        await response.json();
-
+      const body = await response.json();
 
       if (body.detail) {
-
         message =
-          typeof body.detail
-            === "string"
+          typeof body.detail === "string"
             ? body.detail
-            : JSON.stringify(
-                body.detail,
-              );
-
+            : JSON.stringify(body.detail);
       }
-
     } catch {
       // Keep fallback.
     }
 
-
-    throw new Error(
-      message,
-    );
+    throw new Error(message);
   }
 
-
-  if (
-    response.status === 204
-  ) {
+  if (response.status === 204) {
     return undefined as T;
   }
-
 
   return response.json() as Promise<T>;
 }
 
-
-
 /* AUTH */
 
 export function getMe() {
-  return apiFetch<
-    CurrentUser
-  >(
-    "/auth/me",
-  );
+  return apiFetch<CurrentUser>("/auth/me");
 }
-
-
 
 /* FARMS */
 
 export function listFarms() {
-
-  return apiFetch<
-    Farm[]
-  >(
-    "/farms",
-  );
-
+  return apiFetch<Farm[]>("/farms");
 }
 
+export function createFarm(data: {
+  name: string;
+  location_name: string | null;
+}) {
+  return apiFetch<Farm>("/farms", {
+    method: "POST",
 
-export function createFarm(
-  data: {
-    name: string;
-    location_name:
-      string | null;
-  },
-) {
-
-  return apiFetch<Farm>(
-    "/farms",
-    {
-      method: "POST",
-
-      body:
-        JSON.stringify(
-          data,
-        ),
-    },
-  );
-
+    body: JSON.stringify(data),
+  });
 }
-
-
 
 /* FIELDS */
 
-export function listFields(
-  farmId: string,
-) {
-
-  return apiFetch<
-    Field[]
-  >(
-    `/farms/${farmId}/fields`,
-  );
-
+export function listFields(farmId: string) {
+  return apiFetch<Field[]>(`/farms/${farmId}/fields`);
 }
-
 
 export function createField(
   farmId: string,
@@ -201,42 +106,25 @@ export function createField(
   data: {
     name: string;
 
-    boundary:
-      PolygonGeometry;
+    boundary: PolygonGeometry;
   },
 ) {
-
   return apiFetch<Field>(
     `/farms/${farmId}/fields`,
 
     {
       method: "POST",
 
-      body:
-        JSON.stringify(
-          data,
-        ),
+      body: JSON.stringify(data),
     },
   );
-
 }
-
-
 
 /* SEASONS */
 
-export function listSeasons(
-  farmId: string,
-) {
-
-  return apiFetch<
-    Season[]
-  >(
-    `/farms/${farmId}/seasons`,
-  );
-
+export function listSeasons(farmId: string) {
+  return apiFetch<Season[]>(`/farms/${farmId}/seasons`);
 }
-
 
 export function createSeason(
   farmId: string,
@@ -244,54 +132,32 @@ export function createSeason(
   data: {
     name: string;
 
-    season_type:
-      string | null;
+    season_type: string | null;
 
     started_on: string;
 
-    ended_on:
-      string | null;
+    ended_on: string | null;
   },
 ) {
-
   return apiFetch<Season>(
     `/farms/${farmId}/seasons`,
 
     {
       method: "POST",
 
-      body:
-        JSON.stringify(
-          data,
-        ),
+      body: JSON.stringify(data),
     },
   );
-
 }
-
-
 
 /* CROP CYCLES */
 
-export function listFieldCropCycles(
-  fieldId: string,
-) {
-
-  return apiFetch<
-    CropCycle[]
-  >(
-    `/fields/${fieldId}/crop-cycles`,
-  );
-
+export function listFieldCropCycles(fieldId: string) {
+  return apiFetch<CropCycle[]>(`/fields/${fieldId}/crop-cycles`);
 }
-export function listSeasonCropCycles(
-  seasonId: string,
-) {
-  return apiFetch<CropCycle[]>(
-    `/seasons/${seasonId}/crop-cycles`,
-  );
+export function listSeasonCropCycles(seasonId: string) {
+  return apiFetch<CropCycle[]>(`/seasons/${seasonId}/crop-cycles`);
 }
-
 
 export function createCropCycle(
   seasonId: string,
@@ -301,43 +167,75 @@ export function createCropCycle(
 
     crop_name: string;
 
-    variety:
-      string | null;
+    variety: string | null;
 
     started_on: string;
 
-    planted_on:
-      string | null;
+    planted_on: string | null;
 
-    expected_harvest_on:
-      string | null;
+    expected_harvest_on: string | null;
 
-    harvested_on:
-      string | null;
-
-    notes:
-      string | null;
+    notes: string | null;
   },
 ) {
-
-  return apiFetch<
-    CropCycle
-  >(
+  return apiFetch<CropCycle>(
     `/seasons/${seasonId}/crop-cycles`,
 
     {
       method: "POST",
 
-      body:
-        JSON.stringify(
-          data,
-        ),
+      body: JSON.stringify(data),
     },
   );
-
 }
 
+export type HarvestResult = {
+  crop_cycle_id: string;
 
+  status: string;
+
+  harvested_on: string;
+
+  yield_kg: number;
+
+  harvested_area_acres: number;
+
+  yield_kg_per_acre: number;
+
+  moisture_percent: number | null;
+
+  quality_grade: string | null;
+
+  selling_price_per_kg: number | null;
+
+  estimated_value: number | null;
+};
+
+export function harvestCropCycle(
+  cropCycleId: string,
+
+  data: {
+    harvested_at: string;
+
+    yield_kg: number;
+
+    harvested_area_acres: number;
+
+    moisture_percent: number | null;
+
+    quality_grade: string | null;
+
+    selling_price_per_kg: number | null;
+
+    notes: string | null;
+  },
+) {
+  return apiFetch<HarvestResult>(`/crop-cycles/${cropCycleId}/harvest`, {
+    method: "POST",
+
+    body: JSON.stringify(data),
+  });
+}
 
 /* ACTIVITIES */
 
@@ -345,55 +243,42 @@ export function createActivity(
   fieldId: string,
 
   data: {
-    crop_cycle_id:
-      string | null;
+    crop_cycle_id: string | null;
 
-    activity_type:
-      string;
+    activity_type: string;
 
-    occurred_at:
-      string;
+    occurred_at: string;
 
-    notes:
-      string | null;
+    notes: string | null;
 
-    details:
-      Record<
-        string,
-        unknown
-      >;
+    details: Record<string, unknown>;
   },
 ) {
-
-  return apiFetch<
-    Activity
-  >(
+  return apiFetch<Activity>(
     `/fields/${fieldId}/activities`,
 
     {
       method: "POST",
 
-      body:
-        JSON.stringify(
-          data,
-        ),
+      body: JSON.stringify(data),
     },
   );
-
 }
-
-
 
 /* TIMELINE */
 
-export function getFieldTimeline(
-  fieldId: string,
-) {
+export function getFieldTimeline(fieldId: string) {
+  return apiFetch<TimelineItem[]>(`/fields/${fieldId}/timeline`);
+}
 
-  return apiFetch<
-    TimelineItem[]
-  >(
-    `/fields/${fieldId}/timeline`,
+export function listSatelliteObservations(fieldId: string) {
+  return apiFetch<SatelliteObservation[]>(
+    `/fields/${fieldId}/satellite-observations`,
   );
+}
 
+export function listSatelliteAnomalies(observationId: string) {
+  return apiFetch<SatelliteAnomalyFeatureCollection>(
+    `/satellite-observations/${observationId}/anomalies`,
+  );
 }

@@ -1,0 +1,156 @@
+from __future__ import annotations
+
+from uuid import UUID
+
+from geoalchemy2 import Geometry
+from geoalchemy2.elements import WKBElement
+from sqlalchemy import (
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import (
+    JSONB,
+    UUID as PG_UUID,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+)
+
+from app.db.base import Base
+from app.models.base import (
+    TimestampMixin,
+    UUIDPrimaryKeyMixin,
+)
+
+
+class SatelliteAnomaly(
+    UUIDPrimaryKeyMixin,
+    TimestampMixin,
+    Base,
+):
+    __tablename__ = "satellite_anomalies"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "satellite_observation_id",
+            "zone_index",
+            name=("uq_satellite_anomaly_" "observation_zone"),
+        ),
+    )
+
+    satellite_observation_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey(
+            "satellite_observations.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    field_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey(
+            "fields.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    zone_index: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    index_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="ndvi",
+    )
+
+    anomaly_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="below_field_baseline",
+    )
+
+    severity: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+
+    geometry: Mapped[WKBElement] = mapped_column(
+        Geometry(
+            geometry_type="MULTIPOLYGON",
+            srid=4326,
+            spatial_index=True,
+        ),
+        nullable=False,
+    )
+
+    pixel_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    area_sqm: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    area_acres: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    zone_mean_value: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    zone_min_value: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    field_mean_value: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    field_median_value: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    threshold_value: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    difference_from_field: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    percent_difference: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    detection_method: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="robust_mad_v1",
+    )
+
+    metadata_json: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+    )

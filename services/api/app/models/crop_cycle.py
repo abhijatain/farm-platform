@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -64,6 +64,36 @@ class CropCycle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     harvested_on: Mapped[date | None] = mapped_column(
+        nullable=True,
+    )
+
+    yield_kg: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    harvested_area_acres: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    moisture_percent: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    quality_grade: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    selling_price_per_kg: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    harvest_notes: Mapped[str | None] = mapped_column(
+        Text,
         nullable=True,
     )
 

@@ -1,24 +1,22 @@
 from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    HTTPException,
-    status,
-)
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DBSession
+from app.models.activity import Activity
 from app.models.crop_cycle import CropCycle
 from app.schemas.crop_cycle import (
     CropCycleCreate,
     CropCycleResponse,
+    HarvestCropCycleRequest,
+    HarvestCropCycleResponse,
 )
 from app.services.ownership import (
     get_owned_crop_cycle,
     get_owned_field,
     get_owned_season,
 )
-
 
 router = APIRouter(
     tags=["crop cycles"],
@@ -52,30 +50,19 @@ def create_crop_cycle(
     if field.farm_id != season.farm_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "The field and season must "
-                "belong to the same farm."
-            ),
+            detail=("The field and season must " "belong to the same farm."),
         )
 
     crop_cycle = CropCycle(
         season_id=season.id,
         field_id=field.id,
-
         crop_name=data.crop_name,
         variety=data.variety,
-
         status="active",
-
         started_on=data.started_on,
         planted_on=data.planted_on,
-
-        expected_harvest_on=(
-            data.expected_harvest_on
-        ),
-
-        harvested_on=data.harvested_on,
-
+        expected_harvest_on=(data.expected_harvest_on),
+        harvested_on=None,
         notes=data.notes,
     )
 
@@ -104,12 +91,8 @@ def list_season_crop_cycles(
 
     crop_cycles = db.scalars(
         select(CropCycle)
-        .where(
-            CropCycle.season_id == season_id
-        )
-        .order_by(
-            CropCycle.started_on.desc()
-        )
+        .where(CropCycle.season_id == season_id)
+        .order_by(CropCycle.started_on.desc())
     ).all()
 
     return list(crop_cycles)
@@ -133,12 +116,8 @@ def list_field_crop_cycles(
 
     crop_cycles = db.scalars(
         select(CropCycle)
-        .where(
-            CropCycle.field_id == field_id
-        )
-        .order_by(
-            CropCycle.started_on.desc()
-        )
+        .where(CropCycle.field_id == field_id)
+        .order_by(CropCycle.started_on.desc())
     ).all()
 
     return list(crop_cycles)
@@ -158,4 +137,117 @@ def get_crop_cycle(
         db=db,
         user_id=current_user.id,
         crop_cycle_id=crop_cycle_id,
+    )
+
+
+@router.post(
+    "/crop-cycles/{crop_cycle_id}/harvest",
+    response_model=HarvestCropCycleResponse,
+)
+def harvest_crop_cycle(
+    crop_cycle_id: UUID,
+    data: HarvestCropCycleRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> HarvestCropCycleResponse:
+
+    crop_cycle = get_owned_crop_cycle(
+        db=db,
+        user_id=current_user.id,
+        crop_cycle_id=crop_cycle_id,
+    )
+
+    if crop_cycle.harvested_on is not None or crop_cycle.status == "completed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=("This crop cycle has already " "been harvested."),
+        )
+
+    reference_date = crop_cycle.planted_on or crop_cycle.started_on
+
+    if data.harvested_at.date() < reference_date:
+        raise HTTPException(
+            status_code=(status.HTTP_422_UNPROCESSABLE_ENTITY),
+            detail=("Harvest date cannot be before " "the crop planting/start date."),
+        )
+
+    yield_per_acre = data.yield_kg / data.harvested_area_acres
+
+    estimated_value: float | None = None
+
+    if data.selling_price_per_kg is not None:
+        estimated_value = data.yield_kg * data.selling_price_per_kg
+
+    crop_cycle.harvested_on = data.harvested_at.date()
+
+    crop_cycle.status = "completed"
+
+    crop_cycle.yield_kg = data.yield_kg
+
+    crop_cycle.harvested_area_acres = data.harvested_area_acres
+
+    crop_cycle.moisture_percent = data.moisture_percent
+
+    crop_cycle.quality_grade = data.quality_grade
+
+    crop_cycle.selling_price_per_kg = data.selling_price_per_kg
+
+    crop_cycle.harvest_notes = data.notes
+
+    harvest_activity = Activity(
+        field_id=crop_cycle.field_id,
+        crop_cycle_id=crop_cycle.id,
+        activity_type="harvest",
+        occurred_at=data.harvested_at,
+        notes=data.notes,
+        details={
+            "yield_kg": data.yield_kg,
+            "harvested_area_acres": data.harvested_area_acres,
+            "yield_kg_per_acre": round(
+                yield_per_acre,
+                2,
+            ),
+            "moisture_percent": data.moisture_percent,
+            "quality_grade": data.quality_grade,
+            "selling_price_per_kg": data.selling_price_per_kg,
+            "estimated_value": (
+                round(
+                    estimated_value,
+                    2,
+                )
+                if estimated_value is not None
+                else None
+            ),
+        },
+    )
+
+    db.add(harvest_activity)
+
+    db.commit()
+
+    db.refresh(crop_cycle)
+
+    return HarvestCropCycleResponse(
+        crop_cycle_id=(crop_cycle.id),
+        status=(crop_cycle.status),
+        harvested_on=(crop_cycle.harvested_on),
+        yield_kg=(crop_cycle.yield_kg),
+        harvested_area_acres=(crop_cycle.harvested_area_acres),
+        yield_kg_per_acre=(
+            round(
+                yield_per_acre,
+                2,
+            )
+        ),
+        moisture_percent=(crop_cycle.moisture_percent),
+        quality_grade=(crop_cycle.quality_grade),
+        selling_price_per_kg=(crop_cycle.selling_price_per_kg),
+        estimated_value=(
+            round(
+                estimated_value,
+                2,
+            )
+            if estimated_value is not None
+            else None
+        ),
     )

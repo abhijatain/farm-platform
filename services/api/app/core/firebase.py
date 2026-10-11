@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import firebase_admin
 from firebase_admin import credentials
 
@@ -9,31 +11,34 @@ def get_firebase_app() -> firebase_admin.App:
         return firebase_admin.get_app()
 
     except ValueError:
-        # Local / Raspberry Pi development
-        if settings.firebase_credentials_path is not None:
-            credential_path = settings.firebase_credentials_path
+        pass
 
-            if not credential_path.exists():
-                raise RuntimeError(
-                    f"Firebase credentials file not found: "
-                    f"{credential_path}"
-                )
+    credentials_path = settings.firebase_credentials_path
 
-            cred = credentials.Certificate(
-                str(credential_path)
+    if credentials_path is not None:
+        credentials_path = Path(credentials_path).expanduser().resolve()
+
+        if not credentials_path.exists():
+            raise RuntimeError(
+                "Firebase service account file does not exist: " f"{credentials_path}"
             )
 
-            return firebase_admin.initialize_app(
-                cred,
-                options={
-                    "projectId": settings.firebase_project_id,
-                },
-            )
+        credential = credentials.Certificate(str(credentials_path))
 
-        # Later on Cloud Run, Application Default
-        # Credentials can be used automatically.
         return firebase_admin.initialize_app(
-            options={
+            credential,
+            {
                 "projectId": settings.firebase_project_id,
-            }
+            },
         )
+
+    # Later on Cloud Run we can use
+    # Application Default Credentials.
+    return firebase_admin.initialize_app(
+        options={
+            "projectId": settings.firebase_project_id,
+        }
+    )
+
+
+firebase_app = get_firebase_app()

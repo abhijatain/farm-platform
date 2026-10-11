@@ -8,7 +8,6 @@ export type CurrentUser = {
   updated_at: string;
 };
 
-
 export type Farm = {
   id: string;
 
@@ -19,12 +18,10 @@ export type Farm = {
   updated_at: string;
 };
 
-
 export type PolygonGeometry = {
   type: "Polygon";
   coordinates: number[][][];
 };
-
 
 export type Field = {
   id: string;
@@ -42,7 +39,6 @@ export type Field = {
   updated_at: string;
 };
 
-
 export type Season = {
   id: string;
   farm_id: string;
@@ -57,7 +53,6 @@ export type Season = {
   created_at: string;
   updated_at: string;
 };
-
 
 export type CropCycle = {
   id: string;
@@ -74,14 +69,26 @@ export type CropCycle = {
   planted_on: string | null;
 
   expected_harvest_on: string | null;
+
   harvested_on: string | null;
+
+  yield_kg: number | null;
+
+  harvested_area_acres: number | null;
+
+  moisture_percent: number | null;
+
+  quality_grade: string | null;
+
+  selling_price_per_kg: number | null;
+
+  harvest_notes: string | null;
 
   notes: string | null;
 
   created_at: string;
   updated_at: string;
 };
-
 
 export type Activity = {
   id: string;
@@ -94,15 +101,11 @@ export type Activity = {
 
   notes: string | null;
 
-  details: Record<
-    string,
-    unknown
-  >;
+  details: Record<string, unknown>;
 
   created_at: string;
   updated_at: string;
 };
-
 
 export type TimelineItem = {
   type: "activity";
@@ -115,10 +118,7 @@ export type TimelineItem = {
 
   notes: string | null;
 
-  details: Record<
-    string,
-    unknown
-  >;
+  details: Record<string, unknown>;
 
   crop_cycle_id: string | null;
 
@@ -128,3 +128,100 @@ export type TimelineItem = {
   season_id: string | null;
   season_name: string | null;
 };
+
+export type SatelliteObservation = {
+  id: string;
+
+  field_id: string;
+
+  observed_on: string;
+
+  source: string;
+
+  scene_id: string;
+
+  cloud_cover_percent: number | null;
+
+  valid_pixel_percent: number | null;
+
+  ndvi_mean: number | null;
+
+  ndvi_min: number | null;
+
+  ndvi_max: number | null;
+
+  ndvi_std: number | null;
+
+  ndwi_mean: number | null;
+
+  ndvi_median: number | null;
+
+  ndvi_raster_uri: string | null;
+
+  resolution_m: number | null;
+
+  pixel_count: number | null;
+
+  valid_pixel_count: number | null;
+
+  metadata_json: Record<string, unknown>;
+
+  created_at: string;
+  updated_at: string;
+};
+
+export type SatelliteAnomalySeverity = "low" | "moderate" | "high";
+
+export interface SatelliteAnomalyProperties {
+  id: string;
+
+  satellite_observation_id: string;
+  field_id: string;
+
+  zone_index: number;
+
+  index_type: string;
+  anomaly_type: string;
+
+  severity: SatelliteAnomalySeverity;
+
+  pixel_count: number;
+
+  area_sqm: number;
+  area_acres: number;
+
+  zone_mean_value: number;
+  zone_min_value: number;
+
+  field_mean_value: number;
+  field_median_value: number;
+
+  threshold_value: number;
+
+  difference_from_field: number;
+  percent_difference: number | null;
+
+  detection_method: string;
+}
+
+export interface SatelliteAnomalyGeometry {
+  type: "MultiPolygon";
+
+  coordinates: number[][][][];
+}
+
+export interface SatelliteAnomalyFeature {
+  type: "Feature";
+
+  id: string;
+
+  geometry: SatelliteAnomalyGeometry;
+
+  properties: SatelliteAnomalyProperties;
+}
+
+export interface SatelliteAnomalyFeatureCollection {
+  type: "FeatureCollection";
+
+  features: SatelliteAnomalyFeature[];
+}

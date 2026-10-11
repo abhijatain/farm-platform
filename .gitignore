@@ -8,3 +8,6 @@ __pycache__/
 
 uv-cache/
 node_modules/
+
+# Generated data
+/data/

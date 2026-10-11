@@ -51,3 +51,9 @@ class Field(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="field",
         cascade="all, delete-orphan",
     )
+
+    satellite_observations: Mapped[list["SatelliteObservation"]] = relationship(
+        back_populates="field",
+        cascade="all, delete-orphan",
+        order_by=("SatelliteObservation.observed_on"),
+    )
