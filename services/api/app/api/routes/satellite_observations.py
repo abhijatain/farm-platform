@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DBSession, get_current_user, get_db
 from app.models.farm import Farm
@@ -31,7 +32,6 @@ def list_satellite_observations(
     db: DBSession,
     current_user: CurrentUser,
 ) -> list[SatelliteObservation]:
-
     get_owned_field(
         db=db,
         user_id=current_user.id,
@@ -40,6 +40,7 @@ def list_satellite_observations(
 
     observations = db.scalars(
         select(SatelliteObservation)
+        .options(selectinload(SatelliteObservation.metrics))
         .where(SatelliteObservation.field_id == field_id)
         .order_by(SatelliteObservation.observed_on.desc())
     ).all()
@@ -48,7 +49,7 @@ def list_satellite_observations(
 
 
 @router.get(
-    "/satellite-observations/" "{observation_id}/anomalies",
+    "/satellite-observations/{observation_id}/anomalies",
     response_model=SatelliteAnomalyFeatureCollection,
 )
 def list_satellite_anomalies(
@@ -75,7 +76,7 @@ def list_satellite_anomalies(
     if observation is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=("Satellite observation " "not found."),
+            detail="Satellite observation not found.",
         )
 
     rows = db.execute(
@@ -90,14 +91,13 @@ def list_satellite_anomalies(
     features = []
 
     for anomaly, geometry_geojson in rows:
-
         features.append(
             SatelliteAnomalyFeature(
                 id=anomaly.id,
                 geometry=json.loads(geometry_geojson),
                 properties=SatelliteAnomalyProperties(
                     id=anomaly.id,
-                    satellite_observation_id=anomaly.satellite_observation_id,
+                    satellite_observation_id=(anomaly.satellite_observation_id),
                     field_id=anomaly.field_id,
                     zone_index=anomaly.zone_index,
                     index_type=anomaly.index_type,
@@ -106,14 +106,14 @@ def list_satellite_anomalies(
                     pixel_count=anomaly.pixel_count,
                     area_sqm=anomaly.area_sqm,
                     area_acres=anomaly.area_acres,
-                    zone_mean_value=anomaly.zone_mean_value,
-                    zone_min_value=anomaly.zone_min_value,
-                    field_mean_value=anomaly.field_mean_value,
-                    field_median_value=anomaly.field_median_value,
-                    threshold_value=anomaly.threshold_value,
-                    difference_from_field=anomaly.difference_from_field,
-                    percent_difference=anomaly.percent_difference,
-                    detection_method=anomaly.detection_method,
+                    zone_mean_value=(anomaly.zone_mean_value),
+                    zone_min_value=(anomaly.zone_min_value),
+                    field_mean_value=(anomaly.field_mean_value),
+                    field_median_value=(anomaly.field_median_value),
+                    threshold_value=(anomaly.threshold_value),
+                    difference_from_field=(anomaly.difference_from_field),
+                    percent_difference=(anomaly.percent_difference),
+                    detection_method=(anomaly.detection_method),
                 ),
             )
         )

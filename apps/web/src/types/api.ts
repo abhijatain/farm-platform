@@ -165,10 +165,25 @@ export type SatelliteObservation = {
   valid_pixel_count: number | null;
 
   metadata_json: Record<string, unknown>;
+  metrics: SatelliteMetric[];
 
   created_at: string;
   updated_at: string;
 };
+export type SatelliteMetricType =
+  | "ndvi"
+  | "ndre"
+  | "ndmi"
+  | "gndvi"
+  | "evi2"
+  | "ndwi"
+  | "savi"
+  | "msavi"
+  | "bsi"
+  | "ndti"
+  | "ccci"
+  | "reci"
+  | "mcari";
 
 export type SatelliteAnomalySeverity = "low" | "moderate" | "high";
 
