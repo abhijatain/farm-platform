@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from app.models.satellite_metric import SatelliteMetric
 
 from sqlalchemy import Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
@@ -120,4 +124,9 @@ class SatelliteObservation(
 
     field: Mapped["Field"] = relationship(
         back_populates="satellite_observations",
+    )
+    metrics: Mapped[list["SatelliteMetric"]] = relationship(
+        back_populates="observation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
