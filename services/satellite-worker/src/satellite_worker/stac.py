@@ -3,10 +3,7 @@ from datetime import date
 import pystac
 from pystac_client import Client
 
-from satellite_worker.config import (
-    settings,
-)
-
+from satellite_worker.config import settings
 
 RED_ASSET_NAMES = (
     "red",
@@ -73,7 +70,10 @@ def search_sentinel2(
 
     items = list(search.items())
 
-    items.sort(key=lambda item: (item.datetime or item.common_metadata.start_datetime))
+    items.sort(
+        key=lambda item: item.datetime or item.common_metadata.start_datetime,
+        reverse=True,
+    )
 
     if limit > 0:
         items = items[:limit]

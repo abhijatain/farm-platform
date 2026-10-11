@@ -225,6 +225,154 @@ def save_satellite_observation(
     return saved_id
 
 
+def save_satellite_metrics(
+    *,
+    observation_id: UUID,
+    results: list,
+) -> None:
+
+    query = text(
+        """
+        INSERT INTO satellite_metrics (
+            id,
+
+            satellite_observation_id,
+
+            metric_type,
+
+            raster_uri,
+
+            mean,
+            median,
+            min,
+            max,
+            std,
+
+            native_resolution_m,
+            output_resolution_m,
+
+            pixel_count,
+            valid_pixel_count,
+            valid_pixel_percent,
+
+            metadata_json,
+
+            created_at,
+            updated_at
+        )
+        VALUES (
+            :id,
+
+            :observation_id,
+
+            :metric_type,
+
+            :raster_uri,
+
+            :mean,
+            :median,
+            :minimum,
+            :maximum,
+            :std,
+
+            :native_resolution_m,
+            :output_resolution_m,
+
+            :pixel_count,
+            :valid_pixel_count,
+            :valid_pixel_percent,
+
+            CAST(
+                :metadata_json
+                AS jsonb
+            ),
+
+            NOW(),
+            NOW()
+        )
+
+        ON CONFLICT (
+            satellite_observation_id,
+            metric_type
+        )
+
+        DO UPDATE SET
+
+            raster_uri =
+                EXCLUDED.raster_uri,
+
+            mean =
+                EXCLUDED.mean,
+
+            median =
+                EXCLUDED.median,
+
+            min =
+                EXCLUDED.min,
+
+            max =
+                EXCLUDED.max,
+
+            std =
+                EXCLUDED.std,
+
+            native_resolution_m =
+                EXCLUDED.native_resolution_m,
+
+            output_resolution_m =
+                EXCLUDED.output_resolution_m,
+
+            pixel_count =
+                EXCLUDED.pixel_count,
+
+            valid_pixel_count =
+                EXCLUDED.valid_pixel_count,
+
+            valid_pixel_percent =
+                EXCLUDED.valid_pixel_percent,
+
+            metadata_json =
+                EXCLUDED.metadata_json,
+
+            updated_at =
+                NOW()
+        """
+    )
+
+    with engine.begin() as connection:
+
+        for result in results:
+
+            raster_uri = result.raster_path.resolve().as_uri()
+
+            metric_metadata = {
+                "formula": (result.formula_version),
+                "calibration_methods": (result.calibration_methods),
+                "source": ("earth-search-" "sentinel-2-l2a"),
+            }
+
+            connection.execute(
+                query,
+                {
+                    "id": uuid4(),
+                    "observation_id": (observation_id),
+                    "metric_type": (result.metric_type),
+                    "raster_uri": (raster_uri),
+                    "mean": (result.mean),
+                    "median": (result.median),
+                    "minimum": (result.minimum),
+                    "maximum": (result.maximum),
+                    "std": (result.std),
+                    "native_resolution_m": (result.native_resolution_m),
+                    "output_resolution_m": (result.output_resolution_m),
+                    "pixel_count": (result.pixel_count),
+                    "valid_pixel_count": (result.valid_pixel_count),
+                    "valid_pixel_percent": (result.valid_pixel_percent),
+                    "metadata_json": (json.dumps(metric_metadata)),
+                },
+            )
+
+
 def replace_satellite_anomalies(
     *,
     observation_id: UUID,
