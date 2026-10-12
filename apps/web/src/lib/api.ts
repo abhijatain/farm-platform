@@ -11,6 +11,8 @@ import type {
   TimelineItem,
   SatelliteObservation,
   SatelliteAnomalyFeatureCollection,
+  SatelliteMetricType,
+  ActivitySatelliteContext,
 } from "../types/api";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -265,6 +267,23 @@ export function createActivity(
   );
 }
 
+export function getActivitySatelliteContext(
+  activityId: string,
+  metricType: SatelliteMetricType = "ndvi",
+  windowDays = 14,
+  minimumValidPercent = 80,
+) {
+  const params = new URLSearchParams({
+    metric_type: metricType,
+    window_days: String(windowDays),
+    minimum_valid_percent: String(minimumValidPercent),
+  });
+
+  return apiFetch<ActivitySatelliteContext>(
+    `/activities/${activityId}/satellite-context?${params.toString()}`,
+  );
+}
+
 /* TIMELINE */
 
 export function getFieldTimeline(fieldId: string) {
@@ -277,8 +296,15 @@ export function listSatelliteObservations(fieldId: string) {
   );
 }
 
-export function listSatelliteAnomalies(observationId: string) {
+export function listSatelliteAnomalies(
+  observationId: string,
+  metricType: SatelliteMetricType = "ndvi",
+) {
+  const params = new URLSearchParams({
+    metric_type: metricType,
+  });
+
   return apiFetch<SatelliteAnomalyFeatureCollection>(
-    `/satellite-observations/${observationId}/anomalies`,
+    `/satellite-observations/${observationId}/anomalies?${params.toString()}`,
   );
 }

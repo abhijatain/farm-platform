@@ -187,6 +187,10 @@ export type SatelliteMetricType =
 
 export type SatelliteAnomalySeverity = "low" | "moderate" | "high";
 
+export type SatelliteAnomalyType =
+  | "below_field_baseline"
+  | "above_field_baseline";
+
 export interface SatelliteAnomalyProperties {
   id: string;
 
@@ -195,8 +199,8 @@ export interface SatelliteAnomalyProperties {
 
   zone_index: number;
 
-  index_type: string;
-  anomaly_type: string;
+  index_type: SatelliteMetricType;
+  anomaly_type: SatelliteAnomalyType;
 
   severity: SatelliteAnomalySeverity;
 
@@ -207,6 +211,7 @@ export interface SatelliteAnomalyProperties {
 
   zone_mean_value: number;
   zone_min_value: number;
+  zone_max_value: number | null;
 
   field_mean_value: number;
   field_median_value: number;
@@ -240,3 +245,99 @@ export interface SatelliteAnomalyFeatureCollection {
 
   features: SatelliteAnomalyFeature[];
 }
+
+export type ActivitySatelliteComparisonStatus =
+  | "complete"
+  | "missing_before"
+  | "missing_after"
+  | "missing_both";
+
+export type ActivitySatelliteObservationMatch = {
+  observation_id: string;
+
+  observed_on: string;
+  days_from_activity: number;
+
+  source: string;
+  scene_id: string;
+
+  metric_type: SatelliteMetricType;
+
+  valid_pixel_percent: number;
+
+  mean: number | null;
+  median: number | null;
+  minimum: number | null;
+  maximum: number | null;
+  std: number | null;
+
+  raster_uri: string;
+
+  native_resolution_m: number | null;
+  output_resolution_m: number | null;
+
+  anomaly_zone_count: number;
+  anomaly_area_sqm: number;
+  anomaly_area_acres: number;
+};
+
+export type ActivitySatelliteComparison = {
+  status: ActivitySatelliteComparisonStatus;
+
+  mean_change: number | null;
+  mean_percent_change: number | null;
+
+  median_change: number | null;
+  median_percent_change: number | null;
+
+  anomaly_zone_count_change: number | null;
+
+  anomaly_area_sqm_change: number | null;
+  anomaly_area_acres_change: number | null;
+
+  percent_change_minimum_baseline_abs: number;
+};
+
+export type ActivitySatelliteSpatialComparison = {
+  status: ActivitySatelliteComparisonStatus;
+
+  persistence_basis: string;
+
+  before_anomaly_area_sqm: number | null;
+  before_anomaly_area_acres: number | null;
+
+  after_anomaly_area_sqm: number | null;
+  after_anomaly_area_acres: number | null;
+
+  persistent_area_sqm: number | null;
+  persistent_area_acres: number | null;
+
+  resolved_area_sqm: number | null;
+  resolved_area_acres: number | null;
+
+  new_area_sqm: number | null;
+  new_area_acres: number | null;
+
+  persistent_geometry: SatelliteAnomalyGeometry | null;
+  resolved_geometry: SatelliteAnomalyGeometry | null;
+  new_geometry: SatelliteAnomalyGeometry | null;
+};
+
+export type ActivitySatelliteContext = {
+  activity_id: string;
+  field_id: string;
+
+  activity_type: string;
+  occurred_at: string;
+
+  metric_type: SatelliteMetricType;
+
+  search_window_days: number;
+  minimum_valid_percent: number;
+
+  before: ActivitySatelliteObservationMatch | null;
+  after: ActivitySatelliteObservationMatch | null;
+
+  comparison: ActivitySatelliteComparison;
+  spatial_comparison: ActivitySatelliteSpatialComparison;
+};

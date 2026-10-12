@@ -11,6 +11,7 @@ import {
 } from "../lib/api";
 
 import SatelliteHealthCard from "./SatelliteHealthCard";
+import ActivitySatelliteComparison from "./ActivitySatelliteComparison";
 
 import type {
   CropCycle,
@@ -63,6 +64,9 @@ export default function FieldDetailsPanel({
   const [activityForm, setActivityForm] = useState(false);
 
   const [harvestForm, setHarvestForm] = useState(false);
+
+  const [selectedSatelliteActivityId, setSelectedSatelliteActivityId] =
+    useState<string | null>(null);
   const [satelliteObservations, setSatelliteObservations] = useState<
     SatelliteObservation[]
   >([]);
@@ -97,6 +101,10 @@ export default function FieldDetailsPanel({
 
     void loadSatelliteObservations();
   }, [field.id]);
+
+  useEffect(() => {
+    setSelectedSatelliteActivityId(null);
+  }, [field.id, season?.id]);
   /*
    * Only show timeline items for
    * the selected season.
@@ -300,27 +308,54 @@ export default function FieldDetailsPanel({
             {loading && <p className="dialog-muted">Loading…</p>}
 
             {!loading &&
-              visibleTimeline.map((item) => (
-                <div key={item.id} className="timeline-item">
-                  <div className="timeline-dot" />
+              visibleTimeline.map((item) => {
+                const satelliteResponseOpen =
+                  selectedSatelliteActivityId === item.id;
 
-                  <div>
-                    <strong>{item.activity_type}</strong>
+                return (
+                  <div key={item.id} className="timeline-item">
+                    <div className="timeline-dot" />
 
-                    <span>{new Date(item.occurred_at).toLocaleString()}</span>
+                    <div>
+                      <strong>{item.activity_type}</strong>
 
-                    {item.crop_name && (
-                      <span>
-                        {item.crop_name}
+                      <span>{new Date(item.occurred_at).toLocaleString()}</span>
 
-                        {item.variety ? ` · ${item.variety}` : ""}
-                      </span>
-                    )}
+                      {item.crop_name && (
+                        <span>
+                          {item.crop_name}
 
-                    {item.notes && <p>{item.notes}</p>}
+                          {item.variety ? ` · ${item.variety}` : ""}
+                        </span>
+                      )}
+
+                      {item.notes && <p>{item.notes}</p>}
+
+                      <button
+                        type="button"
+                        className="timeline-satellite-button"
+                        onClick={() =>
+                          setSelectedSatelliteActivityId(
+                            satelliteResponseOpen ? null : item.id,
+                          )
+                        }
+                      >
+                        {satelliteResponseOpen
+                          ? "Hide satellite response"
+                          : "View satellite response"}
+                      </button>
+
+                      {satelliteResponseOpen && (
+                        <ActivitySatelliteComparison
+                          key={item.id}
+                          activity={item}
+                          onClose={() => setSelectedSatelliteActivityId(null)}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
             {!loading && visibleTimeline.length === 0 && (
               <p className="dialog-muted">

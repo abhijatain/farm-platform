@@ -163,7 +163,7 @@ export default function FarmMap({
     installAnomalyLayers(
       map,
       anomalyDataRef.current,
-      metricEnabledRef.current && selectedMetricTypeRef.current === "ndvi",
+      metricEnabledRef.current,
       selectedAnomalyIdRef.current,
     );
     applySelectedFieldStyle(
@@ -232,13 +232,13 @@ export default function FarmMap({
     };
   }, [selectedFieldId]);
 
-  // Existing anomaly polygons are NDVI-only until 8H.
+  // Load anomaly polygons for the selected observation + metric.
   useEffect(() => {
     setAnomalyData(EMPTY_ANOMALIES);
     setSelectedAnomalyId(null);
     setAnomalyError(null);
 
-    if (!selectedObservationId || selectedMetricType !== "ndvi") {
+    if (!selectedObservationId) {
       setAnomalyLoading(false);
       return;
     }
@@ -246,7 +246,7 @@ export default function FarmMap({
     let cancelled = false;
     setAnomalyLoading(true);
 
-    void listSatelliteAnomalies(selectedObservationId)
+    void listSatelliteAnomalies(selectedObservationId, selectedMetricType)
       .then((result) => {
         if (!cancelled) {
           setAnomalyData(result);
@@ -259,7 +259,7 @@ export default function FarmMap({
 
         console.error("Failed to load satellite anomalies:", error);
         setAnomalyData(EMPTY_ANOMALIES);
-        setAnomalyError("Unable to load potential stress zones.");
+        setAnomalyError("Unable to load relative anomaly zones.");
       })
       .finally(() => {
         if (!cancelled) {
@@ -496,12 +496,7 @@ export default function FarmMap({
       return;
     }
 
-    installAnomalyLayers(
-      map,
-      anomalyData,
-      metricEnabled && selectedMetricType === "ndvi",
-      selectedAnomalyId,
-    );
+    installAnomalyLayers(map, anomalyData, metricEnabled, selectedAnomalyId);
   }, [anomalyData, metricEnabled, selectedMetricType]);
 
   useEffect(() => {

@@ -377,15 +377,30 @@ def replace_satellite_anomalies(
     *,
     observation_id: UUID,
     field_id: UUID,
+    metric_type: str,
     zones: list,
     analysis_json: dict,
 ) -> None:
 
+    metric_type = metric_type.strip().lower()
+
+    if not metric_type:
+        raise ValueError("metric_type cannot be empty.")
+
+    detection_method = analysis_json.get(
+        "method",
+        "robust_mad_metric_v1",
+    )
+
     delete_query = text(
         """
         DELETE FROM satellite_anomalies
+
         WHERE satellite_observation_id
             = :observation_id
+
+        AND index_type
+            = :metric_type
         """
     )
 
@@ -413,6 +428,7 @@ def replace_satellite_anomalies(
 
             zone_mean_value,
             zone_min_value,
+            zone_max_value,
 
             field_mean_value,
             field_median_value,
@@ -437,8 +453,8 @@ def replace_satellite_anomalies(
 
             :zone_index,
 
-            'ndvi',
-            'below_field_baseline',
+            :metric_type,
+            :anomaly_type,
 
             :severity,
 
@@ -458,6 +474,7 @@ def replace_satellite_anomalies(
 
             :zone_mean_value,
             :zone_min_value,
+            :zone_max_value,
 
             :field_mean_value,
             :field_median_value,
@@ -467,7 +484,7 @@ def replace_satellite_anomalies(
             :difference_from_field,
             :percent_difference,
 
-            'robust_mad_v1',
+            :detection_method,
 
             CAST(
                 :metadata_json
@@ -494,9 +511,41 @@ def replace_satellite_anomalies(
 
                     '{anomaly_detection}',
 
-                    CAST(
-                        :analysis_json
-                        AS jsonb
+                    (
+                        CASE
+                            WHEN (
+                                COALESCE(
+                                    metadata_json
+                                        -> 'anomaly_detection',
+                                    '{}'::jsonb
+                                )
+                                ? 'status'
+                            )
+                            THEN
+                                jsonb_build_object(
+                                    'ndvi',
+                                    metadata_json
+                                        -> 'anomaly_detection'
+                                )
+
+                            ELSE
+                                COALESCE(
+                                    metadata_json
+                                        -> 'anomaly_detection',
+                                    '{}'::jsonb
+                                )
+                        END
+                    )
+                    ||
+                    jsonb_build_object(
+                        CAST(
+                            :metric_type
+                            AS text
+                        ),
+                        CAST(
+                            :analysis_json
+                            AS jsonb
+                        )
                     ),
 
                     true
@@ -516,6 +565,7 @@ def replace_satellite_anomalies(
             delete_query,
             {
                 "observation_id": observation_id,
+                "metric_type": metric_type,
             },
         )
 
@@ -528,6 +578,8 @@ def replace_satellite_anomalies(
                     "observation_id": observation_id,
                     "field_id": field_id,
                     "zone_index": zone.zone_index,
+                    "metric_type": metric_type,
+                    "anomaly_type": zone.anomaly_type,
                     "severity": zone.severity,
                     "geometry_json": json.dumps(zone.geometry),
                     "pixel_count": zone.pixel_count,
@@ -535,11 +587,13 @@ def replace_satellite_anomalies(
                     "area_acres": zone.area_acres,
                     "zone_mean_value": zone.zone_mean_value,
                     "zone_min_value": zone.zone_min_value,
+                    "zone_max_value": zone.zone_max_value,
                     "field_mean_value": zone.field_mean_value,
                     "field_median_value": zone.field_median_value,
                     "threshold_value": zone.threshold_value,
                     "difference_from_field": zone.difference_from_field,
                     "percent_difference": zone.percent_difference,
+                    "detection_method": detection_method,
                     "metadata_json": json.dumps(zone.metadata_json),
                 },
             )
@@ -548,6 +602,149 @@ def replace_satellite_anomalies(
             update_observation_query,
             {
                 "observation_id": observation_id,
+                "metric_type": metric_type,
                 "analysis_json": json.dumps(analysis_json),
             },
         )
+
+
+def list_satellite_metric_rasters_for_backfill(
+    *,
+    field_id: UUID | None = None,
+    observation_id: UUID | None = None,
+    metric_types: tuple[str, ...] | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    limit: int = 0,
+    only_missing: bool = False,
+) -> list[dict]:
+    """Return existing metric rasters that can be anomaly-backfilled.
+
+    This reads already-generated rows from satellite_metrics. It does not
+    contact STAC, download Sentinel-2 data, or regenerate any metric raster.
+    """
+
+    clauses = [
+        "sm.raster_uri IS NOT NULL",
+    ]
+
+    params: dict = {}
+
+    if field_id is not None:
+        clauses.append("so.field_id = :field_id")
+        params["field_id"] = field_id
+
+    if observation_id is not None:
+        clauses.append("so.id = :observation_id")
+        params["observation_id"] = observation_id
+
+    if start_date is not None:
+        clauses.append("so.observed_on >= :start_date")
+        params["start_date"] = start_date
+
+    if end_date is not None:
+        clauses.append("so.observed_on <= :end_date")
+        params["end_date"] = end_date
+
+    normalized_metric_types = tuple(
+        metric_type.strip().lower()
+        for metric_type in (metric_types or ())
+        if metric_type.strip()
+    )
+
+    if normalized_metric_types:
+        placeholders = []
+
+        for index, metric_type in enumerate(normalized_metric_types):
+            parameter_name = f"metric_type_{index}"
+
+            placeholders.append(f":{parameter_name}")
+
+            params[parameter_name] = metric_type
+
+        clauses.append("sm.metric_type IN (" + ", ".join(placeholders) + ")")
+
+    if only_missing:
+        clauses.append(
+            """
+            NOT (
+                COALESCE(
+                    so.metadata_json
+                        -> 'anomaly_detection',
+                    '{}'::jsonb
+                )
+                ? sm.metric_type
+            )
+            """
+        )
+
+    where_sql = "\n        AND ".join(clauses)
+
+    limit_sql = ""
+
+    if limit > 0:
+        limit_sql = "\n        LIMIT :limit"
+        params["limit"] = limit
+
+    query = text(
+        f"""
+        SELECT
+            so.id
+                AS observation_id,
+
+            so.field_id
+                AS field_id,
+
+            f.name
+                AS field_name,
+
+            so.observed_on
+                AS observed_on,
+
+            so.scene_id
+                AS scene_id,
+
+            sm.metric_type
+                AS metric_type,
+
+            sm.raster_uri
+                AS raster_uri,
+
+            sm.valid_pixel_percent
+                AS valid_pixel_percent
+
+        FROM satellite_metrics
+            AS sm
+
+        JOIN satellite_observations
+            AS so
+            ON so.id =
+                sm.satellite_observation_id
+
+        JOIN fields
+            AS f
+            ON f.id =
+                so.field_id
+
+        WHERE
+            {where_sql}
+
+        ORDER BY
+            so.observed_on,
+            so.id,
+            sm.metric_type
+        {limit_sql}
+        """
+    )
+
+    with engine.connect() as connection:
+        rows = (
+            connection.execute(
+                query,
+                params,
+            )
+            .mappings()
+            .all()
+        )
+
+    return [dict(row) for row in rows]

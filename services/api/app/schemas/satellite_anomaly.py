@@ -26,6 +26,7 @@ class SatelliteAnomalyProperties(BaseModel):
 
     zone_mean_value: float
     zone_min_value: float
+    zone_max_value: float | None
 
     field_mean_value: float
     field_median_value: float

@@ -260,8 +260,9 @@ export function SatelliteAnalysisPanel({
             </div>
           )}
 
-          {metricEnabled && selectedMetricType === "ndvi" && (
+          {metricEnabled && selectedMetric && (
             <AnomalyPanel
+              metricType={selectedMetricType}
               anomalyCount={anomalyData.features.length}
               loading={anomalyLoading}
               error={anomalyError}

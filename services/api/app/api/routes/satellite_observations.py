@@ -1,7 +1,7 @@
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -54,9 +54,16 @@ def list_satellite_observations(
 )
 def list_satellite_anomalies(
     observation_id: UUID,
+    metric_type: str = Query(
+        default="ndvi",
+        min_length=1,
+        max_length=20,
+    ),
     db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    metric_type = metric_type.strip().lower()
+
     observation = db.scalar(
         select(SatelliteObservation)
         .join(
@@ -75,8 +82,8 @@ def list_satellite_anomalies(
 
     if observation is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Satellite observation not found.",
+            status_code=(status.HTTP_404_NOT_FOUND),
+            detail=("Satellite observation " "not found."),
         )
 
     rows = db.execute(
@@ -84,7 +91,10 @@ def list_satellite_anomalies(
             SatelliteAnomaly,
             func.ST_AsGeoJSON(SatelliteAnomaly.geometry).label("geometry_geojson"),
         )
-        .where(SatelliteAnomaly.satellite_observation_id == observation_id)
+        .where(
+            SatelliteAnomaly.satellite_observation_id == observation_id,
+            SatelliteAnomaly.index_type == metric_type,
+        )
         .order_by(SatelliteAnomaly.zone_index)
     ).all()
 
@@ -95,25 +105,28 @@ def list_satellite_anomalies(
             SatelliteAnomalyFeature(
                 id=anomaly.id,
                 geometry=json.loads(geometry_geojson),
-                properties=SatelliteAnomalyProperties(
-                    id=anomaly.id,
-                    satellite_observation_id=(anomaly.satellite_observation_id),
-                    field_id=anomaly.field_id,
-                    zone_index=anomaly.zone_index,
-                    index_type=anomaly.index_type,
-                    anomaly_type=anomaly.anomaly_type,
-                    severity=anomaly.severity,
-                    pixel_count=anomaly.pixel_count,
-                    area_sqm=anomaly.area_sqm,
-                    area_acres=anomaly.area_acres,
-                    zone_mean_value=(anomaly.zone_mean_value),
-                    zone_min_value=(anomaly.zone_min_value),
-                    field_mean_value=(anomaly.field_mean_value),
-                    field_median_value=(anomaly.field_median_value),
-                    threshold_value=(anomaly.threshold_value),
-                    difference_from_field=(anomaly.difference_from_field),
-                    percent_difference=(anomaly.percent_difference),
-                    detection_method=(anomaly.detection_method),
+                properties=(
+                    SatelliteAnomalyProperties(
+                        id=anomaly.id,
+                        satellite_observation_id=(anomaly.satellite_observation_id),
+                        field_id=(anomaly.field_id),
+                        zone_index=(anomaly.zone_index),
+                        index_type=(anomaly.index_type),
+                        anomaly_type=(anomaly.anomaly_type),
+                        severity=(anomaly.severity),
+                        pixel_count=(anomaly.pixel_count),
+                        area_sqm=(anomaly.area_sqm),
+                        area_acres=(anomaly.area_acres),
+                        zone_mean_value=(anomaly.zone_mean_value),
+                        zone_min_value=(anomaly.zone_min_value),
+                        zone_max_value=(anomaly.zone_max_value),
+                        field_mean_value=(anomaly.field_mean_value),
+                        field_median_value=(anomaly.field_median_value),
+                        threshold_value=(anomaly.threshold_value),
+                        difference_from_field=(anomaly.difference_from_field),
+                        percent_difference=(anomaly.percent_difference),
+                        detection_method=(anomaly.detection_method),
+                    )
                 ),
             )
         )
