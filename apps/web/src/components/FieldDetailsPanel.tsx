@@ -5,36 +5,70 @@ import { Plus, X } from "lucide-react";
 import {
   createActivity,
   createCropCycle,
+  getActivitySatelliteContext,
   getFieldTimeline,
   harvestCropCycle,
   listSatelliteObservations,
 } from "../lib/api";
 
-import SatelliteHealthCard from "./SatelliteHealthCard";
-import ActivitySatelliteComparison from "./ActivitySatelliteComparison";
+import { METRIC_CONFIG, getMetricConfig } from "./farm-map/satellite";
 
 import type {
+  ActivitySatelliteContext,
+  ActivitySatelliteObservationMatch,
   CropCycle,
   Farm,
   Field,
+  SatelliteMetric,
+  SatelliteMetricType,
   SatelliteObservation,
   Season,
   TimelineItem,
 } from "../types/api";
 
+import "./FieldWorkspace.css";
+
 type Props = {
   farm: Farm;
-
   field: Field;
-
   season: Season | null;
-
   cropCycle: CropCycle | null;
-
   onClose: () => void;
-
   onDataChanged: () => Promise<void>;
 };
+
+type FieldWorkspaceTab = "satellite" | "activities" | "yield" | "report";
+
+type FarmerMetric = {
+  metricType: SatelliteMetricType;
+  label: string;
+  subtitle: string;
+};
+
+const TILER_URL = import.meta.env.VITE_TILER_URL ?? "http://localhost:8081";
+
+const FARMER_METRICS: FarmerMetric[] = [
+  {
+    metricType: "ndvi",
+    label: "Greenery",
+    subtitle: "NDVI · crop greenness and canopy condition",
+  },
+  {
+    metricType: "ndmi",
+    label: "Moisture",
+    subtitle: "NDMI · canopy moisture-sensitive satellite signal",
+  },
+  {
+    metricType: "ndre",
+    label: "Chlorophyll",
+    subtitle: "NDRE · red-edge chlorophyll-sensitive crop signal",
+  },
+  {
+    metricType: "bsi",
+    label: "Soil exposure",
+    subtitle: "BSI · exposed soil and surface signal",
+  },
+];
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -48,6 +82,133 @@ function currentDateTime() {
   return local.toISOString().slice(0, 16);
 }
 
+function formatDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatActivityDate(value: string) {
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatActivityName(value: string) {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatMetricValue(value: number | null | undefined, digits = 3) {
+  return value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
+}
+
+function formatSignedMetricValue(value: number | null | undefined, digits = 3) {
+  if (value == null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  const prefix = value > 0 ? "+" : "";
+
+  return `${prefix}${value.toFixed(digits)}`;
+}
+
+function getObservationMetric(
+  observation: SatelliteObservation,
+  metricType: SatelliteMetricType,
+) {
+  return (
+    observation.metrics.find((metric) => metric.metric_type === metricType) ??
+    null
+  );
+}
+
+function buildRasterPreviewUrl(
+  metricType: SatelliteMetricType,
+  rasterUri: string,
+) {
+  const config = getMetricConfig(metricType);
+
+  const params = new URLSearchParams({
+    url: rasterUri,
+    rescale: `${config.displayMin},${config.displayMax}`,
+    colormap_name: config.colormap,
+    max_size: "600",
+  });
+
+  return `${TILER_URL}/cog/preview.png?` + params.toString();
+}
+
+function buildMetricPreviewUrl(metric: SatelliteMetric) {
+  return buildRasterPreviewUrl(metric.metric_type, metric.raster_uri);
+}
+
+function preferredMetricForActivity(activityType: string): SatelliteMetricType {
+  switch (activityType.trim().toLowerCase()) {
+    case "irrigation":
+      return "ndmi";
+
+    case "fertilizer":
+      return "ndre";
+
+    case "tillage":
+      return "bsi";
+
+    case "sowing":
+    case "transplanting":
+    case "weeding":
+      return "ndvi";
+
+    case "fungicide":
+    case "pesticide":
+    case "herbicide":
+      return "ndvi";
+
+    default:
+      return "ndvi";
+  }
+}
+
+function getActivityDetailSummary(item: TimelineItem) {
+  const details = item.details ?? {};
+
+  if (item.activity_type === "irrigation") {
+    const source = typeof details.source === "string" ? details.source : null;
+
+    const duration =
+      typeof details.duration_minutes === "number"
+        ? details.duration_minutes
+        : null;
+
+    return [source, duration != null ? `${duration} min` : null]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  const product = typeof details.product === "string" ? details.product : null;
+
+  const quantity =
+    typeof details.quantity === "number" ? details.quantity : null;
+
+  const unit = typeof details.unit === "string" ? details.unit : null;
+
+  return [
+    product,
+    quantity != null ? `${quantity}${unit ? ` ${unit}` : ""}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export default function FieldDetailsPanel({
   field,
   season,
@@ -55,6 +216,8 @@ export default function FieldDetailsPanel({
   onClose,
   onDataChanged,
 }: Props) {
+  const [activeTab, setActiveTab] = useState<FieldWorkspaceTab>("satellite");
+
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -65,13 +228,28 @@ export default function FieldDetailsPanel({
 
   const [harvestForm, setHarvestForm] = useState(false);
 
-  const [selectedSatelliteActivityId, setSelectedSatelliteActivityId] =
-    useState<string | null>(null);
   const [satelliteObservations, setSatelliteObservations] = useState<
     SatelliteObservation[]
   >([]);
 
   const [satelliteLoading, setSatelliteLoading] = useState(true);
+
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(
+    null,
+  );
+
+  const [activityMetricType, setActivityMetricType] =
+    useState<SatelliteMetricType>("ndvi");
+
+  const [activityContext, setActivityContext] =
+    useState<ActivitySatelliteContext | null>(null);
+
+  const [activityContextLoading, setActivityContextLoading] = useState(false);
+
+  const [activityContextError, setActivityContextError] = useState<
+    string | null
+  >(null);
+
   async function loadSatelliteObservations() {
     try {
       setSatelliteLoading(true);
@@ -97,30 +275,108 @@ export default function FieldDetailsPanel({
   }
 
   useEffect(() => {
-    void loadTimeline();
+    setActiveTab("satellite");
+    setSelectedActivityId(null);
 
+    void loadTimeline();
     void loadSatelliteObservations();
   }, [field.id]);
 
-  useEffect(() => {
-    setSelectedSatelliteActivityId(null);
-  }, [field.id, season?.id]);
-  /*
-   * Only show timeline items for
-   * the selected season.
-   */
   const visibleTimeline = useMemo(() => {
     if (!season) {
       return [];
     }
 
-    return timeline.filter((item) => item.season_id === season.id);
+    return timeline
+      .filter((item) => item.season_id === season.id)
+      .sort(
+        (a, b) =>
+          new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
+      );
   }, [timeline, season]);
+
+  useEffect(() => {
+    if (visibleTimeline.length === 0) {
+      setSelectedActivityId(null);
+
+      return;
+    }
+
+    setSelectedActivityId((current) =>
+      current && visibleTimeline.some((item) => item.id === current)
+        ? current
+        : visibleTimeline[0].id,
+    );
+  }, [visibleTimeline]);
+
+  const selectedActivity = useMemo(
+    () =>
+      visibleTimeline.find((item) => item.id === selectedActivityId) ?? null,
+    [visibleTimeline, selectedActivityId],
+  );
+
+  useEffect(() => {
+    if (!selectedActivity) {
+      return;
+    }
+
+    setActivityMetricType(
+      preferredMetricForActivity(selectedActivity.activity_type),
+    );
+  }, [selectedActivity?.id]);
+
+  useEffect(() => {
+    if (!selectedActivity || activeTab !== "activities") {
+      setActivityContext(null);
+      setActivityContextError(null);
+
+      return;
+    }
+
+    let cancelled = false;
+
+    setActivityContextLoading(true);
+    setActivityContextError(null);
+
+    void getActivitySatelliteContext(
+      selectedActivity.id,
+      activityMetricType,
+      14,
+      80,
+    )
+      .then((result) => {
+        if (!cancelled) {
+          setActivityContext(result);
+        }
+      })
+      .catch((requestError: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        setActivityContext(null);
+
+        setActivityContextError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Unable to load satellite response.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setActivityContextLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedActivity?.id, activityMetricType, activeTab]);
 
   async function refreshAll() {
     await onDataChanged();
 
-    await loadTimeline();
+    await Promise.all([loadTimeline(), loadSatelliteObservations()]);
   }
 
   const yieldPerAcre =
@@ -136,235 +392,105 @@ export default function FieldDetailsPanel({
       : null;
 
   return (
-    <aside className="field-panel">
-      <div className="field-panel-header">
+    <section className="field-workspace-panel">
+      <header className="field-workspace-header">
         <div>
-          <h2>{field.name}</h2>
+          <h1>{field.name}</h1>
 
-          <span>
+          <p>
             {field.area_hectares.toFixed(2)}
             {" ha · "}
             {field.area_acres.toFixed(2)}
             {" acres"}
-          </span>
+
+            {cropCycle
+              ? ` · ${cropCycle.crop_name}${
+                  cropCycle.variety ? ` · ${cropCycle.variety}` : ""
+                }`
+              : ""}
+          </p>
         </div>
 
-        <button className="panel-close" onClick={onClose}>
-          <X size={20} />
-        </button>
-      </div>
-
-      {!season ? (
-        <div className="crop-card">
-          <span className="section-label">SEASON</span>
-
-          <h3>No season selected</h3>
-
-          <p>Create or select a season before starting a crop.</p>
-        </div>
-      ) : (
-        <>
-          <section className="crop-card">
-            <span className="section-label">{season.name.toUpperCase()}</span>
-
-            {cropCycle ? (
-              <>
-                <h3>
-                  {cropCycle.crop_name}
-
-                  {cropCycle.variety ? ` · ${cropCycle.variety}` : ""}
-                </h3>
-
-                <p>Started {cropCycle.started_on}</p>
-
-                <p>
-                  Status: <strong>{cropCycle.status}</strong>
-                </p>
-
-                {cropCycle.status === "completed" && (
-                  <div className="harvest-summary">
-                    {cropCycle.yield_kg != null && (
-                      <div>
-                        <span>Total yield</span>
-
-                        <strong>
-                          {cropCycle.yield_kg.toLocaleString("en-IN")}
-                          {" kg"}
-                        </strong>
-                      </div>
-                    )}
-
-                    {yieldPerAcre != null && (
-                      <div>
-                        <span>Yield / acre</span>
-
-                        <strong>
-                          {yieldPerAcre.toFixed(0)}
-                          {" kg/ac"}
-                        </strong>
-                      </div>
-                    )}
-
-                    {cropCycle.harvested_on && (
-                      <div>
-                        <span>Harvested</span>
-
-                        <strong>{cropCycle.harvested_on}</strong>
-                      </div>
-                    )}
-
-                    {cropCycle.moisture_percent != null && (
-                      <div>
-                        <span>Moisture</span>
-
-                        <strong>
-                          {cropCycle.moisture_percent}
-                          {"%"}
-                        </strong>
-                      </div>
-                    )}
-
-                    {cropCycle.quality_grade && (
-                      <div>
-                        <span>Quality</span>
-
-                        <strong>{cropCycle.quality_grade}</strong>
-                      </div>
-                    )}
-
-                    {cropCycle.selling_price_per_kg != null && (
-                      <div>
-                        <span>Price</span>
-
-                        <strong>
-                          ₹{cropCycle.selling_price_per_kg}
-                          /kg
-                        </strong>
-                      </div>
-                    )}
-
-                    {estimatedValue != null && (
-                      <div>
-                        <span>Estimated value</span>
-
-                        <strong>
-                          ₹
-                          {estimatedValue.toLocaleString("en-IN", {
-                            maximumFractionDigits: 0,
-                          })}
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {cropCycle.harvest_notes && (
-                  <p className="harvest-notes">{cropCycle.harvest_notes}</p>
-                )}
-
-                {cropCycle.status === "active" && (
-                  <button
-                    className="harvest-button"
-                    onClick={() => setHarvestForm(true)}
-                  >
-                    Record harvest
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <h3>No crop</h3>
-
-                <p>No crop has been started on this field for {season.name}.</p>
-
-                <button
-                  className="secondary-action full"
-                  onClick={() => setCropForm(true)}
-                >
-                  <Plus size={16} />
-                  Start crop
-                </button>
-              </>
-            )}
-          </section>
-
-          {cropCycle && cropCycle.status === "active" && (
+        <div className="field-workspace-header-actions">
+          {season && !cropCycle && (
             <button
-              className="primary-action full"
-              onClick={() => setActivityForm(true)}
+              className="secondary-action"
+              onClick={() => setCropForm(true)}
             >
-              <Plus size={17} />
-              Add activity
+              <Plus size={16} />
+              Start crop
             </button>
           )}
-          <SatelliteHealthCard
+
+          <button
+            className="field-workspace-close"
+            onClick={onClose}
+            aria-label="Close field"
+          >
+            <X size={22} />
+          </button>
+        </div>
+      </header>
+
+      <nav className="field-workspace-tabs">
+        {[
+          ["satellite", "Satellite"],
+          ["activities", "Activities"],
+          ["yield", "Yield"],
+          ["report", "Report"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            className={
+              activeTab === value
+                ? "field-workspace-tab active"
+                : "field-workspace-tab"
+            }
+            onClick={() => setActiveTab(value as FieldWorkspaceTab)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="field-workspace-content">
+        {activeTab === "satellite" && (
+          <SatelliteTab
+            field={field}
             observations={satelliteObservations}
             loading={satelliteLoading}
           />
+        )}
 
-          <section className="timeline-section">
-            <h3>{season.name} timeline</h3>
+        {activeTab === "activities" && (
+          <ActivitiesTab
+            field={field}
+            timeline={visibleTimeline}
+            loading={loading}
+            cropCycle={cropCycle}
+            selectedActivity={selectedActivity}
+            selectedActivityId={selectedActivityId}
+            activityMetricType={activityMetricType}
+            activityContext={activityContext}
+            activityContextLoading={activityContextLoading}
+            activityContextError={activityContextError}
+            onAddActivity={() => setActivityForm(true)}
+            onSelectActivity={setSelectedActivityId}
+            onMetricChange={setActivityMetricType}
+          />
+        )}
 
-            {loading && <p className="dialog-muted">Loading…</p>}
+        {activeTab === "yield" && (
+          <YieldTab
+            cropCycle={cropCycle}
+            yieldPerAcre={yieldPerAcre}
+            estimatedValue={estimatedValue}
+            onRecordHarvest={() => setHarvestForm(true)}
+          />
+        )}
 
-            {!loading &&
-              visibleTimeline.map((item) => {
-                const satelliteResponseOpen =
-                  selectedSatelliteActivityId === item.id;
-
-                return (
-                  <div key={item.id} className="timeline-item">
-                    <div className="timeline-dot" />
-
-                    <div>
-                      <strong>{item.activity_type}</strong>
-
-                      <span>{new Date(item.occurred_at).toLocaleString()}</span>
-
-                      {item.crop_name && (
-                        <span>
-                          {item.crop_name}
-
-                          {item.variety ? ` · ${item.variety}` : ""}
-                        </span>
-                      )}
-
-                      {item.notes && <p>{item.notes}</p>}
-
-                      <button
-                        type="button"
-                        className="timeline-satellite-button"
-                        onClick={() =>
-                          setSelectedSatelliteActivityId(
-                            satelliteResponseOpen ? null : item.id,
-                          )
-                        }
-                      >
-                        {satelliteResponseOpen
-                          ? "Hide satellite response"
-                          : "View satellite response"}
-                      </button>
-
-                      {satelliteResponseOpen && (
-                        <ActivitySatelliteComparison
-                          key={item.id}
-                          activity={item}
-                          onClose={() => setSelectedSatelliteActivityId(null)}
-                        />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-            {!loading && visibleTimeline.length === 0 && (
-              <p className="dialog-muted">
-                Nothing recorded for this season yet.
-              </p>
-            )}
-          </section>
-        </>
-      )}
+        {activeTab === "report" && <ReportTab />}
+      </div>
 
       {season && cropForm && (
         <StartCropDialog
@@ -392,8 +518,1010 @@ export default function FieldDetailsPanel({
           onSaved={refreshAll}
         />
       )}
-    </aside>
+    </section>
   );
+}
+
+function SatelliteTab({
+  field,
+  observations,
+  loading,
+}: {
+  field: Field;
+  observations: SatelliteObservation[];
+  loading: boolean;
+}) {
+  const sorted = useMemo(
+    () =>
+      [...observations].sort((a, b) =>
+        b.observed_on.localeCompare(a.observed_on),
+      ),
+    [observations],
+  );
+
+  return (
+    <div className="workspace-page satellite-first-page">
+      <div className="workspace-page-title">
+        <div>
+          <span>FIELD CONDITION</span>
+
+          <h2>Latest satellite views</h2>
+
+          <p>
+            The latest usable observations for the selected field. Compare
+            recent dates visually before opening more detailed analysis.
+          </p>
+        </div>
+
+        <div className="satellite-source-badge">Sentinel-2</div>
+      </div>
+
+      {loading && (
+        <div className="workspace-empty-card">
+          Loading satellite observations…
+        </div>
+      )}
+
+      {!loading && observations.length === 0 && (
+        <div className="workspace-empty-card">
+          <h3>No satellite data yet</h3>
+
+          <p>
+            Run the satellite worker for this field to populate the latest
+            imagery.
+          </p>
+        </div>
+      )}
+
+      {!loading && observations.length > 0 && (
+        <div className="farmer-metric-stack">
+          {FARMER_METRICS.map((metric) => (
+            <MetricImageryStrip
+              key={metric.metricType}
+              field={field}
+              observations={sorted}
+              metric={metric}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricImageryStrip({
+  field,
+  observations,
+  metric,
+}: {
+  field: Field;
+  observations: SatelliteObservation[];
+  metric: FarmerMetric;
+}) {
+  const available = observations
+    .filter((observation) => {
+      const value = getObservationMetric(observation, metric.metricType);
+
+      return Boolean(value?.raster_uri);
+    })
+    .filter((observation) => {
+      const value = getObservationMetric(observation, metric.metricType);
+
+      return (
+        value?.valid_pixel_percent == null || value.valid_pixel_percent >= 80
+      );
+    })
+    .slice(0, 3);
+
+  return (
+    <section className="metric-imagery-section">
+      <div className="metric-imagery-heading">
+        <div>
+          <h3>{metric.label}</h3>
+
+          <p>{metric.subtitle}</p>
+        </div>
+
+        <span>{METRIC_CONFIG[metric.metricType].label}</span>
+      </div>
+
+      {available.length === 0 ? (
+        <div className="metric-imagery-empty">
+          No reliable {METRIC_CONFIG[metric.metricType].label} imagery is
+          available yet.
+        </div>
+      ) : (
+        <div className="metric-imagery-grid">
+          {available.map((observation) => {
+            const value = getObservationMetric(observation, metric.metricType);
+
+            if (!value) {
+              return null;
+            }
+
+            return (
+              <MetricPreviewCard
+                key={observation.id}
+                field={field}
+                observation={observation}
+                metric={value}
+              />
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MetricPreviewCard({
+  field,
+  observation,
+  metric,
+}: {
+  field: Field;
+  observation: SatelliteObservation;
+  metric: SatelliteMetric;
+}) {
+  const previewUrl = buildMetricPreviewUrl(metric);
+
+  const clipId = `field-${observation.id}-${metric.metric_type}`;
+
+  const points = fieldPolygonPoints(field, 420, 230, 16);
+
+  return (
+    <article className="metric-preview-card">
+      <div className="metric-preview-image">
+        <svg
+          viewBox="0 0 420 230"
+          role="img"
+          aria-label={`${metric.metric_type} ${observation.observed_on}`}
+        >
+          <defs>
+            <clipPath id={clipId}>
+              <polygon points={points} />
+            </clipPath>
+          </defs>
+
+          <image
+            href={previewUrl}
+            x="0"
+            y="0"
+            width="420"
+            height="230"
+            preserveAspectRatio="none"
+            clipPath={`url(#${clipId})`}
+          />
+
+          <polygon className="metric-preview-boundary" points={points} />
+        </svg>
+      </div>
+
+      <div className="metric-preview-meta">
+        <div>
+          <strong>{formatDate(observation.observed_on)}</strong>
+
+          <span>
+            {metric.valid_pixel_percent != null
+              ? `${metric.valid_pixel_percent.toFixed(0)}% valid`
+              : "Coverage —"}
+          </span>
+        </div>
+
+        <div className="metric-preview-value">
+          <span>Median</span>
+
+          <strong>{formatMetricValue(metric.median)}</strong>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ActivitiesTab({
+  field,
+  timeline,
+  loading,
+  cropCycle,
+  selectedActivity,
+  selectedActivityId,
+  activityMetricType,
+  activityContext,
+  activityContextLoading,
+  activityContextError,
+  onAddActivity,
+  onSelectActivity,
+  onMetricChange,
+}: {
+  field: Field;
+  timeline: TimelineItem[];
+  loading: boolean;
+  cropCycle: CropCycle | null;
+  selectedActivity: TimelineItem | null;
+  selectedActivityId: string | null;
+  activityMetricType: SatelliteMetricType;
+  activityContext: ActivitySatelliteContext | null;
+  activityContextLoading: boolean;
+  activityContextError: string | null;
+  onAddActivity: () => void;
+  onSelectActivity: (id: string) => void;
+  onMetricChange: (metric: SatelliteMetricType) => void;
+}) {
+  return (
+    <div className="workspace-page activities-page">
+      <div className="workspace-page-title activities-title-row">
+        <div>
+          <span>FARM ACTIONS</span>
+
+          <h2>Activities</h2>
+
+          <p>
+            Record what happened in the field and compare nearby satellite
+            observations.
+          </p>
+        </div>
+
+        {cropCycle?.status === "active" && (
+          <button className="primary-action" onClick={onAddActivity}>
+            <Plus size={17} />
+            Add activity
+          </button>
+        )}
+      </div>
+
+      {loading && (
+        <div className="workspace-empty-card">Loading activities…</div>
+      )}
+
+      {!loading && timeline.length === 0 && (
+        <div className="workspace-empty-card">
+          <h3>No activity recorded</h3>
+
+          <p>
+            Add irrigation, fertilizer, spraying, tillage or another farm action
+            to start building the field history.
+          </p>
+        </div>
+      )}
+
+      {!loading && selectedActivity && (
+        <>
+          <section className="latest-activity-card">
+            <div className="latest-activity-top">
+              <div>
+                <span className="workspace-eyebrow">SELECTED ACTIVITY</span>
+
+                <h3>{formatActivityName(selectedActivity.activity_type)}</h3>
+
+                <p>
+                  {formatActivityDate(selectedActivity.occurred_at)}
+
+                  {getActivityDetailSummary(selectedActivity)
+                    ? ` · ${getActivityDetailSummary(selectedActivity)}`
+                    : ""}
+                </p>
+
+                {selectedActivity.notes && (
+                  <p className="latest-activity-notes">
+                    {selectedActivity.notes}
+                  </p>
+                )}
+              </div>
+
+              <label className="activity-primary-metric">
+                <span>Response metric</span>
+
+                <select
+                  value={activityMetricType}
+                  onChange={(event) =>
+                    onMetricChange(event.target.value as SatelliteMetricType)
+                  }
+                >
+                  {(Object.keys(METRIC_CONFIG) as SatelliteMetricType[]).map(
+                    (metricType) => (
+                      <option key={metricType} value={metricType}>
+                        {METRIC_CONFIG[metricType].label}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+            </div>
+
+            <ActivityResponsePanel
+              field={field}
+              activity={selectedActivity}
+              metricType={activityMetricType}
+              context={activityContext}
+              loading={activityContextLoading}
+              error={activityContextError}
+            />
+          </section>
+
+          <section className="past-activities-section">
+            <div className="past-activities-heading">
+              <div>
+                <span className="workspace-eyebrow">FIELD HISTORY</span>
+
+                <h3>Past activities</h3>
+              </div>
+
+              <span>Scroll horizontally →</span>
+            </div>
+
+            <div className="past-activities-scroll">
+              {timeline.map((item) => (
+                <button
+                  key={item.id}
+                  className={
+                    item.id === selectedActivityId
+                      ? "past-activity-card selected"
+                      : "past-activity-card"
+                  }
+                  onClick={() => onSelectActivity(item.id)}
+                >
+                  <span>{formatDate(item.occurred_at.slice(0, 10))}</span>
+
+                  <strong>{formatActivityName(item.activity_type)}</strong>
+
+                  <p>
+                    {getActivityDetailSummary(item) ||
+                      item.notes ||
+                      "Recorded farm activity"}
+                  </p>
+
+                  <small>View response →</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ActivityResponsePanel({
+  field,
+  activity,
+  metricType,
+  context,
+  loading,
+  error,
+}: {
+  field: Field;
+  activity: TimelineItem;
+  metricType: SatelliteMetricType;
+  context: ActivitySatelliteContext | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const config = getMetricConfig(metricType);
+
+  if (loading) {
+    return (
+      <div className="activity-response-message">
+        Finding usable satellite observations before and after this activity…
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="activity-response-message error">{error}</div>;
+  }
+
+  if (!context) {
+    return (
+      <div className="activity-response-message">
+        No satellite response is available.
+      </div>
+    );
+  }
+
+  const before = context.before;
+
+  const after = context.after;
+
+  const comparison = context.comparison;
+
+  if (!before || !after) {
+    return (
+      <div className="activity-response-message">
+        A usable before and after observation was not found within the 14-day
+        window.
+      </div>
+    );
+  }
+
+  return (
+    <div className="activity-response-layout">
+      <div className="activity-response-chart-card">
+        <div className="activity-response-chart-header">
+          <div>
+            <span>{config.label}</span>
+
+            <h4>Before / after response</h4>
+          </div>
+
+          <p>{config.description}</p>
+        </div>
+
+        <BeforeAfterChart
+          beforeValue={before.median}
+          afterValue={after.median}
+          beforeDate={before.observed_on}
+          afterDate={after.observed_on}
+          metricType={metricType}
+        />
+
+        <div className="activity-response-stats">
+          <div>
+            <span>Before</span>
+
+            <strong>{formatMetricValue(before.median)}</strong>
+
+            <small>{formatDate(before.observed_on)}</small>
+          </div>
+
+          <div>
+            <span>After</span>
+
+            <strong>{formatMetricValue(after.median)}</strong>
+
+            <small>{formatDate(after.observed_on)}</small>
+          </div>
+
+          <div>
+            <span>Change</span>
+
+            <strong>{formatSignedMetricValue(comparison.median_change)}</strong>
+
+            <small>median</small>
+          </div>
+
+          <div>
+            <span>Anomaly area</span>
+
+            <strong>
+              {before.anomaly_area_acres.toFixed(2)}
+              {" → "}
+              {after.anomaly_area_acres.toFixed(2)}
+              {" ac"}
+            </strong>
+
+            <small>relative to field</small>
+          </div>
+        </div>
+
+        <ActivitySpatialComparisonCards
+          field={field}
+          metricType={metricType}
+          before={before}
+          after={after}
+        />
+
+        <p className="activity-response-disclaimer">
+          These are observed satellite changes around the recorded activity.
+          They do not prove that the activity caused the change.
+        </p>
+      </div>
+
+      <div className="activity-response-summary">
+        <span className="workspace-eyebrow">OBSERVED CHANGE</span>
+
+        <h4>{formatActivityName(activity.activity_type)}</h4>
+
+        <p>
+          {config.label} changed from{" "}
+          <strong>{formatMetricValue(before.median)}</strong> before the
+          activity to <strong>{formatMetricValue(after.median)}</strong> after
+          it.
+        </p>
+
+        {context.spatial_comparison.status === "complete" && (
+          <div className="activity-spatial-summary">
+            <div>
+              <span>Resolved anomaly area</span>
+
+              <strong>
+                {context.spatial_comparison.resolved_area_acres?.toFixed(2) ??
+                  "—"}
+                {" ac"}
+              </strong>
+            </div>
+
+            <div>
+              <span>Persistent</span>
+
+              <strong>
+                {context.spatial_comparison.persistent_area_acres?.toFixed(2) ??
+                  "—"}
+                {" ac"}
+              </strong>
+            </div>
+
+            <div>
+              <span>New</span>
+
+              <strong>
+                {context.spatial_comparison.new_area_acres?.toFixed(2) ?? "—"}
+                {" ac"}
+              </strong>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BeforeAfterChart({
+  beforeValue,
+  afterValue,
+  beforeDate,
+  afterDate,
+  metricType,
+}: {
+  beforeValue: number | null;
+  afterValue: number | null;
+  beforeDate: string;
+  afterDate: string;
+  metricType: SatelliteMetricType;
+}) {
+  const config = getMetricConfig(metricType);
+
+  const width = 720;
+  const height = 250;
+  const left = 70;
+  const right = 50;
+  const top = 28;
+  const bottom = 58;
+
+  const innerHeight = height - top - bottom;
+
+  function yForValue(value: number | null) {
+    if (value == null || !Number.isFinite(value)) {
+      return top + innerHeight / 2;
+    }
+
+    const denominator = config.displayMax - config.displayMin;
+
+    const normalized =
+      denominator === 0
+        ? 0.5
+        : Math.max(0, Math.min(1, (value - config.displayMin) / denominator));
+
+    return top + (1 - normalized) * innerHeight;
+  }
+
+  const xBefore = left + 90;
+  const xAfter = width - right - 90;
+
+  const yBefore = yForValue(beforeValue);
+
+  const yAfter = yForValue(afterValue);
+
+  return (
+    <div className="before-after-chart">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`${config.label} before and after`}
+      >
+        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
+          const y = top + fraction * innerHeight;
+
+          return (
+            <line
+              key={fraction}
+              className="activity-chart-grid"
+              x1={left}
+              x2={width - right}
+              y1={y}
+              y2={y}
+            />
+          );
+        })}
+
+        <line
+          className="activity-chart-line"
+          x1={xBefore}
+          x2={xAfter}
+          y1={yBefore}
+          y2={yAfter}
+        />
+
+        <circle
+          className="activity-chart-point"
+          cx={xBefore}
+          cy={yBefore}
+          r="7"
+        />
+
+        <circle
+          className="activity-chart-point"
+          cx={xAfter}
+          cy={yAfter}
+          r="7"
+        />
+
+        <text
+          className="activity-chart-value"
+          x={xBefore}
+          y={yBefore - 14}
+          textAnchor="middle"
+        >
+          {formatMetricValue(beforeValue)}
+        </text>
+
+        <text
+          className="activity-chart-value"
+          x={xAfter}
+          y={yAfter - 14}
+          textAnchor="middle"
+        >
+          {formatMetricValue(afterValue)}
+        </text>
+
+        <text
+          className="activity-chart-label"
+          x={xBefore}
+          y={height - 28}
+          textAnchor="middle"
+        >
+          BEFORE
+        </text>
+
+        <text
+          className="activity-chart-label"
+          x={xAfter}
+          y={height - 28}
+          textAnchor="middle"
+        >
+          AFTER
+        </text>
+
+        <text
+          className="activity-chart-date"
+          x={xBefore}
+          y={height - 10}
+          textAnchor="middle"
+        >
+          {formatDate(beforeDate)}
+        </text>
+
+        <text
+          className="activity-chart-date"
+          x={xAfter}
+          y={height - 10}
+          textAnchor="middle"
+        >
+          {formatDate(afterDate)}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function ActivitySpatialComparisonCards({
+  field,
+  metricType,
+  before,
+  after,
+}: {
+  field: Field;
+  metricType: SatelliteMetricType;
+  before: ActivitySatelliteObservationMatch;
+  after: ActivitySatelliteObservationMatch;
+}) {
+  return (
+    <section className="activity-spatial-section">
+      <div className="activity-spatial-section-heading">
+        <div>
+          <span className="workspace-eyebrow">FIELD VIEW</span>
+
+          <h4>Before / after imagery</h4>
+        </div>
+
+        <p>Same field boundary and same metric on both dates.</p>
+      </div>
+
+      <div className="activity-spatial-pair">
+        <ActivitySpatialCard
+          title="Before"
+          field={field}
+          metricType={metricType}
+          observation={before}
+        />
+
+        <ActivitySpatialCard
+          title="After"
+          field={field}
+          metricType={metricType}
+          observation={after}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ActivitySpatialCard({
+  title,
+  field,
+  metricType,
+  observation,
+}: {
+  title: "Before" | "After";
+  field: Field;
+  metricType: SatelliteMetricType;
+  observation: ActivitySatelliteObservationMatch;
+}) {
+  const previewUrl = buildRasterPreviewUrl(metricType, observation.raster_uri);
+
+  const clipId = `activity-${title.toLowerCase()}-${observation.observation_id}-${metricType}`;
+
+  const points = fieldPolygonPoints(field, 420, 230, 16);
+
+  const config = getMetricConfig(metricType);
+
+  return (
+    <article className="activity-spatial-card">
+      <div className="activity-spatial-card-header">
+        <div>
+          <span>{title}</span>
+
+          <strong>{formatDate(observation.observed_on)}</strong>
+        </div>
+
+        <small>{config.label}</small>
+      </div>
+
+      <div className="activity-spatial-card-image">
+        <svg
+          viewBox="0 0 420 230"
+          role="img"
+          aria-label={`${title} ${config.label} ${observation.observed_on}`}
+        >
+          <defs>
+            <clipPath id={clipId}>
+              <polygon points={points} />
+            </clipPath>
+          </defs>
+
+          <image
+            href={previewUrl}
+            x="0"
+            y="0"
+            width="420"
+            height="230"
+            preserveAspectRatio="none"
+            clipPath={`url(#${clipId})`}
+          />
+
+          <polygon className="metric-preview-boundary" points={points} />
+        </svg>
+      </div>
+
+      <div className="activity-spatial-card-meta">
+        <div>
+          <span>Median</span>
+
+          <strong>{formatMetricValue(observation.median)}</strong>
+        </div>
+
+        <div>
+          <span>Valid</span>
+
+          <strong>{observation.valid_pixel_percent.toFixed(0)}%</strong>
+        </div>
+
+        <div>
+          <span>Anomaly</span>
+
+          <strong>
+            {observation.anomaly_area_acres.toFixed(2)}
+            {" ac"}
+          </strong>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function YieldTab({
+  cropCycle,
+  yieldPerAcre,
+  estimatedValue,
+  onRecordHarvest,
+}: {
+  cropCycle: CropCycle | null;
+  yieldPerAcre: number | null;
+  estimatedValue: number | null;
+  onRecordHarvest: () => void;
+}) {
+  return (
+    <div className="workspace-page">
+      <div className="workspace-page-title">
+        <div>
+          <span>CROP OUTCOME</span>
+
+          <h2>Yield</h2>
+
+          <p>Harvest and production outcome for the selected crop cycle.</p>
+        </div>
+
+        {cropCycle?.status === "active" && (
+          <button
+            className="harvest-button workspace-harvest-button"
+            onClick={onRecordHarvest}
+          >
+            Record harvest
+          </button>
+        )}
+      </div>
+
+      {!cropCycle && (
+        <div className="workspace-empty-card">
+          No crop exists for this season.
+        </div>
+      )}
+
+      {cropCycle?.status === "active" && (
+        <div className="yield-active-card">
+          <span className="workspace-eyebrow">ACTIVE CROP</span>
+
+          <h3>
+            {cropCycle.crop_name}
+
+            {cropCycle.variety ? ` · ${cropCycle.variety}` : ""}
+          </h3>
+
+          <p>Harvest has not been recorded yet.</p>
+
+          <div className="yield-active-meta">
+            <div>
+              <span>Started</span>
+              <strong>{cropCycle.started_on}</strong>
+            </div>
+
+            <div>
+              <span>Expected harvest</span>
+              <strong>{cropCycle.expected_harvest_on ?? "—"}</strong>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cropCycle?.status === "completed" && (
+        <div className="yield-dashboard">
+          <div>
+            <span>Total yield</span>
+
+            <strong>
+              {cropCycle.yield_kg != null
+                ? `${cropCycle.yield_kg.toLocaleString("en-IN")} kg`
+                : "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Yield / acre</span>
+
+            <strong>
+              {yieldPerAcre != null ? `${yieldPerAcre.toFixed(0)} kg/ac` : "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Harvested area</span>
+
+            <strong>
+              {cropCycle.harvested_area_acres != null
+                ? `${cropCycle.harvested_area_acres.toFixed(2)} ac`
+                : "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Moisture</span>
+
+            <strong>
+              {cropCycle.moisture_percent != null
+                ? `${cropCycle.moisture_percent}%`
+                : "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Quality</span>
+
+            <strong>{cropCycle.quality_grade ?? "—"}</strong>
+          </div>
+
+          <div>
+            <span>Estimated value</span>
+
+            <strong>
+              {estimatedValue != null
+                ? `₹${estimatedValue.toLocaleString("en-IN", {
+                    maximumFractionDigits: 0,
+                  })}`
+                : "—"}
+            </strong>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReportTab() {
+  return (
+    <div className="workspace-page report-page">
+      <div className="workspace-page-title">
+        <div>
+          <span>FIELD REPORT</span>
+
+          <h2>Report</h2>
+        </div>
+      </div>
+
+      <div className="report-empty" />
+    </div>
+  );
+}
+
+function fieldPolygonPoints(
+  field: Field,
+  width: number,
+  height: number,
+  padding: number,
+) {
+  const ring = field.boundary.coordinates[0];
+
+  if (!ring?.length) {
+    return "";
+  }
+
+  const lngs = ring.map(([lng]) => lng);
+
+  const lats = ring.map(([, lat]) => lat);
+
+  const minLng = Math.min(...lngs);
+
+  const maxLng = Math.max(...lngs);
+
+  const minLat = Math.min(...lats);
+
+  const maxLat = Math.max(...lats);
+
+  const lngRange = Math.max(maxLng - minLng, 0.000001);
+
+  const latRange = Math.max(maxLat - minLat, 0.000001);
+
+  const innerWidth = width - padding * 2;
+
+  const innerHeight = height - padding * 2;
+
+  const scale = Math.min(innerWidth / lngRange, innerHeight / latRange);
+
+  const renderedWidth = lngRange * scale;
+
+  const renderedHeight = latRange * scale;
+
+  const offsetX = (width - renderedWidth) / 2;
+
+  const offsetY = (height - renderedHeight) / 2;
+
+  return ring
+    .map(([lng, lat]) => {
+      const x = offsetX + (lng - minLng) * scale;
+
+      const y = offsetY + (maxLat - lat) * scale;
+
+      return `${x},${y}`;
+    })
+    .join(" ");
 }
 
 function StartCropDialog({
@@ -403,11 +1531,8 @@ function StartCropDialog({
   onSaved,
 }: {
   field: Field;
-
   season: Season;
-
   onClose: () => void;
-
   onSaved: () => Promise<void>;
 }) {
   const [cropName, setCropName] = useState("");
@@ -435,17 +1560,11 @@ function StartCropDialog({
 
       await createCropCycle(season.id, {
         field_id: field.id,
-
         crop_name: cropName.trim(),
-
         variety: variety.trim() || null,
-
         started_on: startedOn,
-
         planted_on: plantedOn || null,
-
         expected_harvest_on: null,
-
         notes: null,
       });
 
@@ -531,11 +1650,8 @@ function ActivityDialog({
   onSaved,
 }: {
   field: Field;
-
   cropCycle: CropCycle;
-
   onClose: () => void;
-
   onSaved: () => Promise<void>;
 }) {
   const [activityType, setActivityType] = useState("irrigation");
@@ -598,13 +1714,9 @@ function ActivityDialog({
 
       await createActivity(field.id, {
         crop_cycle_id: cropCycle.id,
-
         activity_type: activityType,
-
         occurred_at: new Date(occurredAt).toISOString(),
-
         notes: notes.trim() || null,
-
         details,
       });
 
@@ -756,11 +1868,8 @@ function HarvestDialog({
   onSaved,
 }: {
   field: Field;
-
   cropCycle: CropCycle;
-
   onClose: () => void;
-
   onSaved: () => Promise<void>;
 }) {
   const [harvestedAt, setHarvestedAt] = useState(currentDateTime());
@@ -820,17 +1929,11 @@ function HarvestDialog({
 
       await harvestCropCycle(cropCycle.id, {
         harvested_at: new Date(harvestedAt).toISOString(),
-
         yield_kg: yieldNumber,
-
         harvested_area_acres: areaNumber,
-
         moisture_percent: moisture ? Number(moisture) : null,
-
         quality_grade: quality.trim() || null,
-
         selling_price_per_kg: sellingPrice ? Number(sellingPrice) : null,
-
         notes: notes.trim() || null,
       });
 
@@ -977,7 +2080,7 @@ function HarvestDialog({
           className="form-input"
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
-          placeholder={"Crop quality, lodging, losses, disease damage, etc."}
+          placeholder="Crop quality, lodging, losses, disease damage, etc."
         />
 
         {error && <div className="login-error">{error}</div>}

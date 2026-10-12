@@ -129,6 +129,48 @@ export type TimelineItem = {
   season_name: string | null;
 };
 
+export type SatelliteMetricType =
+  | "ndvi"
+  | "ndre"
+  | "ndmi"
+  | "gndvi"
+  | "evi2"
+  | "ndwi"
+  | "savi"
+  | "msavi"
+  | "bsi"
+  | "ndti"
+  | "ccci"
+  | "reci"
+  | "mcari";
+
+export type SatelliteMetric = {
+  id: string;
+  satellite_observation_id: string;
+
+  metric_type: SatelliteMetricType;
+
+  raster_uri: string;
+
+  mean: number | null;
+  median: number | null;
+
+  min: number | null;
+  max: number | null;
+
+  std: number | null;
+
+  native_resolution_m: number | null;
+  output_resolution_m: number | null;
+
+  pixel_count: number | null;
+  valid_pixel_count: number | null;
+
+  valid_pixel_percent: number | null;
+
+  metadata_json: Record<string, unknown> | null;
+};
+
 export type SatelliteObservation = {
   id: string;
 
@@ -165,25 +207,12 @@ export type SatelliteObservation = {
   valid_pixel_count: number | null;
 
   metadata_json: Record<string, unknown>;
+
   metrics: SatelliteMetric[];
 
   created_at: string;
   updated_at: string;
 };
-export type SatelliteMetricType =
-  | "ndvi"
-  | "ndre"
-  | "ndmi"
-  | "gndvi"
-  | "evi2"
-  | "ndwi"
-  | "savi"
-  | "msavi"
-  | "bsi"
-  | "ndti"
-  | "ccci"
-  | "reci"
-  | "mcari";
 
 export type SatelliteAnomalySeverity = "low" | "moderate" | "high";
 
