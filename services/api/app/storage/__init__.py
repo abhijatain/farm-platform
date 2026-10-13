@@ -1,17 +1,10 @@
 
-from app.storage.base import (
-    StorageBackend,
-    StorageObjectInfo,
-)
-from app.storage.service import (
-    get_storage,
-    get_storage_for_location,
-)
+from app.storage.gcs import GCSObjectInfo, GCSStorage
+from app.storage.service import get_storage
 
 
 __all__ = [
-    "StorageBackend",
-    "StorageObjectInfo",
+    "GCSObjectInfo",
+    "GCSStorage",
     "get_storage",
-    "get_storage_for_location",
 ]

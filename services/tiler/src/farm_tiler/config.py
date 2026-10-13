@@ -10,12 +10,11 @@ from pydantic_settings import (
 class Settings(BaseSettings):
     gcs_project_id: str | None = None
 
-    gcs_bucket_name: str | None = None
+    gcs_bucket_name: str
 
     gcs_credentials_path: Path | None = None
 
-    # Short-lived URL used only inside the tiler process for GDAL/rasterio
-    # HTTP range reads. The browser receives only the TiTiler URL.
+    # Used internally by TiTiler/GDAL for private HTTP range reads.
     gcs_read_url_expiry_minutes: int = 15
 
     cors_origins: str = (

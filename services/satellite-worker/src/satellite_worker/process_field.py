@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import tempfile
 from datetime import date
+from pathlib import Path
 from uuid import UUID
 
 from satellite_worker.anomaly import (
@@ -11,7 +13,6 @@ from satellite_worker.anomaly import (
 from satellite_worker.anomaly_rules import (
     METRIC_ANOMALY_RULES,
 )
-from satellite_worker.config import settings
 from satellite_worker.db import (
     replace_satellite_anomalies,
     save_satellite_metrics,
@@ -19,8 +20,6 @@ from satellite_worker.db import (
 )
 from satellite_worker.raster_storage import (
     publish_metric_rasters,
-    remove_local_metric_rasters,
-    update_satellite_raster_uris,
 )
 from satellite_worker.sentinel2.processor import (
     process_metrics,
@@ -59,9 +58,8 @@ MINIMUM_ANOMALY_VALID_PERCENT = 80.0
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Generate Sentinel-2 field metrics "
-            "and metric-aware anomaly zones "
-            "for one farm field."
+            "Generate Sentinel-2 metrics and "
+            "metric-aware anomaly zones for one field."
         )
     )
 
@@ -102,23 +100,23 @@ def main() -> None:
         args.field_id
     )
 
-    start_date = (
-        date.fromisoformat(
-            args.start
-        )
+    start_date = date.fromisoformat(
+        args.start
     )
 
-    end_date = (
-        date.fromisoformat(
-            args.end
-        )
+    end_date = date.fromisoformat(
+        args.end
     )
 
-    geometry = (
-        get_field_geometry(
+    context = (
+        get_field_storage_context(
             field_id
         )
     )
+
+    geometry = context[
+        "field_boundary"
+    ]
 
     print(
         "Searching Sentinel-2..."
@@ -138,9 +136,6 @@ def main() -> None:
         f"Found {len(items)} scenes."
     )
 
-    if not items:
-        return
-
     for item in items:
         if item.datetime is None:
             print(
@@ -154,493 +149,320 @@ def main() -> None:
             item.datetime.date()
         )
 
-        output_directory = (
-            settings
-            .satellite_output_dir
-            / str(field_id)
-            / observed_on.isoformat()
-        )
-
         print()
         print(
             "=================================="
         )
-
         print(
             f"Scene: {item.id}"
         )
-
         print(
             f"Date:  {observed_on}"
         )
 
-        try:
-            # -------------------------------------------------
-            # Generate all configured metric COGs locally.
-            #
-            # They deliberately remain local through anomaly
-            # detection. Only after every DB/anomaly step
-            # succeeds do we publish them to object storage.
-            # -------------------------------------------------
-
-            results = process_metrics(
-                item=item,
-                field_geometry=(
-                    geometry
-                ),
-                output_directory=(
-                    output_directory
-                ),
-                metric_types=(
-                    METRIC_TYPES
-                ),
+        # COGs are generated only in an ephemeral working directory.
+        # Nothing under services/satellite-worker/data is needed anymore.
+        with tempfile.TemporaryDirectory(
+            prefix=(
+                f"farm-s2-"
+                f"{field_id}-"
+                f"{observed_on}-"
+            )
+        ) as temporary:
+            output_directory = Path(
+                temporary
             )
 
-            ndvi_result = next(
-                (
-                    result
-                    for result in results
-                    if result.metric_type
-                    == "ndvi"
-                ),
-                None,
-            )
-
-            if ndvi_result is None:
-                raise RuntimeError(
-                    "Generic metric processor "
-                    "did not produce NDVI."
+            try:
+                results = process_metrics(
+                    item=item,
+                    field_geometry=(
+                        geometry
+                    ),
+                    output_directory=(
+                        output_directory
+                    ),
+                    metric_types=(
+                        METRIC_TYPES
+                    ),
                 )
 
-            cloud_cover = (
-                item.properties.get(
-                    "eo:cloud_cover"
-                )
-            )
+                if not results:
+                    raise RuntimeError(
+                        "Metric processor produced "
+                        "no results."
+                    )
 
-            metadata_json = {
-                "processing_version":
-                    "sentinel2-metrics-v1",
-                "stac_item_id":
-                    item.id,
-                "stac_collection":
-                    item.collection_id,
-                "datetime":
-                    item.datetime.isoformat(),
-                "platform":
+                cloud_cover = (
                     item.properties.get(
-                        "platform"
-                    ),
-                "constellation":
-                    item.properties.get(
-                        "constellation"
-                    ),
-                "processing_baseline":
-                    item.properties.get(
-                        "s2:processing_baseline"
-                    ),
-                "boa_offset_applied":
-                    item.properties.get(
-                        "earthsearch:"
-                        "boa_offset_applied"
-                    ),
-                "generated_metrics": [
-                    result.metric_type
-                    for result
-                    in results
-                ],
-                "metric_formula_versions": {
-                    result.metric_type:
-                        result.formula_version
-                    for result
-                    in results
-                },
-            }
-
-            local_ndvi_uri = (
-                ndvi_result
-                .raster_path
-                .resolve()
-                .as_uri()
-            )
-
-            # -------------------------------------------------
-            # Save observation + generic metrics with local
-            # working URIs first.
-            #
-            # This makes the operation recoverable:
-            # if GCS publication fails, the DB still points to
-            # real local files rather than missing cloud files.
-            # -------------------------------------------------
-
-            observation_id = (
-                save_satellite_observation(
-                    field_id=field_id,
-                    observed_on=(
-                        observed_on
-                    ),
-                    scene_id=item.id,
-                    cloud_cover_percent=(
-                        float(
-                            cloud_cover
-                        )
-                        if cloud_cover
-                        is not None
-                        else None
-                    ),
-                    valid_pixel_percent=(
-                        ndvi_result
-                        .valid_pixel_percent
-                    ),
-                    ndvi_mean=(
-                        ndvi_result.mean
-                    ),
-                    ndvi_median=(
-                        ndvi_result.median
-                    ),
-                    ndvi_min=(
-                        ndvi_result.minimum
-                    ),
-                    ndvi_max=(
-                        ndvi_result.maximum
-                    ),
-                    ndvi_std=(
-                        ndvi_result.std
-                    ),
-                    ndvi_raster_uri=(
-                        local_ndvi_uri
-                    ),
-                    resolution_m=(
-                        ndvi_result
-                        .output_resolution_m
-                    ),
-                    pixel_count=(
-                        ndvi_result
-                        .pixel_count
-                    ),
-                    valid_pixel_count=(
-                        ndvi_result
-                        .valid_pixel_count
-                    ),
-                    metadata_json=(
-                        metadata_json
-                    ),
-                )
-            )
-
-            save_satellite_metrics(
-                observation_id=(
-                    observation_id
-                ),
-                results=results,
-            )
-
-            # -------------------------------------------------
-            # Metric-aware spatial anomaly detection.
-            #
-            # This occurs before cloud publication because the
-            # COGs are already local and rasterio can read them
-            # without another network round trip.
-            # -------------------------------------------------
-
-            print()
-            print(
-                "Metric anomaly analysis:"
-            )
-
-            total_anomaly_zones = 0
-
-            for metric_result in results:
-                metric_type = (
-                    metric_result
-                    .metric_type
-                    .strip()
-                    .lower()
-                )
-
-                rule = (
-                    METRIC_ANOMALY_RULES
-                    .get(
-                        metric_type
+                        "eo:cloud_cover"
                     )
                 )
 
-                if rule is None:
-                    print(
-                        "  "
-                        f"{metric_type.upper()}: "
-                        "no anomaly rule configured; "
-                        "skipped."
-                    )
-
-                    continue
-
-                valid_percent = float(
-                    metric_result
-                    .valid_pixel_percent
-                )
-
-                if (
-                    valid_percent
-                    < MINIMUM_ANOMALY_VALID_PERCENT
-                ):
-                    analysis_json = {
-                        "status":
-                            "skipped_low_"
-                            "valid_coverage",
-                        "method":
-                            "robust_mad_metric_v1",
-                        "metric_type":
-                            metric_type,
-                        "metric_label":
-                            rule.label,
-                        "direction":
-                            rule.direction,
-                        "valid_pixel_percent":
-                            valid_percent,
-                        "minimum_required_percent":
-                            MINIMUM_ANOMALY_VALID_PERCENT,
-                        "zone_count":
-                            0,
-                    }
-
-                    replace_satellite_anomalies(
-                        observation_id=(
-                            observation_id
+                observation_metadata = {
+                    "processing_version":
+                        "sentinel2-metrics-v2",
+                    "stac_item_id":
+                        item.id,
+                    "stac_collection":
+                        item.collection_id,
+                    "datetime":
+                        item.datetime.isoformat(),
+                    "platform":
+                        item.properties.get(
+                            "platform"
                         ),
+                    "constellation":
+                        item.properties.get(
+                            "constellation"
+                        ),
+                    "processing_baseline":
+                        item.properties.get(
+                            "s2:processing_baseline"
+                        ),
+                    "boa_offset_applied":
+                        item.properties.get(
+                            "earthsearch:"
+                            "boa_offset_applied"
+                        ),
+                }
+
+                # Observation is scene-level only.
+                observation_id = (
+                    save_satellite_observation(
                         field_id=(
                             field_id
                         ),
-                        metric_type=(
-                            metric_type
+                        observed_on=(
+                            observed_on
                         ),
-                        zones=[],
-                        analysis_json=(
-                            analysis_json
+                        scene_id=(
+                            item.id
+                        ),
+                        cloud_cover_percent=(
+                            float(
+                                cloud_cover
+                            )
+                            if cloud_cover
+                            is not None
+                            else None
+                        ),
+                        metadata_json=(
+                            observation_metadata
                         ),
                     )
+                )
 
-                    print(
-                        "  "
-                        f"{metric_type.upper()}: "
-                        "skipped, only "
-                        f"{valid_percent:.1f}% "
-                        "valid pixels."
-                    )
+                print()
+                print(
+                    "Publishing metric COGs..."
+                )
 
-                    continue
-
-                try:
-                    anomaly_result = (
-                        detect_metric_anomalies(
-                            metric_type=(
-                                metric_type
-                            ),
-                            raster_path=(
-                                metric_result
-                                .raster_path
-                            ),
-                            field_geometry=(
-                                geometry
-                            ),
-                        )
-                    )
-
-                    replace_satellite_anomalies(
+                # Upload directly from the temporary work directory and
+                # obtain final canonical gs:// URIs.
+                raster_uris = (
+                    publish_metric_rasters(
+                        context=context,
+                        observed_on=(
+                            observed_on
+                        ),
                         observation_id=(
                             observation_id
                         ),
-                        field_id=(
-                            field_id
-                        ),
-                        metric_type=(
-                            metric_type
-                        ),
-                        zones=(
-                            anomaly_result
-                            .zones
-                        ),
-                        analysis_json=(
-                            anomaly_result
-                            .analysis
-                        ),
+                        results=results,
                     )
+                )
 
-                    zone_count = len(
-                        anomaly_result
-                        .zones
-                    )
-
-                    total_anomaly_zones += (
-                        zone_count
-                    )
-
-                    print(
-                        "  "
-                        f"{metric_type.upper()}: "
-                        f"{zone_count} zone"
-                        + (
-                            ""
-                            if zone_count == 1
-                            else "s"
-                        )
-                    )
-
-                    for zone in (
-                        anomaly_result
-                        .zones
-                    ):
-                        print(
-                            "    "
-                            f"Zone "
-                            f"{zone.zone_index}: "
-                            f"{zone.anomaly_type}, "
-                            f"{zone.severity}, "
-                            f"{zone.area_acres:.3f} "
-                            "acre, "
-                            f"mean "
-                            f"{zone.zone_mean_value:.3f}, "
-                            f"field median "
-                            f"{zone.field_median_value:.3f}"
-                        )
-
-                except Exception as error:
-                    print(
-                        "  "
-                        f"{metric_type.upper()}: "
-                        "anomaly detection failed: "
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    )
-
-            print()
-            print(
-                "Total anomaly zones "
-                "across metrics: "
-                f"{total_anomaly_zones}"
-            )
-
-            # -------------------------------------------------
-            # Publish COGs.
-            #
-            # GCS layout:
-            #
-            # fields/{field_id}/
-            #   satellite/{observation_id}/
-            #     ndvi.tif
-            #     ndmi.tif
-            #     ...
-            # -------------------------------------------------
-
-            print()
-            print(
-                "Publishing metric COGs..."
-            )
-
-            permanent_raster_uris = (
-                publish_metric_rasters(
-                    context=context,
-                    observed_on=(
-                        observed_on
-                    ),
+                # PostgreSQL sees only permanent GCS URIs. It never points
+                # at a temporary local file.
+                save_satellite_metrics(
                     observation_id=(
                         observation_id
                     ),
                     results=results,
+                    raster_uris=(
+                        raster_uris
+                    ),
                 )
-            )
 
-            update_satellite_raster_uris(
-                observation_id=(
-                    observation_id
-                ),
-                raster_uris=(
-                    permanent_raster_uris
-                ),
-            )
-
-            # Recovery manifest contains metric summaries and anomaly
-            # polygons. Local COGs are deleted only after this succeeds.
-            write_satellite_manifest_from_database(
-                context=context,
-                observation_id=(
-                    observation_id
-                ),
-            )
-
-            remove_local_metric_rasters(
-                results
-            )
-
-            # -------------------------------------------------
-            # Scene summary.
-            # -------------------------------------------------
-
-            print()
-            print(
-                "Observation: "
-                f"{observation_id}"
-            )
-
-            print(
-                "Metrics saved: "
-                + ", ".join(
-                    result
-                    .metric_type
-                    .upper()
-                    for result
-                    in results
+                print()
+                print(
+                    "Metric anomaly analysis:"
                 )
-            )
 
-            print(
-                "NDVI raster URI: "
-                f"{permanent_raster_uris['ndvi']}"
-            )
+                total_anomaly_zones = 0
 
-            print(
-                "Resolution: "
-                f"{ndvi_result.output_resolution_m:.1f} m"
-            )
+                for metric_result in results:
+                    metric_type = (
+                        metric_result
+                        .metric_type
+                        .strip()
+                        .lower()
+                    )
 
-            print(
-                "Field pixels: "
-                f"{ndvi_result.pixel_count}"
-            )
+                    rule = (
+                        METRIC_ANOMALY_RULES
+                        .get(
+                            metric_type
+                        )
+                    )
 
-            print(
-                "Valid pixels: "
-                f"{ndvi_result.valid_pixel_count}"
-            )
+                    if rule is None:
+                        print(
+                            "  "
+                            f"{metric_type.upper()}: "
+                            "no anomaly rule; skipped."
+                        )
 
-            print(
-                "Valid: "
-                f"{ndvi_result.valid_pixel_percent:.1f}%"
-            )
+                        continue
 
-            print(
-                "NDVI mean: "
-                f"{ndvi_result.mean:.3f}"
-            )
+                    valid_percent = float(
+                        metric_result
+                        .valid_pixel_percent
+                    )
 
-            print(
-                "NDVI median: "
-                f"{ndvi_result.median:.3f}"
-            )
+                    if (
+                        valid_percent
+                        < MINIMUM_ANOMALY_VALID_PERCENT
+                    ):
+                        replace_satellite_anomalies(
+                            observation_id=(
+                                observation_id
+                            ),
+                            metric_type=(
+                                metric_type
+                            ),
+                            zones=[],
+                            analysis_json={
+                                "status":
+                                    "skipped_low_"
+                                    "valid_coverage",
+                                "method":
+                                    "robust_mad_metric_v1",
+                                "metric_type":
+                                    metric_type,
+                                "metric_label":
+                                    rule.label,
+                                "direction":
+                                    rule.direction,
+                                "valid_pixel_percent":
+                                    valid_percent,
+                                "minimum_required_percent":
+                                    MINIMUM_ANOMALY_VALID_PERCENT,
+                                "zone_count":
+                                    0,
+                            },
+                        )
 
-            print(
-                "NDVI range: "
-                f"{ndvi_result.minimum:.3f}"
-                " → "
-                f"{ndvi_result.maximum:.3f}"
-            )
+                        print(
+                            "  "
+                            f"{metric_type.upper()}: "
+                            "skipped, only "
+                            f"{valid_percent:.1f}% "
+                            "valid pixels."
+                        )
 
-        except Exception as error:
-            print(
-                "FAILED: "
-                f"{type(error).__name__}: "
-                f"{error}"
-            )
+                        continue
+
+                    try:
+                        anomaly_result = (
+                            detect_metric_anomalies(
+                                metric_type=(
+                                    metric_type
+                                ),
+                                raster_path=(
+                                    metric_result
+                                    .raster_path
+                                ),
+                                field_geometry=(
+                                    geometry
+                                ),
+                            )
+                        )
+
+                        replace_satellite_anomalies(
+                            observation_id=(
+                                observation_id
+                            ),
+                            metric_type=(
+                                metric_type
+                            ),
+                            zones=(
+                                anomaly_result
+                                .zones
+                            ),
+                            analysis_json=(
+                                anomaly_result
+                                .analysis
+                            ),
+                        )
+
+                        zone_count = len(
+                            anomaly_result
+                            .zones
+                        )
+
+                        total_anomaly_zones += (
+                            zone_count
+                        )
+
+                        print(
+                            "  "
+                            f"{metric_type.upper()}: "
+                            f"{zone_count} zone"
+                            + (
+                                ""
+                                if zone_count == 1
+                                else "s"
+                            )
+                        )
+
+                    except Exception as error:
+                        print(
+                            "  "
+                            f"{metric_type.upper()}: "
+                            "anomaly detection failed: "
+                            f"{type(error).__name__}: "
+                            f"{error}"
+                        )
+
+                # Recovery manifest is generated from canonical DB rows and
+                # permanent GCS object URIs.
+                write_satellite_manifest_from_database(
+                    context=context,
+                    observation_id=(
+                        observation_id
+                    ),
+                )
+
+                print()
+                print(
+                    "Observation: "
+                    f"{observation_id}"
+                )
+
+                print(
+                    "Metrics saved: "
+                    + ", ".join(
+                        result
+                        .metric_type
+                        .upper()
+                        for result
+                        in results
+                    )
+                )
+
+                print(
+                    "Total anomaly zones: "
+                    f"{total_anomaly_zones}"
+                )
+
+            except Exception as error:
+                print(
+                    "FAILED: "
+                    f"{type(error).__name__}: "
+                    f"{error}"
+                )
 
 
 if __name__ == "__main__":

@@ -16,10 +16,7 @@ from app.models.farm import Farm
 from app.models.field import Field
 from app.models.media_asset import MediaAsset
 from app.models.user import User
-from app.storage import (
-    StorageBackend,
-    get_storage_for_location,
-)
+from app.storage import GCSStorage, get_storage
 from app.storage.layout import (
     STORAGE_LAYOUT_VERSION,
     farm_manifest_key,
@@ -54,7 +51,7 @@ def _json_default(
 
 def _write_json(
     *,
-    storage: StorageBackend,
+    storage: GCSStorage,
     object_key: str,
     payload: dict,
 ) -> None:
@@ -70,19 +67,6 @@ def _write_json(
         data=raw,
         object_key=object_key,
         content_type="application/json",
-    )
-
-
-def _storage_for_media(
-    media: MediaAsset,
-) -> StorageBackend:
-    return get_storage_for_location(
-        storage_backend=(
-            media.storage_backend
-        ),
-        bucket_name=(
-            media.bucket_name
-        ),
     )
 
 
@@ -178,9 +162,7 @@ def write_media_manifests(
         media,
     )
 
-    storage = _storage_for_media(
-        media
-    )
+    storage = get_storage()
 
     now = datetime.now(
         timezone.utc
@@ -298,11 +280,11 @@ def write_media_manifests(
         }
     }
 
-    if media.thumbnail_object_key:
+    if media.preview_object_key:
         files["preview"] = {
-            "object_key": media.thumbnail_object_key,
+            "object_key": media.preview_object_key,
             "uri": storage.object_uri(
-                media.thumbnail_object_key
+                media.preview_object_key
             ),
         }
 

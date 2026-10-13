@@ -1,3 +1,4 @@
+
 import json
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from app.schemas.satellite_anomaly import (
 )
 from app.schemas.satellite_observation import SatelliteObservationResponse
 from app.services.ownership import get_owned_field
+
 
 router = APIRouter(
     tags=["satellite observations"],
@@ -40,12 +42,25 @@ def list_satellite_observations(
 
     observations = db.scalars(
         select(SatelliteObservation)
-        .options(selectinload(SatelliteObservation.metrics))
-        .where(SatelliteObservation.field_id == field_id)
-        .order_by(SatelliteObservation.observed_on.desc())
+        .options(
+            selectinload(
+                SatelliteObservation.metrics
+            )
+        )
+        .where(
+            SatelliteObservation.field_id
+            == field_id
+        )
+        .order_by(
+            SatelliteObservation
+            .observed_on
+            .desc()
+        )
     ).all()
 
-    return list(observations)
+    return list(
+        observations
+    )
 
 
 @router.get(
@@ -62,70 +77,145 @@ def list_satellite_anomalies(
     db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    metric_type = metric_type.strip().lower()
+    metric_type = (
+        metric_type
+        .strip()
+        .lower()
+    )
 
     observation = db.scalar(
         select(SatelliteObservation)
         .join(
             Field,
-            Field.id == SatelliteObservation.field_id,
+            Field.id
+            == SatelliteObservation.field_id,
         )
         .join(
             Farm,
-            Farm.id == Field.farm_id,
+            Farm.id
+            == Field.farm_id,
         )
         .where(
-            SatelliteObservation.id == observation_id,
-            Farm.owner_user_id == current_user.id,
+            SatelliteObservation.id
+            == observation_id,
+            Farm.owner_user_id
+            == current_user.id,
         )
     )
 
     if observation is None:
         raise HTTPException(
-            status_code=(status.HTTP_404_NOT_FOUND),
-            detail=("Satellite observation " "not found."),
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Satellite observation "
+                "not found."
+            ),
         )
 
     rows = db.execute(
         select(
             SatelliteAnomaly,
-            func.ST_AsGeoJSON(SatelliteAnomaly.geometry).label("geometry_geojson"),
+            func.ST_AsGeoJSON(
+                SatelliteAnomaly.geometry
+            ).label(
+                "geometry_geojson"
+            ),
         )
         .where(
-            SatelliteAnomaly.satellite_observation_id == observation_id,
-            SatelliteAnomaly.index_type == metric_type,
+            SatelliteAnomaly
+            .satellite_observation_id
+            == observation_id,
+            SatelliteAnomaly.index_type
+            == metric_type,
         )
-        .order_by(SatelliteAnomaly.zone_index)
+        .order_by(
+            SatelliteAnomaly.zone_index
+        )
     ).all()
 
     features = []
 
-    for anomaly, geometry_geojson in rows:
+    for (
+        anomaly,
+        geometry_geojson,
+    ) in rows:
         features.append(
             SatelliteAnomalyFeature(
                 id=anomaly.id,
-                geometry=json.loads(geometry_geojson),
+                geometry=json.loads(
+                    geometry_geojson
+                ),
                 properties=(
                     SatelliteAnomalyProperties(
                         id=anomaly.id,
-                        satellite_observation_id=(anomaly.satellite_observation_id),
-                        field_id=(anomaly.field_id),
-                        zone_index=(anomaly.zone_index),
-                        index_type=(anomaly.index_type),
-                        anomaly_type=(anomaly.anomaly_type),
-                        severity=(anomaly.severity),
-                        pixel_count=(anomaly.pixel_count),
-                        area_sqm=(anomaly.area_sqm),
-                        area_acres=(anomaly.area_acres),
-                        zone_mean_value=(anomaly.zone_mean_value),
-                        zone_min_value=(anomaly.zone_min_value),
-                        zone_max_value=(anomaly.zone_max_value),
-                        field_mean_value=(anomaly.field_mean_value),
-                        field_median_value=(anomaly.field_median_value),
-                        threshold_value=(anomaly.threshold_value),
-                        difference_from_field=(anomaly.difference_from_field),
-                        percent_difference=(anomaly.percent_difference),
-                        detection_method=(anomaly.detection_method),
+                        satellite_observation_id=(
+                            anomaly
+                            .satellite_observation_id
+                        ),
+                        # field_id is derived from the owned observation.
+                        # It is no longer redundantly stored on each anomaly.
+                        field_id=(
+                            observation.field_id
+                        ),
+                        zone_index=(
+                            anomaly.zone_index
+                        ),
+                        index_type=(
+                            anomaly.index_type
+                        ),
+                        anomaly_type=(
+                            anomaly.anomaly_type
+                        ),
+                        severity=(
+                            anomaly.severity
+                        ),
+                        pixel_count=(
+                            anomaly.pixel_count
+                        ),
+                        area_sqm=(
+                            anomaly.area_sqm
+                        ),
+                        area_acres=(
+                            anomaly.area_acres
+                        ),
+                        zone_mean_value=(
+                            anomaly
+                            .zone_mean_value
+                        ),
+                        zone_min_value=(
+                            anomaly
+                            .zone_min_value
+                        ),
+                        zone_max_value=(
+                            anomaly
+                            .zone_max_value
+                        ),
+                        field_mean_value=(
+                            anomaly
+                            .field_mean_value
+                        ),
+                        field_median_value=(
+                            anomaly
+                            .field_median_value
+                        ),
+                        threshold_value=(
+                            anomaly
+                            .threshold_value
+                        ),
+                        difference_from_field=(
+                            anomaly
+                            .difference_from_field
+                        ),
+                        percent_difference=(
+                            anomaly
+                            .percent_difference
+                        ),
+                        detection_method=(
+                            anomaly
+                            .detection_method
+                        ),
                     )
                 ),
             )

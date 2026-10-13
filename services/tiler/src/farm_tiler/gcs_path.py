@@ -57,7 +57,8 @@ def _signed_gcs_get_url(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Invalid gs:// raster URI."
+                "Only private gs:// raster URIs "
+                "are supported."
             ),
         )
 
@@ -74,15 +75,12 @@ def _signed_gcs_get_url(
         raise HTTPException(
             status_code=400,
             detail=(
-                "GCS raster object key "
-                "is missing."
+                "GCS raster object key is missing."
             ),
         )
 
-    # Restrict this tiler to the configured farm bucket.
     if (
-        settings.gcs_bucket_name
-        and bucket_name
+        bucket_name
         != settings.gcs_bucket_name
     ):
         raise HTTPException(
@@ -90,6 +88,20 @@ def _signed_gcs_get_url(
             detail=(
                 "This GCS bucket is not "
                 "allowed by the tiler."
+            ),
+        )
+
+    # The current canonical object layout starts at users/.
+    # Rejecting old/arbitrary paths prevents the tiler from becoming a
+    # generic authenticated GCS proxy.
+    if not object_key.startswith(
+        "users/"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Raster is outside the canonical "
+                "Farm Platform storage layout."
             ),
         )
 
@@ -119,28 +131,10 @@ def DatasetPathParams(
     url: str = Query(
         ...,
         description=(
-            "Dataset URL. Supports "
-            "file://, http(s):// and "
-            "private gs:// COGs."
+            "Private Farm Platform gs:// COG URI."
         ),
     ),
 ) -> str:
-    """
-    TiTiler uses the returned value to open the raster.
-
-    Importantly, TiTiler's TileJSON endpoint builds tile URLs from the
-    original request query parameters. So the browser continues to receive
-    `url=gs://bucket/key`, while the tiler privately resolves that URI to a
-    short-lived signed HTTPS URL on every tile/preview request.
-    """
-
-    if url.startswith(
-        "gs://"
-    ):
-        return (
-            _signed_gcs_get_url(
-                url
-            )
-        )
-
-    return url
+    return _signed_gcs_get_url(
+        url
+    )

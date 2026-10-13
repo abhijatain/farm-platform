@@ -1,3 +1,6 @@
+
+from __future__ import annotations
+
 import json
 from datetime import date
 from uuid import UUID, uuid4
@@ -5,7 +8,6 @@ from uuid import UUID, uuid4
 from sqlalchemy import create_engine, text
 
 from satellite_worker.config import settings
-
 engine = create_engine(
     settings.database_url,
 )
@@ -14,24 +16,23 @@ engine = create_engine(
 def get_field_geometry(
     field_id: UUID,
 ) -> dict:
-
     query = text(
         """
         SELECT
             ST_AsGeoJSON(boundary)
-            AS geometry
+                AS geometry
         FROM fields
         WHERE id = :field_id
         """
     )
 
     with engine.connect() as connection:
-
         row = (
             connection.execute(
                 query,
                 {
-                    "field_id": field_id,
+                    "field_id":
+                        field_id,
                 },
             )
             .mappings()
@@ -39,15 +40,21 @@ def get_field_geometry(
         )
 
     if row is None:
-        raise ValueError(f"Field not found: {field_id}")
+        raise ValueError(
+            f"Field not found: {field_id}"
+        )
 
-    geometry = row["geometry"]
+    geometry = row[
+        "geometry"
+    ]
 
     if isinstance(
         geometry,
         str,
     ):
-        geometry = json.loads(geometry)
+        geometry = json.loads(
+            geometry
+        )
 
     return geometry
 
@@ -58,18 +65,14 @@ def save_satellite_observation(
     observed_on: date,
     scene_id: str,
     cloud_cover_percent: float | None,
-    valid_pixel_percent: float,
-    ndvi_mean: float,
-    ndvi_median: float,
-    ndvi_min: float,
-    ndvi_max: float,
-    ndvi_std: float,
-    ndvi_raster_uri: str,
-    resolution_m: float,
-    pixel_count: int,
-    valid_pixel_count: int,
     metadata_json: dict,
 ) -> UUID:
+    """
+    Upsert scene-level metadata only.
+
+    All metric statistics, coverage, resolutions and raster URIs belong in
+    satellite_metrics.
+    """
 
     observation_id = uuid4()
 
@@ -78,67 +81,25 @@ def save_satellite_observation(
         INSERT INTO satellite_observations (
             id,
             field_id,
-
             observed_on,
-
             source,
             scene_id,
-
             cloud_cover_percent,
-            valid_pixel_percent,
-
-            ndvi_mean,
-            ndvi_median,
-            ndvi_min,
-            ndvi_max,
-            ndvi_std,
-
-            ndwi_mean,
-
-            ndvi_raster_uri,
-
-            resolution_m,
-
-            pixel_count,
-            valid_pixel_count,
-
             metadata_json,
-
             created_at,
             updated_at
         )
         VALUES (
             :id,
             :field_id,
-
             :observed_on,
-
             'sentinel-2',
             :scene_id,
-
             :cloud_cover_percent,
-            :valid_pixel_percent,
-
-            :ndvi_mean,
-            :ndvi_median,
-            :ndvi_min,
-            :ndvi_max,
-            :ndvi_std,
-
-            NULL,
-
-            :ndvi_raster_uri,
-
-            :resolution_m,
-
-            :pixel_count,
-            :valid_pixel_count,
-
             CAST(
                 :metadata_json
                 AS jsonb
             ),
-
             NOW(),
             NOW()
         )
@@ -149,42 +110,11 @@ def save_satellite_observation(
         )
 
         DO UPDATE SET
-
             observed_on =
                 EXCLUDED.observed_on,
 
             cloud_cover_percent =
                 EXCLUDED.cloud_cover_percent,
-
-            valid_pixel_percent =
-                EXCLUDED.valid_pixel_percent,
-
-            ndvi_mean =
-                EXCLUDED.ndvi_mean,
-
-            ndvi_median =
-                EXCLUDED.ndvi_median,
-
-            ndvi_min =
-                EXCLUDED.ndvi_min,
-
-            ndvi_max =
-                EXCLUDED.ndvi_max,
-
-            ndvi_std =
-                EXCLUDED.ndvi_std,
-
-            ndvi_raster_uri =
-                EXCLUDED.ndvi_raster_uri,
-
-            resolution_m =
-                EXCLUDED.resolution_m,
-
-            pixel_count =
-                EXCLUDED.pixel_count,
-
-            valid_pixel_count =
-                EXCLUDED.valid_pixel_count,
 
             metadata_json =
                 EXCLUDED.metadata_json,
@@ -197,96 +127,77 @@ def save_satellite_observation(
     )
 
     with engine.begin() as connection:
-
-        result = connection.execute(
+        return connection.execute(
             query,
             {
-                "id": observation_id,
-                "field_id": field_id,
-                "observed_on": observed_on,
-                "scene_id": scene_id,
-                "cloud_cover_percent": cloud_cover_percent,
-                "valid_pixel_percent": valid_pixel_percent,
-                "ndvi_mean": ndvi_mean,
-                "ndvi_median": ndvi_median,
-                "ndvi_min": ndvi_min,
-                "ndvi_max": ndvi_max,
-                "ndvi_std": ndvi_std,
-                "ndvi_raster_uri": ndvi_raster_uri,
-                "resolution_m": resolution_m,
-                "pixel_count": pixel_count,
-                "valid_pixel_count": valid_pixel_count,
-                "metadata_json": json.dumps(metadata_json),
+                "id":
+                    observation_id,
+                "field_id":
+                    field_id,
+                "observed_on":
+                    observed_on,
+                "scene_id":
+                    scene_id,
+                "cloud_cover_percent":
+                    cloud_cover_percent,
+                "metadata_json":
+                    json.dumps(
+                        metadata_json
+                    ),
             },
-        )
-
-        saved_id = result.scalar_one()
-
-    return saved_id
+        ).scalar_one()
 
 
 def save_satellite_metrics(
     *,
     observation_id: UUID,
     results: list,
+    raster_uris: dict[str, str],
 ) -> None:
+    """
+    Persist canonical metric rows using permanent GCS raster URIs.
+    """
 
     query = text(
         """
         INSERT INTO satellite_metrics (
             id,
-
             satellite_observation_id,
-
             metric_type,
-
             raster_uri,
-
             mean,
             median,
             min,
             max,
             std,
-
             native_resolution_m,
             output_resolution_m,
-
             pixel_count,
             valid_pixel_count,
             valid_pixel_percent,
-
             metadata_json,
-
             created_at,
             updated_at
         )
         VALUES (
             :id,
-
             :observation_id,
-
             :metric_type,
-
             :raster_uri,
-
             :mean,
             :median,
             :minimum,
             :maximum,
             :std,
-
             :native_resolution_m,
             :output_resolution_m,
-
             :pixel_count,
             :valid_pixel_count,
             :valid_pixel_percent,
-
             CAST(
                 :metadata_json
                 AS jsonb
             ),
-
             NOW(),
             NOW()
         )
@@ -297,7 +208,6 @@ def save_satellite_metrics(
         )
 
         DO UPDATE SET
-
             raster_uri =
                 EXCLUDED.raster_uri,
 
@@ -340,35 +250,69 @@ def save_satellite_metrics(
     )
 
     with engine.begin() as connection:
-
         for result in results:
+            metric_type = (
+                result.metric_type
+                .strip()
+                .lower()
+            )
 
-            raster_uri = result.raster_path.resolve().as_uri()
+            raster_uri = (
+                raster_uris.get(
+                    metric_type
+                )
+            )
+
+            if not raster_uri:
+                raise RuntimeError(
+                    "Missing permanent raster URI "
+                    f"for {metric_type}."
+                )
 
             metric_metadata = {
-                "formula": (result.formula_version),
-                "calibration_methods": (result.calibration_methods),
-                "source": ("earth-search-" "sentinel-2-l2a"),
+                "formula":
+                    result.formula_version,
+                "calibration_methods":
+                    result.calibration_methods,
+                "source":
+                    "earth-search-sentinel-2-l2a",
             }
 
             connection.execute(
                 query,
                 {
-                    "id": uuid4(),
-                    "observation_id": (observation_id),
-                    "metric_type": (result.metric_type),
-                    "raster_uri": (raster_uri),
-                    "mean": (result.mean),
-                    "median": (result.median),
-                    "minimum": (result.minimum),
-                    "maximum": (result.maximum),
-                    "std": (result.std),
-                    "native_resolution_m": (result.native_resolution_m),
-                    "output_resolution_m": (result.output_resolution_m),
-                    "pixel_count": (result.pixel_count),
-                    "valid_pixel_count": (result.valid_pixel_count),
-                    "valid_pixel_percent": (result.valid_pixel_percent),
-                    "metadata_json": (json.dumps(metric_metadata)),
+                    "id":
+                        uuid4(),
+                    "observation_id":
+                        observation_id,
+                    "metric_type":
+                        metric_type,
+                    "raster_uri":
+                        raster_uri,
+                    "mean":
+                        result.mean,
+                    "median":
+                        result.median,
+                    "minimum":
+                        result.minimum,
+                    "maximum":
+                        result.maximum,
+                    "std":
+                        result.std,
+                    "native_resolution_m":
+                        result.native_resolution_m,
+                    "output_resolution_m":
+                        result.output_resolution_m,
+                    "pixel_count":
+                        result.pixel_count,
+                    "valid_pixel_count":
+                        result.valid_pixel_count,
+                    "valid_pixel_percent":
+                        result.valid_pixel_percent,
+                    "metadata_json":
+                        json.dumps(
+                            metric_metadata
+                        ),
                 },
             )
 
@@ -376,31 +320,37 @@ def save_satellite_metrics(
 def replace_satellite_anomalies(
     *,
     observation_id: UUID,
-    field_id: UUID,
     metric_type: str,
     zones: list,
     analysis_json: dict,
 ) -> None:
-
-    metric_type = metric_type.strip().lower()
+    metric_type = (
+        metric_type
+        .strip()
+        .lower()
+    )
 
     if not metric_type:
-        raise ValueError("metric_type cannot be empty.")
+        raise ValueError(
+            "metric_type cannot be empty."
+        )
 
-    detection_method = analysis_json.get(
-        "method",
-        "robust_mad_metric_v1",
+    detection_method = (
+        analysis_json.get(
+            "method",
+            "robust_mad_metric_v1",
+        )
     )
 
     delete_query = text(
         """
         DELETE FROM satellite_anomalies
 
-        WHERE satellite_observation_id
-            = :observation_id
+        WHERE satellite_observation_id =
+            :observation_id
 
-        AND index_type
-            = :metric_type
+        AND index_type =
+            :metric_type
         """
     )
 
@@ -408,54 +358,34 @@ def replace_satellite_anomalies(
         """
         INSERT INTO satellite_anomalies (
             id,
-
             satellite_observation_id,
-            field_id,
-
             zone_index,
-
             index_type,
             anomaly_type,
-
             severity,
-
             geometry,
-
             pixel_count,
-
             area_sqm,
             area_acres,
-
             zone_mean_value,
             zone_min_value,
             zone_max_value,
-
             field_mean_value,
             field_median_value,
-
             threshold_value,
-
             difference_from_field,
             percent_difference,
-
             detection_method,
-
             metadata_json,
-
             created_at,
             updated_at
         )
         VALUES (
             :id,
-
             :observation_id,
-            :field_id,
-
             :zone_index,
-
             :metric_type,
             :anomaly_type,
-
             :severity,
 
             ST_Multi(
@@ -468,22 +398,16 @@ def replace_satellite_anomalies(
             ),
 
             :pixel_count,
-
             :area_sqm,
             :area_acres,
-
             :zone_mean_value,
             :zone_min_value,
             :zone_max_value,
-
             :field_mean_value,
             :field_median_value,
-
             :threshold_value,
-
             :difference_from_field,
             :percent_difference,
-
             :detection_method,
 
             CAST(
@@ -497,9 +421,9 @@ def replace_satellite_anomalies(
         """
     )
 
-    update_observation_query = text(
+    update_metric_query = text(
         """
-        UPDATE satellite_observations
+        UPDATE satellite_metrics
 
         SET
             metadata_json =
@@ -508,102 +432,123 @@ def replace_satellite_anomalies(
                         metadata_json,
                         '{}'::jsonb
                     ),
-
-                    '{anomaly_detection}',
-
-                    (
-                        CASE
-                            WHEN (
-                                COALESCE(
-                                    metadata_json
-                                        -> 'anomaly_detection',
-                                    '{}'::jsonb
-                                )
-                                ? 'status'
-                            )
-                            THEN
-                                jsonb_build_object(
-                                    'ndvi',
-                                    metadata_json
-                                        -> 'anomaly_detection'
-                                )
-
-                            ELSE
-                                COALESCE(
-                                    metadata_json
-                                        -> 'anomaly_detection',
-                                    '{}'::jsonb
-                                )
-                        END
-                    )
-                    ||
-                    jsonb_build_object(
-                        CAST(
-                            :metric_type
-                            AS text
-                        ),
-                        CAST(
-                            :analysis_json
-                            AS jsonb
-                        )
+                    '{anomaly_analysis}',
+                    CAST(
+                        :analysis_json
+                        AS jsonb
                     ),
-
                     true
                 ),
 
             updated_at =
                 NOW()
 
-        WHERE id =
+        WHERE satellite_observation_id =
             :observation_id
+
+        AND metric_type =
+            :metric_type
         """
     )
 
     with engine.begin() as connection:
+        metric_exists = connection.execute(
+            text(
+                """
+                SELECT 1
+                FROM satellite_metrics
+                WHERE satellite_observation_id =
+                    :observation_id
+                  AND metric_type =
+                    :metric_type
+                """
+            ),
+            {
+                "observation_id":
+                    observation_id,
+                "metric_type":
+                    metric_type,
+            },
+        ).scalar_one_or_none()
+
+        if metric_exists is None:
+            raise RuntimeError(
+                "Cannot save anomaly analysis "
+                f"before metric row exists: {metric_type}"
+            )
 
         connection.execute(
             delete_query,
             {
-                "observation_id": observation_id,
-                "metric_type": metric_type,
+                "observation_id":
+                    observation_id,
+                "metric_type":
+                    metric_type,
             },
         )
 
         for zone in zones:
-
             connection.execute(
                 insert_query,
                 {
-                    "id": uuid4(),
-                    "observation_id": observation_id,
-                    "field_id": field_id,
-                    "zone_index": zone.zone_index,
-                    "metric_type": metric_type,
-                    "anomaly_type": zone.anomaly_type,
-                    "severity": zone.severity,
-                    "geometry_json": json.dumps(zone.geometry),
-                    "pixel_count": zone.pixel_count,
-                    "area_sqm": zone.area_sqm,
-                    "area_acres": zone.area_acres,
-                    "zone_mean_value": zone.zone_mean_value,
-                    "zone_min_value": zone.zone_min_value,
-                    "zone_max_value": zone.zone_max_value,
-                    "field_mean_value": zone.field_mean_value,
-                    "field_median_value": zone.field_median_value,
-                    "threshold_value": zone.threshold_value,
-                    "difference_from_field": zone.difference_from_field,
-                    "percent_difference": zone.percent_difference,
-                    "detection_method": detection_method,
-                    "metadata_json": json.dumps(zone.metadata_json),
+                    "id":
+                        uuid4(),
+                    "observation_id":
+                        observation_id,
+                    "zone_index":
+                        zone.zone_index,
+                    "metric_type":
+                        metric_type,
+                    "anomaly_type":
+                        zone.anomaly_type,
+                    "severity":
+                        zone.severity,
+                    "geometry_json":
+                        json.dumps(
+                            zone.geometry
+                        ),
+                    "pixel_count":
+                        zone.pixel_count,
+                    "area_sqm":
+                        zone.area_sqm,
+                    "area_acres":
+                        zone.area_acres,
+                    "zone_mean_value":
+                        zone.zone_mean_value,
+                    "zone_min_value":
+                        zone.zone_min_value,
+                    "zone_max_value":
+                        zone.zone_max_value,
+                    "field_mean_value":
+                        zone.field_mean_value,
+                    "field_median_value":
+                        zone.field_median_value,
+                    "threshold_value":
+                        zone.threshold_value,
+                    "difference_from_field":
+                        zone.difference_from_field,
+                    "percent_difference":
+                        zone.percent_difference,
+                    "detection_method":
+                        detection_method,
+                    "metadata_json":
+                        json.dumps(
+                            zone.metadata_json
+                        ),
                 },
             )
 
         connection.execute(
-            update_observation_query,
+            update_metric_query,
             {
-                "observation_id": observation_id,
-                "metric_type": metric_type,
-                "analysis_json": json.dumps(analysis_json),
+                "observation_id":
+                    observation_id,
+                "metric_type":
+                    metric_type,
+                "analysis_json":
+                    json.dumps(
+                        analysis_json
+                    ),
             },
         )
 
@@ -618,12 +563,6 @@ def list_satellite_metric_rasters_for_backfill(
     limit: int = 0,
     only_missing: bool = False,
 ) -> list[dict]:
-    """Return existing metric rasters that can be anomaly-backfilled.
-
-    This reads already-generated rows from satellite_metrics. It does not
-    contact STAC, download Sentinel-2 data, or regenerate any metric raster.
-    """
-
     clauses = [
         "sm.raster_uri IS NOT NULL",
     ]
@@ -631,60 +570,109 @@ def list_satellite_metric_rasters_for_backfill(
     params: dict = {}
 
     if field_id is not None:
-        clauses.append("so.field_id = :field_id")
-        params["field_id"] = field_id
+        clauses.append(
+            "so.field_id = :field_id"
+        )
+
+        params[
+            "field_id"
+        ] = field_id
 
     if observation_id is not None:
-        clauses.append("so.id = :observation_id")
-        params["observation_id"] = observation_id
+        clauses.append(
+            "so.id = :observation_id"
+        )
+
+        params[
+            "observation_id"
+        ] = observation_id
 
     if start_date is not None:
-        clauses.append("so.observed_on >= :start_date")
-        params["start_date"] = start_date
+        clauses.append(
+            "so.observed_on >= :start_date"
+        )
+
+        params[
+            "start_date"
+        ] = start_date
 
     if end_date is not None:
-        clauses.append("so.observed_on <= :end_date")
-        params["end_date"] = end_date
+        clauses.append(
+            "so.observed_on <= :end_date"
+        )
+
+        params[
+            "end_date"
+        ] = end_date
 
     normalized_metric_types = tuple(
         metric_type.strip().lower()
-        for metric_type in (metric_types or ())
+        for metric_type in (
+            metric_types
+            or ()
+        )
         if metric_type.strip()
     )
 
     if normalized_metric_types:
         placeholders = []
 
-        for index, metric_type in enumerate(normalized_metric_types):
-            parameter_name = f"metric_type_{index}"
+        for (
+            index,
+            metric_type,
+        ) in enumerate(
+            normalized_metric_types
+        ):
+            parameter_name = (
+                f"metric_type_{index}"
+            )
 
-            placeholders.append(f":{parameter_name}")
+            placeholders.append(
+                f":{parameter_name}"
+            )
 
-            params[parameter_name] = metric_type
+            params[
+                parameter_name
+            ] = metric_type
 
-        clauses.append("sm.metric_type IN (" + ", ".join(placeholders) + ")")
+        clauses.append(
+            "sm.metric_type IN ("
+            + ", ".join(
+                placeholders
+            )
+            + ")"
+        )
 
     if only_missing:
         clauses.append(
             """
             NOT (
                 COALESCE(
-                    so.metadata_json
-                        -> 'anomaly_detection',
+                    sm.metadata_json,
                     '{}'::jsonb
                 )
-                ? sm.metric_type
+                ? 'anomaly_analysis'
             )
             """
         )
 
-    where_sql = "\n        AND ".join(clauses)
+    where_sql = (
+        "\n        AND "
+        .join(
+            clauses
+        )
+    )
 
     limit_sql = ""
 
     if limit > 0:
-        limit_sql = "\n        LIMIT :limit"
-        params["limit"] = limit
+        limit_sql = (
+            "\n        LIMIT :limit"
+        )
+
+        params[
+            "limit"
+        ] = limit
 
     query = text(
         f"""
@@ -747,4 +735,7 @@ def list_satellite_metric_rasters_for_backfill(
             .all()
         )
 
-    return [dict(row) for row in rows]
+    return [
+        dict(row)
+        for row in rows
+    ]

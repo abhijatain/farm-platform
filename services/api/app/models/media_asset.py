@@ -93,23 +93,16 @@ class MediaAsset(
         index=True,
     )
 
-    storage_backend: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-    )
-
-    bucket_name: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-    )
-
+    # Bucket/backend are deployment configuration now. Each row stores only
+    # the stable object keys required to retrieve its content.
     object_key: Mapped[str] = mapped_column(
         Text,
         nullable=False,
         unique=True,
     )
 
-    thumbnail_object_key: Mapped[str | None] = mapped_column(
+    # Image thumbnail or video poster.
+    preview_object_key: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )

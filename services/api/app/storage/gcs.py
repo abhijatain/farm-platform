@@ -6,11 +6,27 @@ from pathlib import Path
 
 from google.cloud import storage
 
-from app.storage.base import StorageBackend, StorageObjectInfo
+
+class GCSObjectInfo:
+    def __init__(
+        self,
+        *,
+        size_bytes: int,
+        content_type: str | None,
+        etag: str | None,
+    ) -> None:
+        self.size_bytes = size_bytes
+        self.content_type = content_type
+        self.etag = etag
 
 
-class GCSStorage(StorageBackend):
-    backend_name = "gcs"
+class GCSStorage:
+    """
+    Private Google Cloud Storage backend.
+
+    The API is intentionally GCS-only now. Local storage was useful during
+    prototyping but is no longer part of the application data model.
+    """
 
     def __init__(
         self,
@@ -31,14 +47,10 @@ class GCSStorage(StorageBackend):
                 project=project_id,
             )
 
-        self._bucket_name = bucket_name
+        self.bucket_name = bucket_name
         self.bucket = self.client.bucket(
             bucket_name
         )
-
-    @property
-    def bucket_name(self) -> str:
-        return self._bucket_name
 
     def _blob(
         self,
@@ -53,7 +65,7 @@ class GCSStorage(StorageBackend):
         object_key: str,
     ) -> str:
         return (
-            f"gs://{self._bucket_name}/"
+            f"gs://{self.bucket_name}/"
             f"{object_key.lstrip('/')}"
         )
 
@@ -70,7 +82,7 @@ class GCSStorage(StorageBackend):
     def stat(
         self,
         object_key: str,
-    ) -> StorageObjectInfo | None:
+    ) -> GCSObjectInfo | None:
         blob = self._blob(
             object_key
         )
@@ -84,7 +96,7 @@ class GCSStorage(StorageBackend):
             client=self.client
         )
 
-        return StorageObjectInfo(
+        return GCSObjectInfo(
             size_bytes=int(
                 blob.size or 0
             ),
@@ -115,7 +127,7 @@ class GCSStorage(StorageBackend):
         source_path: Path,
         object_key: str,
         content_type: str,
-    ) -> StorageObjectInfo:
+    ) -> GCSObjectInfo:
         blob = self._blob(
             object_key
         )
@@ -129,7 +141,7 @@ class GCSStorage(StorageBackend):
             client=self.client
         )
 
-        return StorageObjectInfo(
+        return GCSObjectInfo(
             size_bytes=int(
                 blob.size or 0
             ),
@@ -145,7 +157,7 @@ class GCSStorage(StorageBackend):
         data: bytes,
         object_key: str,
         content_type: str,
-    ) -> StorageObjectInfo:
+    ) -> GCSObjectInfo:
         blob = self._blob(
             object_key
         )
@@ -159,7 +171,7 @@ class GCSStorage(StorageBackend):
             client=self.client
         )
 
-        return StorageObjectInfo(
+        return GCSObjectInfo(
             size_bytes=int(
                 blob.size or 0
             ),

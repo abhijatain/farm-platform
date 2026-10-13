@@ -9,5 +9,12 @@ __pycache__/
 uv-cache/
 node_modules/
 
-# Generated data
+# Generated / transient local data.
+# Production objects live in private GCS.
 data/
+services/api/data/
+services/satellite-worker/data/
+
+# Never commit service-account credentials.
+*service-account*.json
+*.service-account.json

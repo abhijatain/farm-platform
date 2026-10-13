@@ -1,48 +1,48 @@
+
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from sqlalchemy import (
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    UniqueConstraint,
-    func,
-)
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.satellite_observation import SatelliteObservation
 
 
-class SatelliteMetric(Base):
+class SatelliteMetric(
+    UUIDPrimaryKeyMixin,
+    TimestampMixin,
+    Base,
+):
+    """
+    Canonical store for every computed satellite metric.
+
+    One observation can have NDVI, NDMI, NDRE, BSI, etc. Each metric owns
+    its raster URI, summary statistics, coverage and processing metadata.
+    """
+
     __tablename__ = "satellite_metrics"
 
     __table_args__ = (
         UniqueConstraint(
             "satellite_observation_id",
             "metric_type",
-            name="uq_satellite_metrics_observation_metric",
+            name=(
+                "uq_satellite_metrics_"
+                "observation_metric"
+            ),
         ),
     )
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True),
-        primary_key=True,
-        default=uuid4,
-    )
-
     satellite_observation_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey(
             "satellite_observations.id",
             ondelete="CASCADE",
@@ -51,33 +51,16 @@ class SatelliteMetric(Base):
         index=True,
     )
 
-    # Examples:
-    #
-    # ndvi
-    # ndre
-    # ndmi
-    # gndvi
-    # evi2
-    # ndwi
-    # savi
-    # msavi
-    # bsi
-    # ndti
-    # ccci
-    # reci
-    # mcari
+    # Deliberately a string rather than a PostgreSQL enum so new metrics can
+    # be introduced without a DB enum migration.
     metric_type: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
     )
 
-    # We deliberately use a string rather than a
-    # PostgreSQL enum because more metrics can be
-    # introduced later without a DB enum migration.
-
-    raster_uri: Mapped[str | None] = mapped_column(
+    raster_uri: Mapped[str] = mapped_column(
         Text,
-        nullable=True,
+        nullable=False,
     )
 
     mean: Mapped[float | None] = mapped_column(
@@ -105,16 +88,6 @@ class SatelliteMetric(Base):
         nullable=True,
     )
 
-    # Example:
-    #
-    # NDVI:
-    # native_resolution_m = 10
-    # output_resolution_m = 10
-    #
-    # NDRE:
-    # native_resolution_m = 20
-    # output_resolution_m could later be 10
-    # if resampled to the common analysis grid.
     native_resolution_m: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
@@ -140,31 +113,12 @@ class SatelliteMetric(Base):
         nullable=True,
     )
 
-    # Useful later for things such as:
-    #
-    # {
-    #     "formula": "ndvi_v1",
-    #     "bands": ["red", "nir"],
-    #     "native_resolution_m": 10,
-    #     "resampling": null,
-    #     "reflectance_method": "...",
-    # }
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
+    # Formula/calibration/storage/anomaly-analysis metadata belongs here
+    # because those details are specific to this metric result.
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
-        nullable=True,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
         nullable=False,
-        server_default=func.now(),
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=dict,
     )
 
     observation: Mapped["SatelliteObservation"] = relationship(

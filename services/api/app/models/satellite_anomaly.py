@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from uuid import UUID
@@ -25,7 +26,10 @@ class SatelliteAnomaly(
             "satellite_observation_id",
             "index_type",
             "zone_index",
-            name=("uq_satellite_anomalies_" "observation_metric_zone"),
+            name=(
+                "uq_satellite_anomalies_"
+                "observation_metric_zone"
+            ),
         ),
         Index(
             "ix_satellite_anomalies_observation_metric",
@@ -44,25 +48,17 @@ class SatelliteAnomaly(
         index=True,
     )
 
-    field_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey(
-            "fields.id",
-            ondelete="CASCADE",
-        ),
+    # Kept as index_type for now to avoid a needless rename migration. It
+    # refers to the same logical value as satellite_metrics.metric_type.
+    index_type: Mapped[str] = mapped_column(
+        String(20),
         nullable=False,
-        index=True,
+        default="ndvi",
     )
 
     zone_index: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
-    )
-
-    index_type: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        default="ndvi",
     )
 
     anomaly_type: Mapped[str] = mapped_column(
@@ -95,6 +91,9 @@ class SatelliteAnomaly(
         nullable=False,
     )
 
+    # Materialized report/UI value. Although derivable from area_sqm, this
+    # is retained intentionally because it is part of the saved analysis
+    # result and heavily used by farmer-facing comparisons.
     area_acres: Mapped[float] = mapped_column(
         Float,
         nullable=False,

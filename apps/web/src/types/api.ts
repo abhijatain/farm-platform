@@ -69,19 +69,13 @@ export type CropCycle = {
   planted_on: string | null;
 
   expected_harvest_on: string | null;
-
   harvested_on: string | null;
 
   yield_kg: number | null;
-
   harvested_area_acres: number | null;
-
   moisture_percent: number | null;
-
   quality_grade: string | null;
-
   selling_price_per_kg: number | null;
-
   harvest_notes: string | null;
 
   notes: string | null;
@@ -165,10 +159,9 @@ export type SatelliteMetric = {
 
   pixel_count: number | null;
   valid_pixel_count: number | null;
-
   valid_pixel_percent: number | null;
 
-  metadata_json: Record<string, unknown> | null;
+  metadata_json: Record<string, unknown>;
 };
 
 export type SatelliteObservation = {
@@ -179,32 +172,9 @@ export type SatelliteObservation = {
   observed_on: string;
 
   source: string;
-
   scene_id: string;
 
   cloud_cover_percent: number | null;
-
-  valid_pixel_percent: number | null;
-
-  ndvi_mean: number | null;
-
-  ndvi_min: number | null;
-
-  ndvi_max: number | null;
-
-  ndvi_std: number | null;
-
-  ndwi_mean: number | null;
-
-  ndvi_median: number | null;
-
-  ndvi_raster_uri: string | null;
-
-  resolution_m: number | null;
-
-  pixel_count: number | null;
-
-  valid_pixel_count: number | null;
 
   metadata_json: Record<string, unknown>;
 
@@ -214,7 +184,10 @@ export type SatelliteObservation = {
   updated_at: string;
 };
 
-export type SatelliteAnomalySeverity = "low" | "moderate" | "high";
+export type SatelliteAnomalySeverity =
+  | "low"
+  | "moderate"
+  | "high";
 
 export type SatelliteAnomalyType =
   | "below_field_baseline"

@@ -16,10 +16,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.media_asset import MediaAsset
-from app.storage import (
-    StorageBackend,
-    get_storage_for_location,
-)
+from app.storage import get_storage
 from app.storage.manifests import write_media_manifests
 
 
@@ -30,19 +27,6 @@ EXIF_DATETIME_ORIGINAL = 36867
 EXIF_DATETIME = 306
 EXIF_OFFSET_TIME = 36880
 EXIF_OFFSET_TIME_ORIGINAL = 36881
-
-
-def _storage_for_media(
-    media: MediaAsset,
-) -> StorageBackend:
-    return get_storage_for_location(
-        storage_backend=(
-            media.storage_backend
-        ),
-        bucket_name=(
-            media.bucket_name
-        ),
-    )
 
 
 def _processing_metadata(
@@ -164,18 +148,7 @@ def _materialize_original(
     media: MediaAsset,
     temporary_dir: Path,
 ) -> Path:
-    storage = (
-        _storage_for_media(
-            media
-        )
-    )
-
-    local = storage.local_path(
-        media.object_key
-    )
-
-    if local is not None:
-        return local
+    storage = get_storage()
 
     extension = (
         Path(
@@ -204,11 +177,7 @@ def _process_image(
     source_path: Path,
     temporary_dir: Path,
 ) -> dict:
-    storage = (
-        _storage_for_media(
-            media
-        )
-    )
+    storage = get_storage()
 
     output_path = (
         temporary_dir
@@ -284,7 +253,7 @@ def _process_image(
         "height": height,
         "duration_seconds": None,
         "captured_at": captured_at,
-        "thumbnail_object_key": (
+        "preview_object_key": (
             thumbnail_key
         ),
         "metadata": {
@@ -580,11 +549,7 @@ def _process_video(
     source_path: Path,
     temporary_dir: Path,
 ) -> dict:
-    storage = (
-        _storage_for_media(
-            media
-        )
-    )
+    storage = get_storage()
 
     probe = _run_ffprobe(
         source_path
@@ -636,7 +601,7 @@ def _process_video(
             duration_seconds
         ),
         "captured_at": captured_at,
-        "thumbnail_object_key": (
+        "preview_object_key": (
             poster_key
         ),
         "metadata": {
@@ -684,7 +649,7 @@ def process_media_asset(
                 "derivative_status"
             )
             == "complete"
-            and media.thumbnail_object_key
+            and media.preview_object_key
         ):
             return
 
@@ -767,9 +732,9 @@ def process_media_asset(
                 ]
             )
 
-        media.thumbnail_object_key = (
+        media.preview_object_key = (
             result[
-                "thumbnail_object_key"
+                "preview_object_key"
             ]
         )
 

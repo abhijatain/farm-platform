@@ -1,30 +1,19 @@
 
 from __future__ import annotations
 
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import UUID
 
-from sqlalchemy import text
-
-from satellite_worker.config import settings
-from satellite_worker.db import engine
 from satellite_worker.gcs_client import (
     gcs_bucket,
     gcs_client,
 )
 from satellite_worker.storage_layout import (
-    STORAGE_LAYOUT_VERSION,
     satellite_metric_key,
 )
-
-
-def _normalized_backend() -> str:
-    return (
-        settings
-        .satellite_storage_backend
-        .strip()
-        .lower()
-    )
 
 
 def publish_metric_rasters(
@@ -34,22 +23,11 @@ def publish_metric_rasters(
     observation_id: UUID,
     results: list,
 ) -> dict[str, str]:
-    backend = _normalized_backend()
+    """
+    Upload all generated metric COGs to their final private GCS keys.
 
-    if backend == "local":
-        return {
-            result.metric_type:
-                result.raster_path
-                .resolve()
-                .as_uri()
-            for result in results
-        }
-
-    if backend != "gcs":
-        raise RuntimeError(
-            "Unsupported SATELLITE_STORAGE_BACKEND: "
-            f"{settings.satellite_storage_backend}"
-        )
+    The worker never stores file:// paths in PostgreSQL.
+    """
 
     bucket = gcs_bucket()
 
@@ -75,17 +53,19 @@ def publish_metric_rasters(
                     f"{source_path}"
                 )
 
-            object_key = satellite_metric_key(
-                context=context,
-                observed_on=(
-                    observed_on
-                ),
-                observation_id=(
-                    observation_id
-                ),
-                metric_type=(
-                    metric_type
-                ),
+            object_key = (
+                satellite_metric_key(
+                    context=context,
+                    observed_on=(
+                        observed_on
+                    ),
+                    observation_id=(
+                        observation_id
+                    ),
+                    metric_type=(
+                        metric_type
+                    ),
+                )
             )
 
             blob = bucket.blob(
@@ -101,17 +81,17 @@ def publish_metric_rasters(
                 client=gcs_client()
             )
 
-            remote_size = int(
-                blob.size or 0
-            )
-
             local_size = (
                 source_path
                 .stat()
                 .st_size
             )
 
-            if remote_size != local_size:
+            remote_size = int(
+                blob.size or 0
+            )
+
+            if local_size != remote_size:
                 raise RuntimeError(
                     "Uploaded COG size mismatch "
                     f"for {metric_type}: "
@@ -152,203 +132,63 @@ def publish_metric_rasters(
     return raster_uris
 
 
-def update_satellite_raster_uris(
-    *,
-    observation_id: UUID,
-    raster_uris: dict[
-        str,
-        str,
-    ],
-) -> None:
-    backend = _normalized_backend()
-
-    bucket_name = (
-        settings.gcs_bucket_name
-        if backend == "gcs"
-        else None
+def _parse_gs_uri(
+    raster_uri: str,
+) -> tuple[str, str]:
+    parsed = urlparse(
+        raster_uri
     )
-
-    metric_query = text(
-        """
-        UPDATE satellite_metrics
-
-        SET
-            raster_uri =
-                :raster_uri,
-
-            metadata_json =
-                COALESCE(
-                    metadata_json,
-                    '{}'::jsonb
-                )
-                ||
-                jsonb_build_object(
-                    'storage_backend',
-                    CAST(
-                        :storage_backend
-                        AS text
-                    ),
-                    'storage_bucket',
-                    CAST(
-                        :storage_bucket
-                        AS text
-                    ),
-                    'storage_layout_version',
-                    CAST(
-                        :storage_layout_version
-                        AS integer
-                    )
-                ),
-
-            updated_at =
-                NOW()
-
-        WHERE
-            satellite_observation_id =
-                :observation_id
-
-        AND metric_type =
-                :metric_type
-        """
-    )
-
-    observation_query = text(
-        """
-        UPDATE satellite_observations
-
-        SET
-            ndvi_raster_uri =
-                COALESCE(
-                    :ndvi_raster_uri,
-                    ndvi_raster_uri
-                ),
-
-            metadata_json =
-                COALESCE(
-                    metadata_json,
-                    '{}'::jsonb
-                )
-                ||
-                jsonb_build_object(
-                    'raster_storage',
-                    jsonb_build_object(
-                        'backend',
-                        CAST(
-                            :storage_backend
-                            AS text
-                        ),
-                        'bucket',
-                        CAST(
-                            :storage_bucket
-                            AS text
-                        ),
-                        'layout_version',
-                        CAST(
-                            :storage_layout_version
-                            AS integer
-                        )
-                    )
-                ),
-
-            updated_at =
-                NOW()
-
-        WHERE id =
-            :observation_id
-        """
-    )
-
-    with engine.begin() as connection:
-        for (
-            metric_type,
-            raster_uri,
-        ) in raster_uris.items():
-            connection.execute(
-                metric_query,
-                {
-                    "observation_id":
-                        observation_id,
-                    "metric_type":
-                        metric_type,
-                    "raster_uri":
-                        raster_uri,
-                    "storage_backend":
-                        backend,
-                    "storage_bucket":
-                        bucket_name,
-                    "storage_layout_version":
-                        STORAGE_LAYOUT_VERSION,
-                },
-            )
-
-        connection.execute(
-            observation_query,
-            {
-                "observation_id":
-                    observation_id,
-                "ndvi_raster_uri":
-                    raster_uris.get(
-                        "ndvi"
-                    ),
-                "storage_backend":
-                    backend,
-                "storage_bucket":
-                    bucket_name,
-                "storage_layout_version":
-                    STORAGE_LAYOUT_VERSION,
-            },
-        )
-
-
-def remove_local_metric_rasters(
-    results: list,
-) -> None:
-    if not (
-        settings
-        .satellite_delete_local_after_upload
-    ):
-        return
 
     if (
-        _normalized_backend()
-        != "gcs"
+        parsed.scheme != "gs"
+        or not parsed.netloc
+        or not parsed.path
     ):
-        return
-
-    directories: set[Path] = set()
-
-    for result in results:
-        path = (
-            result.raster_path
-            .resolve()
+        raise ValueError(
+            "Expected canonical gs:// raster URI. "
+            f"Received: {raster_uri}"
         )
 
-        directories.add(
-            path.parent
+    return (
+        parsed.netloc,
+        parsed.path.lstrip("/"),
+    )
+
+
+@contextmanager
+def materialize_metric_raster(
+    raster_uri: str,
+):
+    """
+    Download a GCS COG to an ephemeral temporary file for algorithms that
+    require a local rasterio path. The file is always removed afterwards.
+    """
+
+    bucket_name, object_key = (
+        _parse_gs_uri(
+            raster_uri
+        )
+    )
+
+    with tempfile.TemporaryDirectory(
+        prefix="farm-raster-"
+    ) as temporary:
+        destination = (
+            Path(temporary)
+            / Path(object_key).name
         )
 
-        try:
-            path.unlink(
-                missing_ok=True
+        (
+            gcs_client()
+            .bucket(
+                bucket_name
             )
-        except OSError as error:
-            print(
-                "  Warning: unable to remove local COG "
-                f"{path}: {error}"
+            .blob(
+                object_key
             )
+            .download_to_filename(
+                str(destination)
+            )
+        )
 
-    for directory in sorted(
-        directories,
-        key=lambda value:
-            len(value.parts),
-        reverse=True,
-    ):
-        current = directory
-
-        for _ in range(2):
-            try:
-                current.rmdir()
-            except OSError:
-                break
-
-            current = current.parent
+        yield destination

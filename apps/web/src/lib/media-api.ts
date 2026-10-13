@@ -1,4 +1,3 @@
-
 import { auth } from "./firebase";
 
 import type {
@@ -110,29 +109,6 @@ async function requestJson<T>(
 }
 
 
-async function requestBlob(
-  path: string,
-) {
-  const headers =
-    await authHeaders();
-
-  const response = await fetch(
-    `${API_URL}${path}`,
-    {
-      headers,
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      `Media request failed (${response.status})`,
-    );
-  }
-
-  return response.blob();
-}
-
-
 export function createMediaUpload(
   fieldId: string,
   data: {
@@ -159,23 +135,6 @@ export async function uploadMediaFile(
   target: MediaUploadTarget,
   file: File,
 ) {
-  if (
-    target.upload_method ===
-    "api_put"
-  ) {
-    await requestJson<void>(
-      target.upload_url,
-      {
-        method: "PUT",
-        headers:
-          target.upload_headers,
-        body: file,
-      },
-    );
-
-    return;
-  }
-
   const response = await fetch(
     target.upload_url,
     {
@@ -223,24 +182,6 @@ export function listFieldMedia(
 ) {
   return requestJson<MediaAsset[]>(
     `/fields/${fieldId}/media`,
-  );
-}
-
-
-export function getMediaBlob(
-  mediaId: string,
-) {
-  return requestBlob(
-    `/media/${mediaId}/content`,
-  );
-}
-
-
-export function getMediaThumbnailBlob(
-  mediaId: string,
-) {
-  return requestBlob(
-    `/media/${mediaId}/thumbnail`,
   );
 }
 

@@ -19,8 +19,6 @@ import {
   completeMediaUpload,
   createMediaUpload,
   deleteMediaAsset,
-  getMediaBlob,
-  getMediaThumbnailBlob,
   listFieldMedia,
   retryMediaProcessing,
   uploadMediaFile,
@@ -979,146 +977,6 @@ function MediaCard({
 
   onRetry: () => void;
 }) {
-  const [
-    originalLocalUrl,
-    setOriginalLocalUrl,
-  ] =
-    useState<string | null>(
-      null,
-    );
-
-  const [
-    thumbnailLocalUrl,
-    setThumbnailLocalUrl,
-  ] =
-    useState<string | null>(
-      null,
-    );
-
-  const [
-    previewError,
-    setPreviewError,
-  ] = useState(false);
-
-
-  useEffect(() => {
-    if (media.download_url) {
-      setOriginalLocalUrl(
-        null
-      );
-
-      return;
-    }
-
-    let cancelled = false;
-
-    let objectUrl:
-      | string
-      | null = null;
-
-    void getMediaBlob(
-      media.id,
-    )
-      .then((blob) => {
-        if (cancelled) {
-          return;
-        }
-
-        objectUrl =
-          URL.createObjectURL(
-            blob,
-          );
-
-        setOriginalLocalUrl(
-          objectUrl,
-        );
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPreviewError(
-            true,
-          );
-        }
-      });
-
-    return () => {
-      cancelled = true;
-
-      if (objectUrl) {
-        URL.revokeObjectURL(
-          objectUrl,
-        );
-      }
-    };
-  }, [
-    media.id,
-    media.download_url,
-  ]);
-
-
-  useEffect(() => {
-    if (
-      !media.thumbnail_available
-      || media.thumbnail_url
-    ) {
-      setThumbnailLocalUrl(
-        null
-      );
-
-      return;
-    }
-
-    let cancelled = false;
-
-    let objectUrl:
-      | string
-      | null = null;
-
-    void getMediaThumbnailBlob(
-      media.id,
-    )
-      .then((blob) => {
-        if (cancelled) {
-          return;
-        }
-
-        objectUrl =
-          URL.createObjectURL(
-            blob,
-          );
-
-        setThumbnailLocalUrl(
-          objectUrl,
-        );
-      })
-      .catch(() => {
-        // Original media remains the fallback.
-      });
-
-    return () => {
-      cancelled = true;
-
-      if (objectUrl) {
-        URL.revokeObjectURL(
-          objectUrl,
-        );
-      }
-    };
-  }, [
-    media.id,
-    media.thumbnail_available,
-    media.thumbnail_url,
-  ]);
-
-
-  const originalSource =
-    media.download_url ??
-    originalLocalUrl;
-
-  const thumbnailSource =
-    media.thumbnail_url ??
-    thumbnailLocalUrl;
-
   const status =
     derivativeStatus(
       media
@@ -1129,18 +987,16 @@ function MediaCard({
       media.duration_seconds
     );
 
+  const originalSource =
+    media.download_url;
+
+  const previewSource =
+    media.preview_url;
 
   return (
     <article className="media-card">
       <div className="media-preview">
-        {!originalSource &&
-          !previewError && (
-            <div className="media-preview-loading">
-              Loading…
-            </div>
-          )}
-
-        {previewError && (
+        {!originalSource && (
           <div className="media-preview-loading">
             Preview unavailable
           </div>
@@ -1151,7 +1007,7 @@ function MediaCard({
             "image" && (
             <img
               src={
-                thumbnailSource ??
+                previewSource ??
                 originalSource
               }
               alt={
@@ -1171,14 +1027,14 @@ function MediaCard({
                   originalSource
                 }
                 poster={
-                  thumbnailSource ??
+                  previewSource ??
                   undefined
                 }
                 controls
                 preload="metadata"
               />
 
-              {!thumbnailSource && (
+              {!previewSource && (
                 <div className="media-video-badge">
                   <Play
                     size={12}

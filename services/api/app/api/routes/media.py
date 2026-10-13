@@ -11,14 +11,10 @@ from fastapi import (
     BackgroundTasks,
     HTTPException,
     Query,
-    Request,
     Response,
     status,
 )
-from fastapi.responses import (
-    FileResponse,
-    RedirectResponse,
-)
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DBSession
@@ -38,13 +34,8 @@ from app.services.ownership import (
     get_owned_crop_cycle,
     get_owned_field,
 )
-from app.storage import (
-    StorageBackend,
-    get_storage,
-    get_storage_for_location,
-)
+from app.storage import get_storage
 from app.storage.layout import (
-    STORAGE_LAYOUT_VERSION,
     media_manifest_key,
     media_original_key,
 )
@@ -212,32 +203,14 @@ def _get_owned_media(
     return media
 
 
-def _storage_for_media(
-    media: MediaAsset,
-) -> StorageBackend:
-    return get_storage_for_location(
-        storage_backend=(
-            media.storage_backend
-        ),
-        bucket_name=(
-            media.bucket_name
-        ),
-    )
-
-
 def _signed_download_url(
-    media: MediaAsset,
     object_key: str | None,
 ) -> str | None:
     if not object_key:
         return None
 
-    storage = _storage_for_media(
-        media
-    )
-
     return (
-        storage
+        get_storage()
         .create_signed_download_url(
             object_key=object_key,
             expires_minutes=(
@@ -246,30 +219,6 @@ def _signed_download_url(
             ),
         )
     )
-
-
-def _thumbnail_content_type(
-    object_key: str,
-) -> str:
-    suffix = (
-        Path(object_key)
-        .suffix
-        .lower()
-    )
-
-    if suffix == ".webp":
-        return "image/webp"
-
-    if suffix in (
-        ".jpg",
-        ".jpeg",
-    ):
-        return "image/jpeg"
-
-    if suffix == ".png":
-        return "image/png"
-
-    return "application/octet-stream"
 
 
 def _to_response(
@@ -287,9 +236,6 @@ def _to_response(
         ),
         media_type=media.media_type,
         status=media.status,
-        storage_backend=(
-            media.storage_backend
-        ),
         original_filename=(
             media.original_filename
         ),
@@ -311,20 +257,14 @@ def _to_response(
         ),
         download_url=(
             _signed_download_url(
-                media,
-                media.object_key,
+                media.object_key
             )
             if media.status == "ready"
             else None
         ),
-        thumbnail_available=(
-            media.thumbnail_object_key
-            is not None
-        ),
-        thumbnail_url=(
+        preview_url=(
             _signed_download_url(
-                media,
-                media.thumbnail_object_key,
+                media.preview_object_key
             )
             if media.status == "ready"
             else None
@@ -359,7 +299,7 @@ def _queue_derivative_processing(
             "derivative_status"
         )
         == "complete"
-        and media.thumbnail_object_key
+        and media.preview_object_key
     ):
         return
 
@@ -544,8 +484,6 @@ def create_media_upload(
         extension=extension,
     )
 
-    storage = get_storage()
-
     media = MediaAsset(
         id=media_id,
         uploaded_by_user_id=(
@@ -562,14 +500,8 @@ def create_media_upload(
         ),
         media_type=media_type,
         status="pending",
-        storage_backend=(
-            storage.backend_name
-        ),
-        bucket_name=(
-            storage.bucket_name
-        ),
         object_key=object_key,
-        thumbnail_object_key=None,
+        preview_object_key=None,
         original_filename=(
             Path(
                 data.original_filename
@@ -589,8 +521,6 @@ def create_media_upload(
         duration_seconds=None,
         caption=data.caption,
         metadata_json={
-            "storage_layout_version":
-                STORAGE_LAYOUT_VERSION,
             "storage_date":
                 storage_date.isoformat(),
         },
@@ -600,162 +530,29 @@ def create_media_upload(
     db.commit()
     db.refresh(media)
 
-    if (
-        storage.backend_name
-        == "gcs"
-    ):
-        signed_url = (
-            storage
-            .create_signed_upload_url(
-                object_key=object_key,
-                content_type=(
-                    normalized_content_type
-                ),
-                expires_minutes=(
-                    settings
-                    .media_upload_url_expiry_minutes
-                ),
-            )
+    upload_url = (
+        get_storage()
+        .create_signed_upload_url(
+            object_key=object_key,
+            content_type=(
+                normalized_content_type
+            ),
+            expires_minutes=(
+                settings
+                .media_upload_url_expiry_minutes
+            ),
         )
-
-        if signed_url is None:
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    "Unable to create "
-                    "GCS upload URL."
-                ),
-            )
-
-        upload_method = (
-            "gcs_signed_put"
-        )
-
-        upload_url = signed_url
-
-    else:
-        upload_method = "api_put"
-
-        upload_url = (
-            f"/media/{media.id}/content"
-        )
+    )
 
     return MediaUploadTarget(
         media=_to_response(
             media
         ),
-        upload_method=(
-            upload_method
-        ),
         upload_url=upload_url,
         upload_headers={
-            "Content-Type": (
-                normalized_content_type
-            ),
+            "Content-Type":
+                normalized_content_type,
         },
-    )
-
-
-@router.put(
-    "/media/{media_id}/content",
-    status_code=(
-        status.HTTP_204_NO_CONTENT
-    ),
-)
-async def upload_local_media_content(
-    media_id: UUID,
-    request: Request,
-    db: DBSession,
-    current_user: CurrentUser,
-) -> Response:
-    media = _get_owned_media(
-        media_id=media_id,
-        db=db,
-        current_user=current_user,
-    )
-
-    if media.status != "pending":
-        raise HTTPException(
-            status_code=(
-                status.HTTP_409_CONFLICT
-            ),
-            detail=(
-                "Media upload is not pending."
-            ),
-        )
-
-    storage = _storage_for_media(
-        media
-    )
-
-    if (
-        storage.backend_name
-        != "local"
-    ):
-        raise HTTPException(
-            status_code=(
-                status.HTTP_409_CONFLICT
-            ),
-            detail=(
-                "Direct API upload is only "
-                "available for local storage."
-            ),
-        )
-
-    request_content_type = (
-        _normalized_content_type(
-            request.headers.get(
-                "content-type",
-                "",
-            )
-        )
-    )
-
-    if (
-        request_content_type
-        and request_content_type
-        != media.content_type
-    ):
-        raise HTTPException(
-            status_code=(
-                status.HTTP_422_UNPROCESSABLE_ENTITY
-            ),
-            detail=(
-                "Uploaded Content-Type "
-                "does not match the "
-                "declared media type."
-            ),
-        )
-
-    try:
-        await storage.put_async_chunks(
-            object_key=(
-                media.object_key
-            ),
-            chunks=request.stream(),
-            content_type=(
-                media.content_type
-            ),
-            expected_size=(
-                media.size_bytes
-            ),
-            max_size=_maximum_size(
-                media.media_type
-            ),
-        )
-
-    except ValueError as error:
-        raise HTTPException(
-            status_code=(
-                status.HTTP_422_UNPROCESSABLE_ENTITY
-            ),
-            detail=str(error),
-        )
-
-    return Response(
-        status_code=(
-            status.HTTP_204_NO_CONTENT
-        )
     )
 
 
@@ -808,9 +605,7 @@ def complete_media_upload(
             ),
         )
 
-    storage = _storage_for_media(
-        media
-    )
+    storage = get_storage()
 
     info = storage.stat(
         media.object_key
@@ -857,10 +652,6 @@ def complete_media_upload(
             media.metadata_json
             or {}
         ),
-        "storage_etag":
-            info.etag,
-        "storage_layout_version":
-            STORAGE_LAYOUT_VERSION,
     }
 
     _queue_derivative_processing(
@@ -989,15 +780,14 @@ def list_field_media(
             .is_(None)
         )
 
-    rows = db.scalars(
-        statement
-    ).all()
-
     return [
         _to_response(
             media
         )
-        for media in rows
+        for media
+        in db.scalars(
+            statement
+        ).all()
     ]
 
 
@@ -1012,14 +802,12 @@ def get_media(
     db: DBSession,
     current_user: CurrentUser,
 ) -> MediaAssetResponse:
-    media = _get_owned_media(
-        media_id=media_id,
-        db=db,
-        current_user=current_user,
-    )
-
     return _to_response(
-        media
+        _get_owned_media(
+            media_id=media_id,
+            db=db,
+            current_user=current_user,
+        )
     )
 
 
@@ -1045,61 +833,29 @@ def get_media_content(
             detail="Media is not ready.",
         )
 
-    storage = _storage_for_media(
-        media
-    )
-
-    signed_url = (
-        storage
-        .create_signed_download_url(
-            object_key=(
-                media.object_key
-            ),
-            expires_minutes=(
-                settings
-                .media_download_url_expiry_minutes
-            ),
-        )
-    )
-
-    if signed_url is not None:
-        return RedirectResponse(
-            url=signed_url,
-            status_code=(
-                status.HTTP_307_TEMPORARY_REDIRECT
-            ),
-        )
-
-    local_path = storage.local_path(
-        media.object_key
-    )
-
-    if local_path is None:
-        raise HTTPException(
-            status_code=(
-                status.HTTP_404_NOT_FOUND
-            ),
-            detail=(
-                "Media object not found."
-            ),
-        )
-
-    return FileResponse(
-        path=local_path,
-        media_type=(
-            media.content_type
+    return RedirectResponse(
+        url=(
+            get_storage()
+            .create_signed_download_url(
+                object_key=(
+                    media.object_key
+                ),
+                expires_minutes=(
+                    settings
+                    .media_download_url_expiry_minutes
+                ),
+            )
         ),
-        filename=(
-            media.original_filename
+        status_code=(
+            status.HTTP_307_TEMPORARY_REDIRECT
         ),
-        content_disposition_type="inline",
     )
 
 
 @router.get(
-    "/media/{media_id}/thumbnail",
+    "/media/{media_id}/preview",
 )
-def get_media_thumbnail(
+def get_media_preview(
     media_id: UUID,
     db: DBSession,
     current_user: CurrentUser,
@@ -1110,67 +866,33 @@ def get_media_thumbnail(
         current_user=current_user,
     )
 
-    if not (
-        media.thumbnail_object_key
-    ):
+    if not media.preview_object_key:
         raise HTTPException(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
             detail=(
-                "Media thumbnail is "
+                "Media preview is "
                 "not available yet."
             ),
         )
 
-    storage = _storage_for_media(
-        media
-    )
-
-    signed_url = (
-        storage
-        .create_signed_download_url(
-            object_key=(
-                media.thumbnail_object_key
-            ),
-            expires_minutes=(
-                settings
-                .media_download_url_expiry_minutes
-            ),
-        )
-    )
-
-    if signed_url is not None:
-        return RedirectResponse(
-            url=signed_url,
-            status_code=(
-                status.HTTP_307_TEMPORARY_REDIRECT
-            ),
-        )
-
-    local_path = storage.local_path(
-        media.thumbnail_object_key
-    )
-
-    if local_path is None:
-        raise HTTPException(
-            status_code=(
-                status.HTTP_404_NOT_FOUND
-            ),
-            detail=(
-                "Media thumbnail object "
-                "was not found."
-            ),
-        )
-
-    return FileResponse(
-        path=local_path,
-        media_type=(
-            _thumbnail_content_type(
-                media.thumbnail_object_key
+    return RedirectResponse(
+        url=(
+            get_storage()
+            .create_signed_download_url(
+                object_key=(
+                    media.preview_object_key
+                ),
+                expires_minutes=(
+                    settings
+                    .media_download_url_expiry_minutes
+                ),
             )
         ),
-        content_disposition_type="inline",
+        status_code=(
+            status.HTTP_307_TEMPORARY_REDIRECT
+        ),
     )
 
 
@@ -1191,19 +913,15 @@ def delete_media(
         current_user=current_user,
     )
 
-    storage = _storage_for_media(
-        media
-    )
+    storage = get_storage()
 
     storage.delete(
         media.object_key
     )
 
-    if (
-        media.thumbnail_object_key
-    ):
+    if media.preview_object_key:
         storage.delete(
-            media.thumbnail_object_key
+            media.preview_object_key
         )
 
     storage.delete(

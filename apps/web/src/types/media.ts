@@ -23,8 +23,6 @@ export type MediaAsset = {
 
   status: MediaStatus;
 
-  storage_backend: string;
-
   original_filename: string;
 
   content_type: string;
@@ -45,9 +43,7 @@ export type MediaAsset = {
 
   download_url: string | null;
 
-  thumbnail_available: boolean;
-
-  thumbnail_url: string | null;
+  preview_url: string | null;
 
   created_at: string;
   updated_at: string;
@@ -55,10 +51,6 @@ export type MediaAsset = {
 
 export type MediaUploadTarget = {
   media: MediaAsset;
-
-  upload_method:
-    | "api_put"
-    | "gcs_signed_put";
 
   upload_url: string;
 

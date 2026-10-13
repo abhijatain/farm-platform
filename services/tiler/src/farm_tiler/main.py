@@ -75,10 +75,8 @@ add_exception_handlers(
 def health():
     return {
         "status": "ok",
-        "private_gcs_enabled": (
-            bool(
-                settings
-                .gcs_bucket_name
-            )
+        "storage": "private-gcs",
+        "bucket": (
+            settings.gcs_bucket_name
         ),
     }

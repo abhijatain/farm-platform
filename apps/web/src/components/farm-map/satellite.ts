@@ -1,10 +1,22 @@
 import type {
   SatelliteAnomalyFeatureCollection,
-  SatelliteMetricType,
   SatelliteObservation,
 } from "../../types/api";
 
-export type { SatelliteMetricType };
+export type SatelliteMetricType =
+  | "ndvi"
+  | "ndre"
+  | "ndmi"
+  | "gndvi"
+  | "evi2"
+  | "ndwi"
+  | "savi"
+  | "msavi"
+  | "bsi"
+  | "ndti"
+  | "ccci"
+  | "reci"
+  | "mcari";
 
 export type SatelliteMetric = {
   id?: string;
@@ -23,10 +35,8 @@ export type SatelliteMetric = {
   metadata_json?: Record<string, unknown> | null;
 };
 
-// Optional during the API migration: the UI shows "no metrics" instead of crashing.
-export type SatelliteObservationWithMetrics = SatelliteObservation & {
-  metrics?: SatelliteMetric[];
-};
+export type SatelliteObservationWithMetrics =
+  SatelliteObservation;
 
 export type MetricGroup =
   | "Vegetation"
@@ -34,13 +44,10 @@ export type MetricGroup =
   | "Moisture / water"
   | "Soil / residue";
 
-export type MetricAnomalyDirection = "low" | "high" | "two_sided";
-
 export type MetricDisplayConfig = {
   label: string;
   group: MetricGroup;
   description: string;
-  anomalyDirection: MetricAnomalyDirection;
   displayMin: number;
   displayMax: number;
   colormap: "rdylgn" | "rdbu" | "viridis";
@@ -58,73 +65,74 @@ export type MetricDisplayConfig = {
  * by TiTiler's rescaling. The real scene min/max are still shown in
  * the metadata panel below the map controls.
  */
-export const METRIC_CONFIG: Record<SatelliteMetricType, MetricDisplayConfig> = {
+export const METRIC_CONFIG: Record<
+  SatelliteMetricType,
+  MetricDisplayConfig
+> = {
   ndvi: {
     label: "NDVI",
     group: "Vegetation",
     description: "Vegetation greenness and canopy vigor.",
-    anomalyDirection: "low",
     displayMin: -0.2,
     displayMax: 0.9,
     colormap: "rdylgn",
-    gradient: "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
+    gradient:
+      "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
   },
   gndvi: {
     label: "GNDVI",
     group: "Vegetation",
-    description:
-      "Green-band vegetation response, sensitive to canopy condition.",
-    anomalyDirection: "low",
+    description: "Green-band vegetation response, sensitive to canopy condition.",
     displayMin: -0.2,
     displayMax: 0.85,
     colormap: "rdylgn",
-    gradient: "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
+    gradient:
+      "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
   },
   evi2: {
     label: "EVI2",
     group: "Vegetation",
     description: "Vegetation signal with reduced soil/background sensitivity.",
-    anomalyDirection: "low",
     displayMin: -0.1,
     displayMax: 1.0,
     colormap: "rdylgn",
-    gradient: "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
+    gradient:
+      "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
   },
   savi: {
     label: "SAVI",
     group: "Vegetation",
     description: "Vegetation index adjusted for visible soil background.",
-    anomalyDirection: "low",
     displayMin: -0.2,
     displayMax: 1.0,
     colormap: "rdylgn",
-    gradient: "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
+    gradient:
+      "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
   },
   msavi: {
     label: "MSAVI",
     group: "Vegetation",
     description: "Vegetation index with adaptive soil-background adjustment.",
-    anomalyDirection: "low",
     displayMin: -0.2,
     displayMax: 1.0,
     colormap: "rdylgn",
-    gradient: "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
+    gradient:
+      "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
   },
   ndre: {
     label: "NDRE",
     group: "Chlorophyll / red edge",
     description: "Red-edge vegetation response useful in denser canopies.",
-    anomalyDirection: "low",
     displayMin: -0.2,
     displayMax: 0.65,
     colormap: "rdylgn",
-    gradient: "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
+    gradient:
+      "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
   },
   ccci: {
     label: "CCCI",
     group: "Chlorophyll / red edge",
     description: "Relative red-edge response normalized by NDVI.",
-    anomalyDirection: "low",
     displayMin: -0.5,
     displayMax: 1.5,
     colormap: "viridis",
@@ -135,7 +143,6 @@ export const METRIC_CONFIG: Record<SatelliteMetricType, MetricDisplayConfig> = {
     label: "RECI",
     group: "Chlorophyll / red edge",
     description: "Red-edge chlorophyll-sensitive reflectance ratio.",
-    anomalyDirection: "low",
     displayMin: -0.5,
     displayMax: 3.0,
     colormap: "viridis",
@@ -146,7 +153,6 @@ export const METRIC_CONFIG: Record<SatelliteMetricType, MetricDisplayConfig> = {
     label: "MCARI",
     group: "Chlorophyll / red edge",
     description: "Chlorophyll-sensitive red-edge/green vegetation signal.",
-    anomalyDirection: "low",
     displayMin: -0.1,
     displayMax: 0.5,
     colormap: "viridis",
@@ -157,29 +163,26 @@ export const METRIC_CONFIG: Record<SatelliteMetricType, MetricDisplayConfig> = {
     label: "NDMI",
     group: "Moisture / water",
     description: "Canopy moisture-sensitive NIR/SWIR response.",
-    anomalyDirection: "low",
     displayMin: -0.6,
     displayMax: 0.8,
     colormap: "rdbu",
-    gradient: "linear-gradient(90deg, #b2182b 0%, #f7f7f7 50%, #2166ac 100%)",
+    gradient:
+      "linear-gradient(90deg, #b2182b 0%, #f7f7f7 50%, #2166ac 100%)",
   },
   ndwi: {
     label: "NDWI",
     group: "Moisture / water",
-    description:
-      "Green/NIR water-sensitive index; positive values can indicate water.",
-    anomalyDirection: "two_sided",
+    description: "Green/NIR water-sensitive index; positive values can indicate water.",
     displayMin: -0.8,
     displayMax: 0.8,
     colormap: "rdbu",
-    gradient: "linear-gradient(90deg, #b2182b 0%, #f7f7f7 50%, #2166ac 100%)",
+    gradient:
+      "linear-gradient(90deg, #b2182b 0%, #f7f7f7 50%, #2166ac 100%)",
   },
   bsi: {
     label: "BSI",
     group: "Soil / residue",
-    description:
-      "Bare-soil exposure signal; interpretation depends on crop stage.",
-    anomalyDirection: "high",
+    description: "Bare-soil exposure signal; interpretation depends on crop stage.",
     displayMin: -0.6,
     displayMax: 0.6,
     colormap: "viridis",
@@ -190,7 +193,6 @@ export const METRIC_CONFIG: Record<SatelliteMetricType, MetricDisplayConfig> = {
     label: "NDTI",
     group: "Soil / residue",
     description: "SWIR residue/tillage-sensitive surface signal.",
-    anomalyDirection: "two_sided",
     displayMin: -0.4,
     displayMax: 0.5,
     colormap: "viridis",
@@ -234,35 +236,14 @@ export const EMPTY_ANOMALIES: SatelliteAnomalyFeatureCollection = {
   features: [],
 };
 
-function metricsOf(observation: SatelliteObservationWithMetrics) {
-  return observation.metrics ?? [];
+function metricsOf(
+  observation: SatelliteObservationWithMetrics,
+) {
+  return observation.metrics;
 }
 
 export function getMetricConfig(metricType: SatelliteMetricType) {
   return METRIC_CONFIG[metricType];
-}
-
-export function getMetricAnomalyDescription(metricType: SatelliteMetricType) {
-  const config = getMetricConfig(metricType);
-
-  if (config.anomalyDirection === "low") {
-    return (
-      `Areas with unusually low ${config.label} values ` +
-      "relative to the rest of this field."
-    );
-  }
-
-  if (config.anomalyDirection === "high") {
-    return (
-      `Areas with unusually high ${config.label} values ` +
-      "relative to the rest of this field."
-    );
-  }
-
-  return (
-    `Areas with unusually low or high ${config.label} values ` +
-    "relative to the rest of this field."
-  );
 }
 
 export function getMetricFromObservation(
@@ -289,7 +270,9 @@ export function getMetricForObservation(
     (candidate) => candidate.id === observationId,
   );
 
-  return observation ? getMetricFromObservation(observation, metricType) : null;
+  return observation
+    ? getMetricFromObservation(observation, metricType)
+    : null;
 }
 
 export function getObservationsForMetric(
@@ -314,7 +297,8 @@ export function getDefaultObservation(
     available.find((observation) => {
       const metric = getMetricFromObservation(observation, metricType);
       return (
-        metric?.valid_pixel_percent == null || metric.valid_pixel_percent >= 80
+        metric?.valid_pixel_percent == null ||
+        metric.valid_pixel_percent >= 80
       );
     }) ??
     available[0] ??
@@ -331,7 +315,9 @@ export function formatObservationDate(value: string) {
 }
 
 export function formatMetricValue(value: number | null, digits = 2) {
-  return value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
+  return value == null || !Number.isFinite(value)
+    ? "—"
+    : value.toFixed(digits);
 }
 
 export function buildMetricTileJsonUrl(
