@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Plus, X } from "lucide-react";
 
+import ActivityMediaSection from "./ActivityMediaSection";
 import {
   createActivity,
   createCropCycle,
@@ -875,6 +876,10 @@ function ActivitiesTab({
               ))}
             </div>
           </section>
+          <ActivityMediaSection
+            fieldId={field.id}
+            activity={selectedActivity}
+          />
         </>
       )}
     </div>

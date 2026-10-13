@@ -6,6 +6,7 @@ from app.api.routes import (
     crop_cycles,
     farms,
     fields,
+    media,
     satellite_observations,
     seasons,
 )
@@ -24,5 +25,7 @@ api_router.include_router(seasons.router)
 api_router.include_router(crop_cycles.router)
 
 api_router.include_router(activities.router)
+
+api_router.include_router(media.router)
 
 api_router.include_router(satellite_observations.router)

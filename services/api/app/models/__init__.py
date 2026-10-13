@@ -2,6 +2,7 @@ from app.models.activity import Activity
 from app.models.crop_cycle import CropCycle
 from app.models.farm import Farm
 from app.models.field import Field
+from app.models.media_asset import MediaAsset
 from app.models.satellite_anomaly import SatelliteAnomaly
 from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
@@ -18,4 +19,5 @@ __all__ = [
     "SatelliteObservation",
     "SatelliteAnomaly",
     "SatelliteMetric",
+    "MediaAsset",
 ]

@@ -10,4 +10,4 @@ uv-cache/
 node_modules/
 
 # Generated data
-/data/
+data/

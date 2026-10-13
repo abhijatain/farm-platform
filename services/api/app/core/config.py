@@ -20,6 +20,27 @@ class Settings(BaseSettings):
     cors_origins: str = (
         "http://localhost:8081," "http://127.0.0.1:8081," "http://192.168.1.8:8081"
     )
+    # -------------------------------------------------
+    # OBJECT STORAGE
+    # -------------------------------------------------
+
+    storage_backend: str = "local"
+
+    storage_local_root: Path = Path("./data/storage")
+
+    gcs_bucket_name: str | None = None
+
+    gcs_project_id: str | None = None
+
+    gcs_credentials_path: Path | None = None
+
+    media_upload_url_expiry_minutes: int = 15
+
+    media_download_url_expiry_minutes: int = 30
+
+    media_max_image_bytes: int = 25 * 1024 * 1024
+
+    media_max_video_bytes: int = 500 * 1024 * 1024
 
     model_config = SettingsConfigDict(
         env_file=".env",
