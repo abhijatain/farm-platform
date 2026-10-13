@@ -1,12 +1,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     HTTPException,
     Query,
     Request,
@@ -22,17 +24,33 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DBSession
 from app.core.config import settings
 from app.models.activity import Activity
+from app.models.farm import Farm
 from app.models.media_asset import MediaAsset
 from app.schemas.media import (
     MediaAssetResponse,
     MediaUploadCreate,
     MediaUploadTarget,
 )
+from app.services.media_processing import (
+    process_media_asset,
+)
 from app.services.ownership import (
     get_owned_crop_cycle,
     get_owned_field,
 )
-from app.storage import get_storage
+from app.storage import (
+    StorageBackend,
+    get_storage,
+    get_storage_for_location,
+)
+from app.storage.layout import (
+    STORAGE_LAYOUT_VERSION,
+    media_manifest_key,
+    media_original_key,
+)
+from app.storage.manifests import (
+    write_media_manifests,
+)
 
 
 router = APIRouter(
@@ -105,15 +123,12 @@ def _normalized_content_type(
 def _media_type_info(
     content_type: str,
 ) -> ContentTypeInfo:
-    normalized = (
-        _normalized_content_type(
-            content_type
-        )
+    normalized = _normalized_content_type(
+        content_type
     )
 
-    info = (
-        ALLOWED_CONTENT_TYPES
-        .get(normalized)
+    info = ALLOWED_CONTENT_TYPES.get(
+        normalized
     )
 
     if info is None:
@@ -123,8 +138,7 @@ def _media_type_info(
             ),
             detail=(
                 "Unsupported media type. "
-                "Supported images: JPEG, PNG, "
-                "WebP, HEIC/HEIF. "
+                "Supported images: JPEG, PNG, WebP, HEIC/HEIF. "
                 "Supported videos: MP4, MOV, WebM."
             ),
         )
@@ -175,10 +189,9 @@ def _get_owned_media(
     current_user: CurrentUser,
 ) -> MediaAsset:
     media = db.scalar(
-        select(
-            MediaAsset
-        ).where(
-            MediaAsset.id == media_id
+        select(MediaAsset).where(
+            MediaAsset.id
+            == media_id
         )
     )
 
@@ -199,24 +212,64 @@ def _get_owned_media(
     return media
 
 
-def _download_url(
+def _storage_for_media(
     media: MediaAsset,
+) -> StorageBackend:
+    return get_storage_for_location(
+        storage_backend=(
+            media.storage_backend
+        ),
+        bucket_name=(
+            media.bucket_name
+        ),
+    )
+
+
+def _signed_download_url(
+    media: MediaAsset,
+    object_key: str | None,
 ) -> str | None:
-    if media.status != "ready":
+    if not object_key:
         return None
 
-    storage = get_storage()
+    storage = _storage_for_media(
+        media
+    )
 
     return (
         storage
         .create_signed_download_url(
-            object_key=media.object_key,
+            object_key=object_key,
             expires_minutes=(
                 settings
                 .media_download_url_expiry_minutes
             ),
         )
     )
+
+
+def _thumbnail_content_type(
+    object_key: str,
+) -> str:
+    suffix = (
+        Path(object_key)
+        .suffix
+        .lower()
+    )
+
+    if suffix == ".webp":
+        return "image/webp"
+
+    if suffix in (
+        ".jpg",
+        ".jpeg",
+    ):
+        return "image/jpeg"
+
+    if suffix == ".png":
+        return "image/png"
+
+    return "application/octet-stream"
 
 
 def _to_response(
@@ -229,29 +282,115 @@ def _to_response(
         ),
         field_id=media.field_id,
         activity_id=media.activity_id,
-        crop_cycle_id=media.crop_cycle_id,
+        crop_cycle_id=(
+            media.crop_cycle_id
+        ),
         media_type=media.media_type,
         status=media.status,
-        storage_backend=media.storage_backend,
+        storage_backend=(
+            media.storage_backend
+        ),
         original_filename=(
             media.original_filename
         ),
-        content_type=media.content_type,
+        content_type=(
+            media.content_type
+        ),
         size_bytes=media.size_bytes,
-        captured_at=media.captured_at,
+        captured_at=(
+            media.captured_at
+        ),
         width=media.width,
         height=media.height,
-        duration_seconds=media.duration_seconds,
+        duration_seconds=(
+            media.duration_seconds
+        ),
         caption=media.caption,
         metadata_json=(
             media.metadata_json
         ),
         download_url=(
-            _download_url(media)
+            _signed_download_url(
+                media,
+                media.object_key,
+            )
+            if media.status == "ready"
+            else None
         ),
-        created_at=media.created_at,
-        updated_at=media.updated_at,
+        thumbnail_available=(
+            media.thumbnail_object_key
+            is not None
+        ),
+        thumbnail_url=(
+            _signed_download_url(
+                media,
+                media.thumbnail_object_key,
+            )
+            if media.status == "ready"
+            else None
+        ),
+        created_at=(
+            media.created_at
+        ),
+        updated_at=(
+            media.updated_at
+        ),
     )
+
+
+def _queue_derivative_processing(
+    *,
+    media: MediaAsset,
+    background_tasks: BackgroundTasks,
+) -> None:
+    if not (
+        settings
+        .media_derivatives_enabled
+    ):
+        return
+
+    current_metadata = (
+        media.metadata_json
+        or {}
+    )
+
+    if (
+        current_metadata.get(
+            "derivative_status"
+        )
+        == "complete"
+        and media.thumbnail_object_key
+    ):
+        return
+
+    media.metadata_json = {
+        **current_metadata,
+        "derivative_status": "queued",
+        "derivative_error": None,
+    }
+
+    background_tasks.add_task(
+        process_media_asset,
+        media.id,
+    )
+
+
+def _write_manifests_best_effort(
+    *,
+    db: DBSession,
+    media: MediaAsset,
+) -> None:
+    try:
+        write_media_manifests(
+            db=db,
+            media=media,
+        )
+    except Exception as error:
+        print(
+            "Media manifest write failed: "
+            f"{type(error).__name__}: "
+            f"{error}"
+        )
 
 
 @router.post(
@@ -272,6 +411,21 @@ def create_media_upload(
         user_id=current_user.id,
         field_id=field_id,
     )
+
+    farm = db.scalar(
+        select(Farm).where(
+            Farm.id
+            == field.farm_id
+        )
+    )
+
+    if farm is None:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Farm hierarchy is missing."
+            ),
+        )
 
     normalized_content_type = (
         _normalized_content_type(
@@ -295,16 +449,16 @@ def create_media_upload(
 
     if data.activity_id is not None:
         activity = db.scalar(
-            select(
-                Activity
-            ).where(
-                Activity.id == data.activity_id
+            select(Activity).where(
+                Activity.id
+                == data.activity_id
             )
         )
 
         if (
             activity is None
-            or activity.field_id != field.id
+            or activity.field_id
+            != field.id
         ):
             raise HTTPException(
                 status_code=(
@@ -316,70 +470,104 @@ def create_media_upload(
                 ),
             )
 
-    crop_cycle_id = data.crop_cycle_id
+    crop_cycle_id = (
+        data.crop_cycle_id
+    )
 
     if (
         crop_cycle_id is None
         and activity is not None
     ):
-        crop_cycle_id = activity.crop_cycle_id
+        crop_cycle_id = (
+            activity.crop_cycle_id
+        )
 
     if crop_cycle_id is not None:
         crop_cycle = get_owned_crop_cycle(
             db=db,
             user_id=current_user.id,
-            crop_cycle_id=crop_cycle_id,
+            crop_cycle_id=(
+                crop_cycle_id
+            ),
         )
 
-        if crop_cycle.field_id != field.id:
-            raise HTTPException(
-                status_code=(
-                    status.HTTP_422_UNPROCESSABLE_ENTITY
-                ),
-                detail=(
-                    "The selected crop cycle does not "
-                    "belong to this field."
-                ),
-            )
-
         if (
-            activity is not None
-            and activity.crop_cycle_id is not None
-            and crop_cycle.id != activity.crop_cycle_id
+            crop_cycle.field_id
+            != field.id
         ):
             raise HTTPException(
                 status_code=(
                     status.HTTP_422_UNPROCESSABLE_ENTITY
                 ),
                 detail=(
-                    "Activity and crop cycle do not match."
+                    "The selected crop cycle "
+                    "does not belong to this field."
+                ),
+            )
+
+        if (
+            activity is not None
+            and activity.crop_cycle_id
+            is not None
+            and crop_cycle.id
+            != activity.crop_cycle_id
+        ):
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY
+                ),
+                detail=(
+                    "Activity and crop cycle "
+                    "do not match."
                 ),
             )
 
     media_id = uuid4()
 
-    object_key = (
-        f"fields/{field.id}/"
-        f"media/{media_id}/"
-        f"original{extension}"
+    storage_date = (
+        data.captured_at.date()
+        if data.captured_at
+        is not None
+        else datetime.now(
+            timezone.utc
+        ).date()
+    )
+
+    object_key = media_original_key(
+        user_id=current_user.id,
+        farm_slug=farm.storage_slug,
+        farm_id=farm.id,
+        field_slug=field.storage_slug,
+        field_id=field.id,
+        storage_date=storage_date,
+        media_id=media_id,
+        extension=extension,
     )
 
     storage = get_storage()
 
     media = MediaAsset(
         id=media_id,
-        uploaded_by_user_id=current_user.id,
+        uploaded_by_user_id=(
+            current_user.id
+        ),
         field_id=field.id,
         activity_id=(
             activity.id
             if activity is not None
             else None
         ),
-        crop_cycle_id=crop_cycle_id,
+        crop_cycle_id=(
+            crop_cycle_id
+        ),
         media_type=media_type,
         status="pending",
-        storage_backend=storage.backend_name,
-        bucket_name=storage.bucket_name,
+        storage_backend=(
+            storage.backend_name
+        ),
+        bucket_name=(
+            storage.bucket_name
+        ),
         object_key=object_key,
         thumbnail_object_key=None,
         original_filename=(
@@ -390,20 +578,32 @@ def create_media_upload(
         content_type=(
             normalized_content_type
         ),
-        size_bytes=data.size_bytes,
-        captured_at=data.captured_at,
+        size_bytes=(
+            data.size_bytes
+        ),
+        captured_at=(
+            data.captured_at
+        ),
         width=None,
         height=None,
         duration_seconds=None,
         caption=data.caption,
-        metadata_json={},
+        metadata_json={
+            "storage_layout_version":
+                STORAGE_LAYOUT_VERSION,
+            "storage_date":
+                storage_date.isoformat(),
+        },
     )
 
     db.add(media)
     db.commit()
     db.refresh(media)
 
-    if storage.backend_name == "gcs":
+    if (
+        storage.backend_name
+        == "gcs"
+    ):
         signed_url = (
             storage
             .create_signed_upload_url(
@@ -422,22 +622,31 @@ def create_media_upload(
             raise HTTPException(
                 status_code=500,
                 detail=(
-                    "Unable to create GCS upload URL."
+                    "Unable to create "
+                    "GCS upload URL."
                 ),
             )
 
-        upload_method = "gcs_signed_put"
+        upload_method = (
+            "gcs_signed_put"
+        )
+
         upload_url = signed_url
 
     else:
         upload_method = "api_put"
+
         upload_url = (
             f"/media/{media.id}/content"
         )
 
     return MediaUploadTarget(
-        media=_to_response(media),
-        upload_method=upload_method,
+        media=_to_response(
+            media
+        ),
+        upload_method=(
+            upload_method
+        ),
         upload_url=upload_url,
         upload_headers={
             "Content-Type": (
@@ -475,9 +684,14 @@ async def upload_local_media_content(
             ),
         )
 
-    storage = get_storage()
+    storage = _storage_for_media(
+        media
+    )
 
-    if storage.backend_name != "local":
+    if (
+        storage.backend_name
+        != "local"
+    ):
         raise HTTPException(
             status_code=(
                 status.HTTP_409_CONFLICT
@@ -507,17 +721,24 @@ async def upload_local_media_content(
                 status.HTTP_422_UNPROCESSABLE_ENTITY
             ),
             detail=(
-                "Uploaded Content-Type does not "
-                "match the declared media type."
+                "Uploaded Content-Type "
+                "does not match the "
+                "declared media type."
             ),
         )
 
     try:
         await storage.put_async_chunks(
-            object_key=media.object_key,
+            object_key=(
+                media.object_key
+            ),
             chunks=request.stream(),
-            content_type=media.content_type,
-            expected_size=media.size_bytes,
+            content_type=(
+                media.content_type
+            ),
+            expected_size=(
+                media.size_bytes
+            ),
             max_size=_maximum_size(
                 media.media_type
             ),
@@ -540,10 +761,13 @@ async def upload_local_media_content(
 
 @router.post(
     "/media/{media_id}/complete",
-    response_model=MediaAssetResponse,
+    response_model=(
+        MediaAssetResponse
+    ),
 )
 def complete_media_upload(
     media_id: UUID,
+    background_tasks: BackgroundTasks,
     db: DBSession,
     current_user: CurrentUser,
 ) -> MediaAssetResponse:
@@ -554,6 +778,21 @@ def complete_media_upload(
     )
 
     if media.status == "ready":
+        _queue_derivative_processing(
+            media=media,
+            background_tasks=(
+                background_tasks
+            ),
+        )
+
+        db.commit()
+        db.refresh(media)
+
+        _write_manifests_best_effort(
+            db=db,
+            media=media,
+        )
+
         return _to_response(
             media
         )
@@ -564,11 +803,14 @@ def complete_media_upload(
                 status.HTTP_409_CONFLICT
             ),
             detail=(
-                "Media upload cannot be completed."
+                "Media upload cannot "
+                "be completed."
             ),
         )
 
-    storage = get_storage()
+    storage = _storage_for_media(
+        media
+    )
 
     info = storage.stat(
         media.object_key
@@ -580,11 +822,15 @@ def complete_media_upload(
                 status.HTTP_409_CONFLICT
             ),
             detail=(
-                "Uploaded object was not found."
+                "Uploaded object was "
+                "not found."
             ),
         )
 
-    if info.size_bytes != media.size_bytes:
+    if (
+        info.size_bytes
+        != media.size_bytes
+    ):
         storage.delete(
             media.object_key
         )
@@ -598,20 +844,93 @@ def complete_media_upload(
                 status.HTTP_422_UNPROCESSABLE_ENTITY
             ),
             detail=(
-                "Uploaded file size did not "
-                "match the declared size."
+                "Uploaded file size "
+                "did not match the "
+                "declared size."
             ),
         )
 
     media.status = "ready"
 
     media.metadata_json = {
-        **(media.metadata_json or {}),
-        "storage_etag": info.etag,
+        **(
+            media.metadata_json
+            or {}
+        ),
+        "storage_etag":
+            info.etag,
+        "storage_layout_version":
+            STORAGE_LAYOUT_VERSION,
+    }
+
+    _queue_derivative_processing(
+        media=media,
+        background_tasks=(
+            background_tasks
+        ),
+    )
+
+    db.commit()
+    db.refresh(media)
+
+    _write_manifests_best_effort(
+        db=db,
+        media=media,
+    )
+
+    return _to_response(
+        media
+    )
+
+
+@router.post(
+    "/media/{media_id}/process",
+    response_model=(
+        MediaAssetResponse
+    ),
+)
+def retry_media_processing(
+    media_id: UUID,
+    background_tasks: BackgroundTasks,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> MediaAssetResponse:
+    media = _get_owned_media(
+        media_id=media_id,
+        db=db,
+        current_user=current_user,
+    )
+
+    if media.status != "ready":
+        raise HTTPException(
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=(
+                "Only ready media can "
+                "be processed."
+            ),
+        )
+
+    media.metadata_json = {
+        **(
+            media.metadata_json
+            or {}
+        ),
+        "derivative_status":
+            "queued",
+        "derivative_error":
+            None,
     }
 
     db.commit()
     db.refresh(media)
+
+    background_tasks.add_task(
+        process_media_asset,
+        media.id,
+        force=True,
+    )
 
     return _to_response(
         media
@@ -620,7 +939,9 @@ def complete_media_upload(
 
 @router.get(
     "/fields/{field_id}/media",
-    response_model=list[MediaAssetResponse],
+    response_model=(
+        list[MediaAssetResponse]
+    ),
 )
 def list_field_media(
     field_id: UUID,
@@ -640,12 +961,12 @@ def list_field_media(
     )
 
     statement = (
-        select(
-            MediaAsset
-        )
+        select(MediaAsset)
         .where(
-            MediaAsset.field_id == field_id,
-            MediaAsset.status == "ready",
+            MediaAsset.field_id
+            == field_id,
+            MediaAsset.status
+            == "ready",
         )
         .order_by(
             MediaAsset.captured_at
@@ -657,19 +978,15 @@ def list_field_media(
     )
 
     if activity_id is not None:
-        statement = (
-            statement.where(
-                MediaAsset.activity_id
-                == activity_id
-            )
+        statement = statement.where(
+            MediaAsset.activity_id
+            == activity_id
         )
 
     elif unlinked_only:
-        statement = (
-            statement.where(
-                MediaAsset.activity_id
-                .is_(None)
-            )
+        statement = statement.where(
+            MediaAsset.activity_id
+            .is_(None)
         )
 
     rows = db.scalars(
@@ -677,14 +994,18 @@ def list_field_media(
     ).all()
 
     return [
-        _to_response(media)
+        _to_response(
+            media
+        )
         for media in rows
     ]
 
 
 @router.get(
     "/media/{media_id}",
-    response_model=MediaAssetResponse,
+    response_model=(
+        MediaAssetResponse
+    ),
 )
 def get_media(
     media_id: UUID,
@@ -724,12 +1045,16 @@ def get_media_content(
             detail="Media is not ready.",
         )
 
-    storage = get_storage()
+    storage = _storage_for_media(
+        media
+    )
 
     signed_url = (
         storage
         .create_signed_download_url(
-            object_key=media.object_key,
+            object_key=(
+                media.object_key
+            ),
             expires_minutes=(
                 settings
                 .media_download_url_expiry_minutes
@@ -761,8 +1086,90 @@ def get_media_content(
 
     return FileResponse(
         path=local_path,
-        media_type=media.content_type,
-        filename=media.original_filename,
+        media_type=(
+            media.content_type
+        ),
+        filename=(
+            media.original_filename
+        ),
+        content_disposition_type="inline",
+    )
+
+
+@router.get(
+    "/media/{media_id}/thumbnail",
+)
+def get_media_thumbnail(
+    media_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+):
+    media = _get_owned_media(
+        media_id=media_id,
+        db=db,
+        current_user=current_user,
+    )
+
+    if not (
+        media.thumbnail_object_key
+    ):
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Media thumbnail is "
+                "not available yet."
+            ),
+        )
+
+    storage = _storage_for_media(
+        media
+    )
+
+    signed_url = (
+        storage
+        .create_signed_download_url(
+            object_key=(
+                media.thumbnail_object_key
+            ),
+            expires_minutes=(
+                settings
+                .media_download_url_expiry_minutes
+            ),
+        )
+    )
+
+    if signed_url is not None:
+        return RedirectResponse(
+            url=signed_url,
+            status_code=(
+                status.HTTP_307_TEMPORARY_REDIRECT
+            ),
+        )
+
+    local_path = storage.local_path(
+        media.thumbnail_object_key
+    )
+
+    if local_path is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Media thumbnail object "
+                "was not found."
+            ),
+        )
+
+    return FileResponse(
+        path=local_path,
+        media_type=(
+            _thumbnail_content_type(
+                media.thumbnail_object_key
+            )
+        ),
         content_disposition_type="inline",
     )
 
@@ -784,16 +1191,26 @@ def delete_media(
         current_user=current_user,
     )
 
-    storage = get_storage()
+    storage = _storage_for_media(
+        media
+    )
 
     storage.delete(
         media.object_key
     )
 
-    if media.thumbnail_object_key:
+    if (
+        media.thumbnail_object_key
+    ):
         storage.delete(
             media.thumbnail_object_key
         )
+
+    storage.delete(
+        media_manifest_key(
+            media.object_key
+        )
+    )
 
     db.delete(media)
     db.commit()

@@ -104,7 +104,32 @@ async function requestJson<T>(
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  return (
+    response.json() as Promise<T>
+  );
+}
+
+
+async function requestBlob(
+  path: string,
+) {
+  const headers =
+    await authHeaders();
+
+  const response = await fetch(
+    `${API_URL}${path}`,
+    {
+      headers,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Media request failed (${response.status})`,
+    );
+  }
+
+  return response.blob();
 }
 
 
@@ -181,6 +206,18 @@ export function completeMediaUpload(
 }
 
 
+export function retryMediaProcessing(
+  mediaId: string,
+) {
+  return requestJson<MediaAsset>(
+    `/media/${mediaId}/process`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+
 export function listFieldMedia(
   fieldId: string,
 ) {
@@ -190,26 +227,21 @@ export function listFieldMedia(
 }
 
 
-export async function getMediaBlob(
+export function getMediaBlob(
   mediaId: string,
 ) {
-  const headers =
-    await authHeaders();
-
-  const response = await fetch(
-    `${API_URL}/media/${mediaId}/content`,
-    {
-      headers,
-    },
+  return requestBlob(
+    `/media/${mediaId}/content`,
   );
+}
 
-  if (!response.ok) {
-    throw new Error(
-      `Media download failed (${response.status})`,
-    );
-  }
 
-  return response.blob();
+export function getMediaThumbnailBlob(
+  mediaId: string,
+) {
+  return requestBlob(
+    `/media/${mediaId}/thumbnail`,
+  );
 }
 
 

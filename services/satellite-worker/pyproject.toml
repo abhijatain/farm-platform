@@ -1,3 +1,4 @@
+
 [project]
 name = "satellite-worker"
 version = "0.1.0"
@@ -5,6 +6,7 @@ description = "Satellite processing worker for Farm Platform"
 requires-python = ">=3.12"
 
 dependencies = [
+    "google-cloud-storage>=3.4.0",
     "numpy>=2.0",
     "pydantic-settings>=2.0",
     "pystac-client>=0.8",

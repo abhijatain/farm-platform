@@ -1,0 +1,33 @@
+
+from pathlib import Path
+
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+)
+
+
+class Settings(BaseSettings):
+    gcs_project_id: str | None = None
+
+    gcs_bucket_name: str | None = None
+
+    gcs_credentials_path: Path | None = None
+
+    # Short-lived URL used only inside the tiler process for GDAL/rasterio
+    # HTTP range reads. The browser receives only the TiTiler URL.
+    gcs_read_url_expiry_minutes: int = 15
+
+    cors_origins: str = (
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173"
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+
+settings = Settings()

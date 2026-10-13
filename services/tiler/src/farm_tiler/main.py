@@ -1,19 +1,40 @@
+
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from titiler.core.errors import DEFAULT_STATUS_CODES, add_exception_handlers
-from titiler.core.factory import TilerFactory
+from fastapi.middleware.cors import (
+    CORSMiddleware,
+)
+from titiler.core.errors import (
+    DEFAULT_STATUS_CODES,
+    add_exception_handlers,
+)
+from titiler.core.factory import (
+    TilerFactory,
+)
+
+from farm_tiler.config import settings
+from farm_tiler.gcs_path import (
+    DatasetPathParams,
+)
+
 
 app = FastAPI(
     title="Farm Platform Tiler",
 )
 
 
+origins = [
+    value.strip()
+    for value
+    in settings
+    .cors_origins
+    .split(",")
+    if value.strip()
+]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=[
         "GET",
@@ -27,6 +48,9 @@ app.add_middleware(
 cog = TilerFactory(
     router_prefix="/cog",
     add_preview=True,
+    path_dependency=(
+        DatasetPathParams
+    ),
 )
 
 
@@ -51,4 +75,10 @@ add_exception_handlers(
 def health():
     return {
         "status": "ok",
+        "private_gcs_enabled": (
+            bool(
+                settings
+                .gcs_bucket_name
+            )
+        ),
     }

@@ -42,6 +42,22 @@ class Settings(BaseSettings):
 
     media_max_video_bytes: int = 500 * 1024 * 1024
 
+    # -------------------------------------------------
+    # MEDIA DERIVATIVES
+    # -------------------------------------------------
+
+    media_derivatives_enabled: bool = True
+
+    media_thumbnail_max_pixels: int = 1200
+
+    media_thumbnail_webp_quality: int = 82
+
+    media_video_poster_max_pixels: int = 1280
+
+    ffmpeg_binary: str = "ffmpeg"
+
+    ffprobe_binary: str = "ffprobe"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

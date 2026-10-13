@@ -51,6 +51,35 @@ class StorageBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def upload_file(
+        self,
+        *,
+        source_path: Path,
+        object_key: str,
+        content_type: str,
+    ) -> StorageObjectInfo:
+        raise NotImplementedError
+
+    @abstractmethod
+    def upload_bytes(
+        self,
+        *,
+        data: bytes,
+        object_key: str,
+        content_type: str,
+    ) -> StorageObjectInfo:
+        raise NotImplementedError
+
+    @abstractmethod
+    def download_file(
+        self,
+        *,
+        object_key: str,
+        destination_path: Path,
+    ) -> Path:
+        raise NotImplementedError
+
+    @abstractmethod
     def create_signed_upload_url(
         self,
         *,

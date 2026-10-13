@@ -32,7 +32,6 @@ class GCSStorage(StorageBackend):
             )
 
         self._bucket_name = bucket_name
-
         self.bucket = self.client.bucket(
             bucket_name
         )
@@ -89,7 +88,9 @@ class GCSStorage(StorageBackend):
             size_bytes=int(
                 blob.size or 0
             ),
-            content_type=blob.content_type,
+            content_type=(
+                blob.content_type
+            ),
             etag=blob.etag,
         )
 
@@ -108,6 +109,85 @@ class GCSStorage(StorageBackend):
                 client=self.client
             )
 
+    def upload_file(
+        self,
+        *,
+        source_path: Path,
+        object_key: str,
+        content_type: str,
+    ) -> StorageObjectInfo:
+        blob = self._blob(
+            object_key
+        )
+
+        blob.upload_from_filename(
+            str(source_path),
+            content_type=content_type,
+        )
+
+        blob.reload(
+            client=self.client
+        )
+
+        return StorageObjectInfo(
+            size_bytes=int(
+                blob.size or 0
+            ),
+            content_type=(
+                blob.content_type
+            ),
+            etag=blob.etag,
+        )
+
+    def upload_bytes(
+        self,
+        *,
+        data: bytes,
+        object_key: str,
+        content_type: str,
+    ) -> StorageObjectInfo:
+        blob = self._blob(
+            object_key
+        )
+
+        blob.upload_from_string(
+            data,
+            content_type=content_type,
+        )
+
+        blob.reload(
+            client=self.client
+        )
+
+        return StorageObjectInfo(
+            size_bytes=int(
+                blob.size or 0
+            ),
+            content_type=(
+                blob.content_type
+            ),
+            etag=blob.etag,
+        )
+
+    def download_file(
+        self,
+        *,
+        object_key: str,
+        destination_path: Path,
+    ) -> Path:
+        destination_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        self._blob(
+            object_key
+        ).download_to_filename(
+            str(destination_path)
+        )
+
+        return destination_path
+
     def create_signed_upload_url(
         self,
         *,
@@ -120,7 +200,7 @@ class GCSStorage(StorageBackend):
         ).generate_signed_url(
             version="v4",
             expiration=timedelta(
-                minutes=expires_minutes
+                minutes=expires_minutes,
             ),
             method="PUT",
             content_type=content_type,
@@ -137,7 +217,7 @@ class GCSStorage(StorageBackend):
         ).generate_signed_url(
             version="v4",
             expiration=timedelta(
-                minutes=expires_minutes
+                minutes=expires_minutes,
             ),
             method="GET",
         )

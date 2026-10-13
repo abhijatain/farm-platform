@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import mimetypes
+import shutil
 from collections.abc import AsyncIterable
 from pathlib import Path
 
@@ -16,7 +17,6 @@ class LocalStorage(StorageBackend):
         root: Path,
     ) -> None:
         self.root = root.resolve()
-
         self.root.mkdir(
             parents=True,
             exist_ok=True,
@@ -31,7 +31,6 @@ class LocalStorage(StorageBackend):
         object_key: str,
     ) -> Path:
         normalized = object_key.lstrip("/")
-
         path = (
             self.root / normalized
         ).resolve()
@@ -109,6 +108,88 @@ class LocalStorage(StorageBackend):
 
             parent = parent.parent
 
+    def upload_file(
+        self,
+        *,
+        source_path: Path,
+        object_key: str,
+        content_type: str,
+    ) -> StorageObjectInfo:
+        destination = self._path(
+            object_key
+        )
+
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        shutil.copyfile(
+            source_path,
+            destination,
+        )
+
+        return StorageObjectInfo(
+            size_bytes=(
+                destination.stat().st_size
+            ),
+            content_type=content_type,
+            etag=None,
+        )
+
+    def upload_bytes(
+        self,
+        *,
+        data: bytes,
+        object_key: str,
+        content_type: str,
+    ) -> StorageObjectInfo:
+        destination = self._path(
+            object_key
+        )
+
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        destination.write_bytes(
+            data
+        )
+
+        return StorageObjectInfo(
+            size_bytes=len(data),
+            content_type=content_type,
+            etag=None,
+        )
+
+    def download_file(
+        self,
+        *,
+        object_key: str,
+        destination_path: Path,
+    ) -> Path:
+        source = self._path(
+            object_key
+        )
+
+        if not source.is_file():
+            raise FileNotFoundError(
+                object_key
+            )
+
+        destination_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        shutil.copyfile(
+            source,
+            destination_path,
+        )
+
+        return destination_path
+
     def create_signed_upload_url(
         self,
         *,
@@ -144,10 +225,8 @@ class LocalStorage(StorageBackend):
             exist_ok=True,
         )
 
-        temporary_path = (
-            path.with_name(
-                f".{path.name}.part"
-            )
+        temporary_path = path.with_name(
+            f".{path.name}.part"
         )
 
         total = 0
@@ -186,7 +265,6 @@ class LocalStorage(StorageBackend):
             temporary_path.unlink(
                 missing_ok=True
             )
-
             raise
 
         return StorageObjectInfo(

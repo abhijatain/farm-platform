@@ -45,6 +45,10 @@ export type MediaAsset = {
 
   download_url: string | null;
 
+  thumbnail_available: boolean;
+
+  thumbnail_url: string | null;
+
   created_at: string;
   updated_at: string;
 };

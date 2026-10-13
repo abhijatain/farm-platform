@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from uuid import UUID
@@ -5,10 +6,16 @@ from uuid import UUID
 from geoalchemy2 import Geometry
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+    validates,
+)
 
 from app.db.base import Base
 from app.models.base import TimestampMixin, UUIDPrimaryKeyMixin
+from app.utils.storage_slug import make_storage_slug
 
 
 class Field(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -26,6 +33,11 @@ class Field(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(
         String(120),
+        nullable=False,
+    )
+
+    storage_slug: Mapped[str] = mapped_column(
+        String(80),
         nullable=False,
     )
 
@@ -57,3 +69,21 @@ class Field(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
         order_by=("SatelliteObservation.observed_on"),
     )
+
+    @validates("name")
+    def _set_storage_slug_once(
+        self,
+        key: str,
+        value: str,
+    ) -> str:
+        if not getattr(
+            self,
+            "storage_slug",
+            None,
+        ):
+            self.storage_slug = make_storage_slug(
+                value,
+                fallback="field",
+            )
+
+        return value

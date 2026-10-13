@@ -50,7 +50,10 @@ class MediaUploadCreate(BaseModel):
 
     captured_at: datetime | None = None
 
-    caption: str | None = None
+    caption: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
 
     @field_validator("captured_at")
     @classmethod
@@ -108,6 +111,10 @@ class MediaAssetResponse(BaseModel):
     metadata_json: dict
 
     download_url: str | None
+
+    thumbnail_available: bool
+
+    thumbnail_url: str | None
 
     created_at: datetime
 
