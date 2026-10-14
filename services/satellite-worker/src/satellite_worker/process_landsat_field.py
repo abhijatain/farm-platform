@@ -133,6 +133,58 @@ def _bit_set(
     )
 
 
+def landsat_temperature_celsius(
+    *,
+    raw_temperature: np.ndarray,
+    scale: float,
+    offset: float,
+) -> np.ndarray:
+    return (
+        raw_temperature
+        * scale
+        + offset
+        - 273.15
+    )
+
+
+def landsat_qa_masks(
+    qa: np.ndarray,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+]:
+    invalid = np.zeros(
+        qa.shape,
+        dtype=bool,
+    )
+
+    for bit in QA_INVALID_BITS:
+        invalid |= (
+            _bit_set(
+                qa,
+                bit,
+            )
+        )
+
+    cloud = np.zeros(
+        qa.shape,
+        dtype=bool,
+    )
+
+    for bit in QA_CLOUD_BITS:
+        cloud |= (
+            _bit_set(
+                qa,
+                bit,
+            )
+        )
+
+    return (
+        invalid,
+        cloud,
+    )
+
+
 def _asset_scale_offset(
     asset,
 ) -> tuple[
@@ -353,31 +405,12 @@ def process_scene(
         np.uint16
     )
 
-    invalid_qa = np.zeros(
-        qa.shape,
-        dtype=bool,
+    (
+        invalid_qa,
+        field_cloud,
+    ) = landsat_qa_masks(
+        qa
     )
-
-    for bit in QA_INVALID_BITS:
-        invalid_qa |= (
-            _bit_set(
-                qa,
-                bit,
-            )
-        )
-
-    field_cloud = np.zeros(
-        qa.shape,
-        dtype=bool,
-    )
-
-    for bit in QA_CLOUD_BITS:
-        field_cloud |= (
-            _bit_set(
-                qa,
-                bit,
-            )
-        )
 
     valid = (
         grid.inside_field
@@ -413,10 +446,13 @@ def process_scene(
     )
 
     temperature_c = (
-        raw_temperature
-        * scale
-        + offset
-        - 273.15
+        landsat_temperature_celsius(
+            raw_temperature=(
+                raw_temperature
+            ),
+            scale=scale,
+            offset=offset,
+        )
     )
 
     result = build_metric_result(
