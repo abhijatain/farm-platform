@@ -99,4 +99,10 @@ METRIC_ANOMALY_RULES = {
         minimum_difference=0.08,
         label="Unusual residue/tillage response",
     ),
+    "lst_c": MetricAnomalyRule(
+        metric_type="lst_c",
+        direction="high",
+        minimum_difference=2.0,
+        label="High land-surface temperature",
+    ),
 }
