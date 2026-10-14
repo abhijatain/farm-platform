@@ -229,6 +229,9 @@ export default function FieldDetailsPanel({
 
   const [loading, setLoading] = useState(true);
 
+  const [timelineError, setTimelineError] =
+    useState<string | null>(null);
+
   const [cropForm, setCropForm] = useState(false);
 
   const [activityForm, setActivityForm] = useState(false);
@@ -240,6 +243,9 @@ export default function FieldDetailsPanel({
   >([]);
 
   const [satelliteLoading, setSatelliteLoading] = useState(true);
+
+  const [satelliteError, setSatelliteError] =
+    useState<string | null>(null);
 
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(
     null,
@@ -260,10 +266,19 @@ export default function FieldDetailsPanel({
   async function loadSatelliteObservations() {
     try {
       setSatelliteLoading(true);
+      setSatelliteError(null);
 
       const result = await listSatelliteObservations(field.id);
 
       setSatelliteObservations(result);
+    } catch (requestError) {
+      setSatelliteObservations([]);
+
+      setSatelliteError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load satellite observations.",
+      );
     } finally {
       setSatelliteLoading(false);
     }
@@ -272,10 +287,19 @@ export default function FieldDetailsPanel({
   async function loadTimeline() {
     try {
       setLoading(true);
+      setTimelineError(null);
 
       const result = await getFieldTimeline(field.id);
 
       setTimeline(result);
+    } catch (requestError) {
+      setTimeline([]);
+
+      setTimelineError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load field activities.",
+      );
     } finally {
       setLoading(false);
     }
@@ -466,6 +490,7 @@ export default function FieldDetailsPanel({
             field={field}
             observations={satelliteObservations}
             loading={satelliteLoading}
+            error={satelliteError}
           />
         )}
 
@@ -474,6 +499,7 @@ export default function FieldDetailsPanel({
             field={field}
             timeline={visibleTimeline}
             loading={loading}
+            error={timelineError}
             cropCycle={cropCycle}
             selectedActivity={selectedActivity}
             selectedActivityId={selectedActivityId}
@@ -533,10 +559,12 @@ function SatelliteTab({
   field,
   observations,
   loading,
+  error,
 }: {
   field: Field;
   observations: SatelliteObservation[];
   loading: boolean;
+  error: string | null;
 }) {
   const sorted = useMemo(
     () =>
@@ -569,7 +597,14 @@ function SatelliteTab({
         </div>
       )}
 
-      {!loading && observations.length === 0 && (
+      {!loading && error && (
+        <div className="workspace-empty-card">
+          <h3>Unable to load satellite data</h3>
+          <p>{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && observations.length === 0 && (
         <div className="workspace-empty-card">
           <h3>No satellite data yet</h3>
 
@@ -580,7 +615,7 @@ function SatelliteTab({
         </div>
       )}
 
-      {!loading && observations.length > 0 && (
+      {!loading && !error && observations.length > 0 && (
         <div className="farmer-metric-stack">
           {FARMER_METRICS.map((metric) => (
             <MetricImageryStrip
@@ -729,6 +764,7 @@ function ActivitiesTab({
   field,
   timeline,
   loading,
+  error,
   cropCycle,
   selectedActivity,
   selectedActivityId,
@@ -743,6 +779,7 @@ function ActivitiesTab({
   field: Field;
   timeline: TimelineItem[];
   loading: boolean;
+  error: string | null;
   cropCycle: CropCycle | null;
   selectedActivity: TimelineItem | null;
   selectedActivityId: string | null;
@@ -780,7 +817,14 @@ function ActivitiesTab({
         <div className="workspace-empty-card">Loading activities…</div>
       )}
 
-      {!loading && timeline.length === 0 && (
+      {!loading && error && (
+        <div className="workspace-empty-card">
+          <h3>Unable to load activities</h3>
+          <p>{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && timeline.length === 0 && (
         <div className="workspace-empty-card">
           <h3>No activity recorded</h3>
 
@@ -791,7 +835,7 @@ function ActivitiesTab({
         </div>
       )}
 
-      {!loading && selectedActivity && (
+      {!loading && !error && selectedActivity && (
         <>
           <section className="latest-activity-card">
             <div className="latest-activity-top">
