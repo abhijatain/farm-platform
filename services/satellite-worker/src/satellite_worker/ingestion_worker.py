@@ -12,6 +12,7 @@ from satellite_worker.db import (
     claim_next_satellite_ingestion_job,
     enqueue_incremental_satellite_jobs,
     enqueue_missing_initial_satellite_jobs,
+    enqueue_missing_multisource_backfill_jobs,
     mark_satellite_ingestion_job_completed,
     mark_satellite_ingestion_job_failed,
     recover_stale_satellite_ingestion_jobs,
@@ -26,6 +27,20 @@ def _today():
 
 def _enqueue_initial_jobs() -> int:
     return enqueue_missing_initial_satellite_jobs(
+        end_date=_today(),
+        backfill_days=(
+            settings
+            .satellite_initial_backfill_days
+        ),
+        max_attempts=(
+            settings
+            .satellite_job_max_attempts
+        ),
+    )
+
+
+def _enqueue_multisource_backfill_jobs() -> int:
+    return enqueue_missing_multisource_backfill_jobs(
         end_date=_today(),
         backfill_days=(
             settings
@@ -280,6 +295,16 @@ def _run_once() -> None:
             f"{initial_inserted}"
         )
 
+    multisource_inserted = (
+        _enqueue_multisource_backfill_jobs()
+    )
+
+    if multisource_inserted:
+        print(
+            "Queued radar/thermal rollout backfills: "
+            f"{multisource_inserted}"
+        )
+
     inserted = (
         _enqueue_incremental_jobs()
     )
@@ -350,6 +375,16 @@ def _run_forever() -> None:
                     print(
                         "Queued initial satellite backfills: "
                         f"{initial_inserted}"
+                    )
+
+                multisource_inserted = (
+                    _enqueue_multisource_backfill_jobs()
+                )
+
+                if multisource_inserted:
+                    print(
+                        "Queued radar/thermal rollout backfills: "
+                        f"{multisource_inserted}"
                     )
 
                 inserted = (
