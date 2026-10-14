@@ -825,82 +825,68 @@ function SatelliteTab({
       )}
 
       {!loading && !error && usableObservations.length > 0 && (
-        <div className="field-satellite-dashboard">
-          <aside className="field-metric-picker">
-            <span className="workspace-eyebrow">
-              VIEW METRIC
-            </span>
+        <div className="field-satellite-layout">
+          <div className="field-satellite-controls">
+            <label>
+              <span>Metric</span>
 
-            {FARMER_METRICS.map(
-              (
-                metric,
-              ) => {
-                const observation =
-                  latestByMetric.get(
-                    metric.metricType,
+              <select
+                value={selectedMetricType}
+                onChange={(event) =>
+                  setSelectedMetricType(
+                    event.currentTarget.value as SatelliteMetricType,
                   )
-                  ?? null;
+                }
+              >
+                {FARMER_METRICS.map((metric) => {
+                  const observation =
+                    latestByMetric.get(
+                      metric.metricType,
+                    )
+                    ?? null;
 
-                const value =
-                  observation
-                    ? getObservationMetric(
-                        observation,
-                        metric.metricType,
-                      )
-                    : null;
-
-                return (
-                  <button
-                    key={metric.metricType}
-                    className={
-                      selectedMetricType
-                        === metric.metricType
-                        ? "field-metric-option active"
-                        : "field-metric-option"
-                    }
-                    onClick={
-                      () =>
-                        setSelectedMetricType(
+                  const value =
+                    observation
+                      ? getObservationMetric(
+                          observation,
                           metric.metricType,
                         )
-                    }
-                  >
-                    <div>
-                      <strong>
-                        {metric.label}
-                      </strong>
+                      : null;
 
-                      <span>
-                        {METRIC_CONFIG[
-                          metric.metricType
-                        ].label}
-                      </span>
-                    </div>
+                  const formattedValue =
+                    formatMetricValue(
+                      value?.median,
+                      metric.metricType === "lst_c"
+                        ? 1
+                        : 2,
+                    );
 
-                    <div className="field-metric-option-value">
-                      <strong>
-                        {formatMetricValue(
-                          value?.median,
-                          metric.metricType
-                            === "lst_c"
-                            ? 1
-                            : 2,
-                        )}
-                      </strong>
+                  return (
+                    <option
+                      key={metric.metricType}
+                      value={metric.metricType}
+                    >
+                      {metric.label}
+                      {" · "}
+                      {METRIC_CONFIG[metric.metricType].label}
+                      {" · "}
+                      {formattedValue}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
 
-                      <span>
-                        {observation
-                          ? formatDate(
-                              observation.observed_on,
-                            )
-                          : "No data"}
-                      </span>
-                    </div>
-                  </button>
-                );
-              },
-            )}
-          </aside>
+            <div className="field-satellite-metric-description">
+              <strong>
+                {selectedMetric.label}
+              </strong>
+
+              <span>
+                {selectedMetric.subtitle}
+              </span>
+            </div>
+          </div>
 
           <div className="field-satellite-primary">
             <MetricImageryStrip
