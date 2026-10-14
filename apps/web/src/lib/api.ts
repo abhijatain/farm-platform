@@ -10,6 +10,7 @@ import type {
   Season,
   TimelineItem,
   SatelliteObservation,
+  SatelliteIngestionJob,
   SatelliteAnomalyFeatureCollection,
   SatelliteMetricType,
   ActivitySatelliteContext,
@@ -235,6 +236,12 @@ export function getFieldTimeline(fieldId: string) {
 export function listSatelliteObservations(fieldId: string) {
   return apiRequest<SatelliteObservation[]>(
     `/fields/${fieldId}/satellite-observations`,
+  );
+}
+
+export function getSatelliteIngestionStatus(fieldId: string) {
+  return apiRequest<SatelliteIngestionJob | null>(
+    `/fields/${fieldId}/satellite-ingestion`,
   );
 }
 
