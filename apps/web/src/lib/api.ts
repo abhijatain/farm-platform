@@ -14,6 +14,7 @@ import type {
   SatelliteAnomalyFeatureCollection,
   SatelliteMetricType,
   ActivitySatelliteContext,
+  FieldSatelliteTimeline,
 } from "../types/api";
 
 /* AUTH */
@@ -238,6 +239,46 @@ export function listSatelliteObservations(fieldId: string) {
     `/fields/${fieldId}/satellite-observations`,
   );
 }
+
+export function getSatelliteTimeline(
+  fieldId: string,
+  preferredMetricType: SatelliteMetricType = "ndvi",
+  options?: {
+    targetDate?: string | null;
+    windowDays?: number;
+    minimumValidPercent?: number;
+    eventLimit?: number;
+  },
+) {
+  const params = new URLSearchParams({
+    preferred_metric_type:
+      preferredMetricType,
+    window_days: String(
+      options?.windowDays
+      ?? 14,
+    ),
+    minimum_valid_percent: String(
+      options?.minimumValidPercent
+      ?? 80,
+    ),
+    event_limit: String(
+      options?.eventLimit
+      ?? 60,
+    ),
+  });
+
+  if (options?.targetDate) {
+    params.set(
+      "target_date",
+      options.targetDate,
+    );
+  }
+
+  return apiRequest<FieldSatelliteTimeline>(
+    `/fields/${fieldId}/satellite-timeline?${params.toString()}`,
+  );
+}
+
 
 export function getSatelliteIngestionStatus(fieldId: string) {
   return apiRequest<SatelliteIngestionJob | null>(
