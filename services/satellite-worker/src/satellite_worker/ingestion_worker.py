@@ -103,6 +103,15 @@ def _process_job(
         "========================================"
     )
 
+    scene_limit = (
+        0
+        if job[
+            "job_type"
+        ] == "initial_backfill"
+        else settings
+        .satellite_scene_limit
+    )
+
     command = [
         sys.executable,
         "-m",
@@ -126,8 +135,7 @@ def _process_job(
         ),
         "--limit",
         str(
-            settings
-            .satellite_scene_limit
+            scene_limit
         ),
         "--skip-existing",
     ]
