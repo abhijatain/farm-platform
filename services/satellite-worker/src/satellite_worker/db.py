@@ -1090,6 +1090,152 @@ def enqueue_missing_initial_satellite_jobs(
     return inserted
 
 
+def enqueue_missing_multisource_backfill_jobs(
+    *,
+    end_date: date,
+    backfill_days: int,
+    max_attempts: int,
+) -> int:
+    """
+    One-time rollout backfill for fields that already had optical metric data
+    before Sentinel-1 radar and Landsat thermal ingestion were introduced.
+
+    Empty/new fields are handled by the normal initial-backfill queue.
+    """
+
+    backfill_days = max(
+        1,
+        backfill_days,
+    )
+
+    start_date = (
+        end_date
+        - timedelta(
+            days=backfill_days - 1
+        )
+    )
+
+    with engine.begin() as connection:
+        field_ids = connection.execute(
+            text(
+                """
+                SELECT
+                    field.id
+
+                FROM fields AS field
+
+                WHERE EXISTS (
+                    SELECT 1
+
+                    FROM satellite_metrics
+                        AS existing_metric
+
+                    JOIN satellite_observations
+                        AS existing_observation
+                      ON existing_observation.id =
+                            existing_metric.satellite_observation_id
+
+                    WHERE existing_observation.field_id =
+                        field.id
+                )
+
+                AND NOT EXISTS (
+                    SELECT 1
+
+                    FROM satellite_metrics
+                        AS new_metric
+
+                    JOIN satellite_observations
+                        AS new_observation
+                      ON new_observation.id =
+                            new_metric.satellite_observation_id
+
+                    WHERE new_observation.field_id =
+                        field.id
+
+                    AND new_metric.metric_type IN (
+                        'sar_vv_db',
+                        'sar_vh_db',
+                        'sar_vv_vh_ratio',
+                        'sar_rvi',
+                        'lst_c'
+                    )
+                )
+
+                ORDER BY field.created_at
+                """
+            )
+        ).scalars().all()
+
+        inserted = 0
+
+        for field_id in field_ids:
+            result = connection.execute(
+                text(
+                    """
+                    INSERT INTO satellite_ingestion_jobs (
+                        id,
+                        field_id,
+                        job_type,
+                        start_date,
+                        end_date,
+                        status,
+                        attempts,
+                        max_attempts,
+                        available_at,
+                        dedupe_key,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (
+                        :id,
+                        :field_id,
+                        'initial_backfill',
+                        :start_date,
+                        :end_date,
+                        'pending',
+                        0,
+                        :max_attempts,
+                        NOW(),
+                        :dedupe_key,
+                        NOW(),
+                        NOW()
+                    )
+
+                    ON CONFLICT (
+                        dedupe_key
+                    )
+                    DO NOTHING
+                    """
+                ),
+                {
+                    "id":
+                        uuid4(),
+                    "field_id":
+                        field_id,
+                    "start_date":
+                        start_date,
+                    "end_date":
+                        end_date,
+                    "max_attempts":
+                        max_attempts,
+                    "dedupe_key":
+                        (
+                            "multisource_backfill_v1:"
+                            f"{field_id}"
+                        ),
+                },
+            )
+
+            inserted += max(
+                0,
+                result.rowcount
+                or 0,
+            )
+
+    return inserted
+
+
 def enqueue_incremental_satellite_jobs(
     *,
     end_date: date,
