@@ -27,6 +27,10 @@ import type {
   TimelineItem,
 } from "../types/api";
 
+import {
+  localDateInputValue,
+} from "../lib/dates";
+
 import "./FieldWorkspace.css";
 
 type Props = {
@@ -76,10 +80,6 @@ const FARMER_METRICS: FarmerMetric[] = [
     subtitle: "BSI · exposed soil and surface signal",
   },
 ];
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function currentDateTime() {
   const now = new Date();
@@ -1550,7 +1550,7 @@ function StartCropDialog({
 
   const [variety, setVariety] = useState("");
 
-  const [startedOn, setStartedOn] = useState(today());
+  const [startedOn, setStartedOn] = useState(localDateInputValue());
 
   const [plantedOn, setPlantedOn] = useState("");
 
