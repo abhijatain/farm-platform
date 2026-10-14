@@ -246,6 +246,7 @@ function getActivityDetailSummary(item: TimelineItem) {
 }
 
 export default function FieldDetailsPanel({
+  farm,
   field,
   season,
   cropCycle,
