@@ -176,6 +176,11 @@ export default function FarmOverviewMap({
       mapMode,
     );
 
+  const metricFieldIdsRef =
+    useRef<string[]>(
+      [],
+    );
+
   fieldsRef.current =
     fields;
 
@@ -196,17 +201,17 @@ export default function FarmOverviewMap({
     map: MapLibreMap,
   ) {
     for (
-      const field
-      of fieldsRef.current
+      const fieldId
+      of metricFieldIdsRef.current
     ) {
       const metricLayer =
         layerId(
-          field.id,
+          fieldId,
         );
 
       const metricSource =
         sourceId(
-          field.id,
+          fieldId,
         );
 
       if (
@@ -229,6 +234,9 @@ export default function FarmOverviewMap({
         );
       }
     }
+
+    metricFieldIdsRef.current =
+      [];
   }
 
 
@@ -238,6 +246,14 @@ export default function FarmOverviewMap({
     clearMetricLayers(
       map,
     );
+
+    metricFieldIdsRef.current =
+      overviewRef.current.map(
+        (
+          item,
+        ) =>
+          item.field_id,
+      );
 
     for (
       const item
