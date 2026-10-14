@@ -7,6 +7,10 @@ on:
       - "hardening/**"
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     name: API + PostGIS
