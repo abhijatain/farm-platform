@@ -172,6 +172,8 @@ def _process_job(
         ),
     ]
 
+    source_failures: list[str] = []
+
     for (
         source_label,
         command,
@@ -190,7 +192,7 @@ def _process_job(
 
         except Exception as error:
             message = (
-                f"Unable to launch {source_label}: "
+                f"{source_label}: unable to launch: "
                 f"{type(error).__name__}: "
                 f"{error}"
             )
@@ -199,38 +201,47 @@ def _process_job(
                 message
             )
 
-            mark_satellite_ingestion_job_failed(
-                job_id=job_id,
-                error_message=message,
-                retry_delay_minutes=(
-                    settings
-                    .satellite_job_retry_delay_minutes
-                ),
+            source_failures.append(
+                message
             )
 
-            return False
+            continue
 
         if result.returncode != 0:
             message = (
-                f"{source_label} processor exited with "
+                f"{source_label}: processor exited with "
                 f"status {result.returncode}"
             )
 
-            mark_satellite_ingestion_job_failed(
-                job_id=job_id,
-                error_message=message,
-                retry_delay_minutes=(
-                    settings
-                    .satellite_job_retry_delay_minutes
-                ),
-            )
-
             print(
-                "Ingestion job failed; "
-                "retry will follow if attempts remain."
+                message
             )
 
-            return False
+            source_failures.append(
+                message
+            )
+
+    if source_failures:
+        message = "; ".join(
+            source_failures
+        )
+
+        mark_satellite_ingestion_job_failed(
+            job_id=job_id,
+            error_message=message,
+            retry_delay_minutes=(
+                settings
+                .satellite_job_retry_delay_minutes
+            ),
+        )
+
+        print(
+            "Ingestion job completed with source failures; "
+            "successful sources were kept and failed sources "
+            "will be retried."
+        )
+
+        return False
 
     mark_satellite_ingestion_job_completed(
         job_id
