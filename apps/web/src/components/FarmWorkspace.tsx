@@ -1444,14 +1444,11 @@ export default function FarmWorkspace() {
                 value={
                   overviewMetricType
                 }
-                onChange={(
-                  event,
-                ) =>
+                onChange={(event) => {
                   setOverviewMetricType(
-                    event.target.value
-                      as SatelliteMetricType,
-                  )
-                }
+                    event.currentTarget.value as SatelliteMetricType,
+                  );
+                }}
               >
                 {METRIC_GROUPS.map(
                   (
