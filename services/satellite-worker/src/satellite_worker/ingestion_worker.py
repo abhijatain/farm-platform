@@ -112,10 +112,7 @@ def _process_job(
         .satellite_scene_limit
     )
 
-    command = [
-        sys.executable,
-        "-m",
-        "satellite_worker.process_field",
+    shared_args = [
         "--field-id",
         str(
             field_id
@@ -128,11 +125,6 @@ def _process_job(
         job[
             "end_date"
         ].isoformat(),
-        "--max-scene-cloud",
-        str(
-            settings
-            .satellite_max_scene_cloud
-        ),
         "--limit",
         str(
             scene_limit
@@ -140,65 +132,115 @@ def _process_job(
         "--skip-existing",
     ]
 
-    try:
-        result = subprocess.run(
-            command,
-            check=False,
-        )
-
-    except Exception as error:
-        message = (
-            "Unable to launch process_field: "
-            f"{type(error).__name__}: "
-            f"{error}"
-        )
-
-        print(
-            message
-        )
-
-        mark_satellite_ingestion_job_failed(
-            job_id=job_id,
-            error_message=message,
-            retry_delay_minutes=(
-                settings
-                .satellite_job_retry_delay_minutes
-            ),
-        )
-
-        return False
-
-    if result.returncode == 0:
-        mark_satellite_ingestion_job_completed(
-            job_id
-        )
-
-        print(
-            "Ingestion job completed."
-        )
-
-        return True
-
-    message = (
-        "process_field exited with "
-        f"status {result.returncode}"
-    )
-
-    mark_satellite_ingestion_job_failed(
-        job_id=job_id,
-        error_message=message,
-        retry_delay_minutes=(
-            settings
-            .satellite_job_retry_delay_minutes
+    commands = [
+        (
+            "Sentinel-2 optical",
+            [
+                sys.executable,
+                "-m",
+                "satellite_worker.process_field",
+                *shared_args,
+                "--max-scene-cloud",
+                str(
+                    settings
+                    .satellite_max_scene_cloud
+                ),
+            ],
         ),
+        (
+            "Sentinel-1 radar",
+            [
+                sys.executable,
+                "-m",
+                "satellite_worker.process_sentinel1_field",
+                *shared_args,
+            ],
+        ),
+        (
+            "Landsat thermal",
+            [
+                sys.executable,
+                "-m",
+                "satellite_worker.process_landsat_field",
+                *shared_args,
+                "--max-scene-cloud",
+                str(
+                    settings
+                    .satellite_max_scene_cloud
+                ),
+            ],
+        ),
+    ]
+
+    for (
+        source_label,
+        command,
+    ) in commands:
+        print()
+        print(
+            "Processing source: "
+            f"{source_label}"
+        )
+
+        try:
+            result = subprocess.run(
+                command,
+                check=False,
+            )
+
+        except Exception as error:
+            message = (
+                f"Unable to launch {source_label}: "
+                f"{type(error).__name__}: "
+                f"{error}"
+            )
+
+            print(
+                message
+            )
+
+            mark_satellite_ingestion_job_failed(
+                job_id=job_id,
+                error_message=message,
+                retry_delay_minutes=(
+                    settings
+                    .satellite_job_retry_delay_minutes
+                ),
+            )
+
+            return False
+
+        if result.returncode != 0:
+            message = (
+                f"{source_label} processor exited with "
+                f"status {result.returncode}"
+            )
+
+            mark_satellite_ingestion_job_failed(
+                job_id=job_id,
+                error_message=message,
+                retry_delay_minutes=(
+                    settings
+                    .satellite_job_retry_delay_minutes
+                ),
+            )
+
+            print(
+                "Ingestion job failed; "
+                "retry will follow if attempts remain."
+            )
+
+            return False
+
+    mark_satellite_ingestion_job_completed(
+        job_id
     )
 
     print(
-        "Ingestion job failed; "
-        "retry will follow if attempts remain."
+        "Multi-source ingestion job completed."
     )
 
-    return False
+    return True
 
 
 def _run_once() -> None:
@@ -343,7 +385,7 @@ def _run_forever() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Continuously process automatic Sentinel-2 ingestion jobs."
+            "Continuously process optical, radar, and thermal ingestion jobs."
         )
     )
 
