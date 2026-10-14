@@ -19,6 +19,47 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def include_name(
+    name,
+    type_,
+    parent_names,
+):
+    """
+    Limit Alembic autogenerate/check to the application's public schema.
+
+    PostGIS installations can add Tiger/Topology schemas and extension-owned
+    objects that are visible through PostgreSQL's search path but are not part
+    of Farm Platform's model metadata.
+    """
+    if type_ == "schema":
+        return name in (
+            None,
+            "public",
+        )
+
+    schema_name = (
+        parent_names.get(
+            "schema_name"
+        )
+        if parent_names
+        else None
+    )
+
+    if schema_name not in (
+        None,
+        "public",
+    ):
+        return False
+
+    if (
+        type_ == "table"
+        and name == "spatial_ref_sys"
+    ):
+        return False
+
+    return True
+
+
 def include_object(
     object,
     name,
@@ -42,6 +83,8 @@ def run_migrations_offline() -> None:
             "paramstyle": "named",
         },
         compare_type=True,
+        include_schemas=True,
+        include_name=include_name,
         include_object=include_object,
     )
 
@@ -60,6 +103,8 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_schemas=True,
+            include_name=include_name,
             include_object=include_object,
         )
 
