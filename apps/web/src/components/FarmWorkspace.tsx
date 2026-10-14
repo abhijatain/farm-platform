@@ -7,12 +7,11 @@ import {
 
 import {
   CalendarDays,
-  ChevronRight,
+  LayoutGrid,
   Layers3,
   LogOut,
+  Map as MapIcon,
   MapPin,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   Search,
   Satellite,
@@ -25,6 +24,9 @@ import {
 
 import FarmOverviewMap
   from "./FarmOverviewMap";
+
+import FieldBoundaryPreview
+  from "./FieldBoundaryPreview";
 
 import CreateFarmDialog
   from "./CreateFarmDialog";
@@ -68,6 +70,11 @@ import type {
 import type {
   MapMode,
 } from "../types/map";
+
+
+type HomeView =
+  | "fields"
+  | "map";
 
 
 function chooseDefaultSeason(
@@ -178,6 +185,8 @@ function formatOverviewDate(
         "2-digit",
       month:
         "short",
+      year:
+        "numeric",
     },
   );
 }
@@ -190,14 +199,14 @@ function formatSource(
     source
   ) {
     case "sentinel-1-rtc":
-      return "S1 radar";
+      return "Sentinel-1 radar";
 
     case "landsat-c2-l2":
-      return "Landsat";
+      return "Landsat thermal";
 
     case "sentinel-2":
     default:
-      return "S2";
+      return "Sentinel-2";
   }
 }
 
@@ -256,6 +265,15 @@ export default function FarmWorkspace() {
   ] = useState<
     string | null
   >(null);
+
+  const [
+    homeView,
+    setHomeView,
+  ] = useState<
+    HomeView
+  >(
+    "fields",
+  );
 
   const [
     mapMode,
@@ -330,13 +348,6 @@ export default function FarmWorkspace() {
   ] = useState<
     PolygonGeometry | null
   >(null);
-
-  const [
-    fieldsOpen,
-    setFieldsOpen,
-  ] = useState(
-    true,
-  );
 
   const [
     fieldQuery,
@@ -778,6 +789,10 @@ export default function FarmWorkspace() {
         "",
       );
 
+      setHomeView(
+        "fields",
+      );
+
       void loadFarmContext(
         selectedFarmId,
       );
@@ -1115,6 +1130,10 @@ export default function FarmWorkspace() {
         false,
       );
 
+      setHomeView(
+        "fields",
+      );
+
       setSelectedFieldId(
         field.id,
       );
@@ -1159,6 +1178,10 @@ export default function FarmWorkspace() {
       null,
     );
 
+    setHomeView(
+      "map",
+    );
+
     setDrawing(
       true,
     );
@@ -1172,6 +1195,23 @@ export default function FarmWorkspace() {
 
     setPendingBoundary(
       null,
+    );
+  }
+
+
+  function changeHomeView(
+    nextView:
+      HomeView,
+  ) {
+    if (
+      nextView
+      === "fields"
+    ) {
+      handleCancelDrawing();
+    }
+
+    setHomeView(
+      nextView,
     );
   }
 
@@ -1369,553 +1409,645 @@ export default function FarmWorkspace() {
       </header>
 
       <main className="home-main">
-        <div className="home-map-region">
-          <FarmOverviewMap
-            mapMode={
-              mapMode
-            }
-            fields={
-              fields
-            }
-            overview={
-              overview
-            }
-            selectedMetricType={
-              overviewMetricType
-            }
-            drawing={
-              drawing
-            }
-            onSelectField={(
-              fieldId,
-            ) => {
-              setDrawing(
-                false,
-              );
-
-              setPendingBoundary(
-                null,
-              );
-
-              setSelectedFieldId(
-                fieldId,
-              );
-            }}
-            onPolygonFinished={(
-              boundary,
-            ) => {
-              setDrawing(
-                false,
-              );
-
-              setPendingBoundary(
-                boundary,
-              );
-            }}
-          />
-
-          <div className="home-map-toolbar">
-            <div className="home-map-title">
+        <section className="home-dashboard">
+          <div className="home-dashboard-header">
+            <div className="home-dashboard-title">
               <span>
                 FARM OVERVIEW
               </span>
 
-              <strong>
+              <h1>
                 {selectedFarm?.name
-                  ?? "Your fields"}
-              </strong>
+                  ?? "Your farm"}
+              </h1>
 
-              <small>
+              <p>
                 {fields.length}
-                {" fields · "}
+                {" "}
+                {fields.length === 1
+                  ? "field"
+                  : "fields"}
+                {" · "}
                 {totalAcres.toFixed(
                   1,
                 )}
                 {" acres"}
-              </small>
+
+                {selectedSeason
+                  ? ` · ${selectedSeason.name}`
+                  : ""}
+              </p>
             </div>
 
-            <div className="home-map-filter">
-              <label>
-                Metric
-              </label>
-
-              <select
-                value={
-                  overviewMetricType
-                }
-                onChange={(event) => {
-                  setOverviewMetricType(
-                    event.currentTarget.value as SatelliteMetricType,
-                  );
-                }}
-              >
-                {METRIC_GROUPS.map(
-                  (
-                    group,
-                  ) => (
-                    <optgroup
-                      key={
-                        group.label
-                      }
-                      label={
-                        group.label
-                      }
-                    >
-                      {group.metrics.map(
-                        (
-                          metric,
-                        ) => (
-                          <option
-                            key={
-                              metric
-                            }
-                            value={
-                              metric
-                            }
-                          >
-                            {
-                              METRIC_CONFIG[
-                                metric
-                              ].label
-                            }
-                          </option>
-                        ),
-                      )}
-                    </optgroup>
-                  ),
-                )}
-              </select>
-            </div>
-
-            <div className="home-map-filter date-filter">
-              <label>
-                Date
-              </label>
-
-              <input
-                type="date"
-                value={
-                  overviewDate
-                  ?? ""
-                }
-                onChange={(
-                  event,
-                ) =>
-                  setOverviewDate(
-                    event.target
-                      .value
-                    || null,
-                  )
-                }
-              />
-
-              {overviewDate && (
-                <button
-                  onClick={
-                    () =>
-                      setOverviewDate(
-                        null,
-                      )
-                  }
-                >
-                  Latest
-                </button>
-              )}
-            </div>
-
-            <div className="home-map-mode">
-              <button
-                className={
-                  mapMode
-                  === "streets"
-                    ? "active"
-                    : ""
-                }
-                onClick={
-                  () =>
-                    setMapMode(
-                      "streets",
-                    )
-                }
-                title="Map"
-              >
-                <Layers3
-                  size={16}
-                />
-              </button>
-
-              <button
-                className={
-                  mapMode
-                  === "hybrid"
-                    ? "active"
-                    : ""
-                }
-                onClick={
-                  () =>
-                    setMapMode(
-                      "hybrid",
-                    )
-                }
-                title="Satellite basemap"
-              >
-                <Satellite
-                  size={16}
-                />
-              </button>
-            </div>
-          </div>
-
-          <button
-            className="home-fields-toggle"
-            onClick={
-              () =>
-                setFieldsOpen(
-                  (
-                    current,
-                  ) =>
-                    !current,
-                )
-            }
-            title={
-              fieldsOpen
-                ? "Hide field list"
-                : "Show field list"
-            }
-          >
-            {fieldsOpen
-              ? (
-                <PanelLeftClose
-                  size={18}
-                />
-              )
-              : (
-                <PanelLeftOpen
-                  size={18}
-                />
-              )}
-          </button>
-
-          {fieldsOpen && (
-            <aside className="home-fields-panel">
-              <div className="home-fields-panel-head">
-                <div>
+            {selectedFarmId && (
+              <div className="home-overview-filters">
+                <label>
                   <span>
-                    FIELDS
+                    Metric
                   </span>
 
-                  <strong>
-                    {fields.length}
-                    {" total"}
-                  </strong>
-                </div>
-
-                <button
-                  onClick={
-                    handleStartDrawing
-                  }
-                  title="Add field"
-                >
-                  <Plus
-                    size={17}
-                  />
-                </button>
-              </div>
-
-              <div className="home-field-search">
-                <Search
-                  size={15}
-                />
-
-                <input
-                  value={
-                    fieldQuery
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setFieldQuery(
-                      event.target
-                        .value,
-                    )
-                  }
-                  placeholder="Search fields"
-                />
-              </div>
-
-              <div className="home-field-list">
-                {filteredFields.map(
-                  (
-                    field,
-                  ) => {
-                    const crop =
-                      chooseFieldCropCycle(
-                        field.id,
-                        seasonCropCycles,
+                  <select
+                    value={
+                      overviewMetricType
+                    }
+                    onChange={(event) => {
+                      setOverviewMetricType(
+                        event.currentTarget.value as SatelliteMetricType,
                       );
+                    }}
+                  >
+                    {METRIC_GROUPS.map(
+                      (
+                        group,
+                      ) => (
+                        <optgroup
+                          key={
+                            group.label
+                          }
+                          label={
+                            group.label
+                          }
+                        >
+                          {group.metrics.map(
+                            (
+                              metric,
+                            ) => (
+                              <option
+                                key={
+                                  metric
+                                }
+                                value={
+                                  metric
+                                }
+                              >
+                                {
+                                  METRIC_CONFIG[
+                                    metric
+                                  ].label
+                                }
+                              </option>
+                            ),
+                          )}
+                        </optgroup>
+                      ),
+                    )}
+                  </select>
+                </label>
 
-                    const item =
-                      overviewByField
-                        .get(
-                          field.id,
-                        );
+                <label>
+                  <span>
+                    Date
+                  </span>
 
-                    return (
+                  <div className="home-date-input">
+                    <input
+                      type="date"
+                      value={
+                        overviewDate
+                        ?? ""
+                      }
+                      onChange={(
+                        event,
+                      ) =>
+                        setOverviewDate(
+                          event.target
+                            .value
+                          || null,
+                        )
+                      }
+                    />
+
+                    {overviewDate && (
                       <button
-                        key={
-                          field.id
-                        }
-                        className="home-field-row"
                         onClick={
                           () =>
-                            setSelectedFieldId(
-                              field.id,
+                            setOverviewDate(
+                              null,
                             )
                         }
                       >
-                        <div className="home-field-row-main">
+                        Latest
+                      </button>
+                    )}
+                  </div>
+                </label>
+              </div>
+            )}
+          </div>
+
+          {selectedFarmId && (
+            <div className="home-view-bar">
+              <div className="home-view-tabs">
+                <button
+                  className={
+                    homeView
+                    === "fields"
+                      ? "active"
+                      : ""
+                  }
+                  onClick={
+                    () =>
+                      changeHomeView(
+                        "fields",
+                      )
+                  }
+                >
+                  <LayoutGrid
+                    size={16}
+                  />
+                  Fields
+                </button>
+
+                <button
+                  className={
+                    homeView
+                    === "map"
+                      ? "active"
+                      : ""
+                  }
+                  onClick={
+                    () =>
+                      changeHomeView(
+                        "map",
+                      )
+                  }
+                >
+                  <MapIcon
+                    size={16}
+                  />
+                  Map
+                </button>
+              </div>
+
+              {homeView
+                === "fields" && (
+                  <div className="home-grid-search">
+                    <Search
+                      size={16}
+                    />
+
+                    <input
+                      value={
+                        fieldQuery
+                      }
+                      onChange={(
+                        event,
+                      ) =>
+                        setFieldQuery(
+                          event.target
+                            .value,
+                        )
+                      }
+                      placeholder="Search fields"
+                    />
+                  </div>
+                )}
+
+              {homeView
+                === "map" && (
+                  <div className="home-map-mode">
+                    <button
+                      className={
+                        mapMode
+                        === "streets"
+                          ? "active"
+                          : ""
+                      }
+                      onClick={
+                        () =>
+                          setMapMode(
+                            "streets",
+                          )
+                      }
+                      title="Map"
+                    >
+                      <Layers3
+                        size={16}
+                      />
+                    </button>
+
+                    <button
+                      className={
+                        mapMode
+                        === "hybrid"
+                          ? "active"
+                          : ""
+                      }
+                      onClick={
+                        () =>
+                          setMapMode(
+                            "hybrid",
+                          )
+                      }
+                      title="Satellite basemap"
+                    >
+                      <Satellite
+                        size={16}
+                      />
+                    </button>
+                  </div>
+                )}
+            </div>
+          )}
+
+          <div className="home-view-content">
+            {!selectedFarmId && (
+              <div className="home-onboarding home-onboarding-static">
+                <div className="home-onboarding-icon">
+                  <Sprout
+                    size={28}
+                  />
+                </div>
+
+                <span>
+                  START HERE
+                </span>
+
+                <h1>
+                  Create your first farm
+                </h1>
+
+                <p>
+                  Add a farm, then draw field boundaries and satellite
+                  monitoring will begin automatically.
+                </p>
+
+                <button
+                  className="home-action primary"
+                  onClick={
+                    () =>
+                      setCreateFarmOpen(
+                        true,
+                      )
+                  }
+                >
+                  <Plus
+                    size={16}
+                  />
+                  Create farm
+                </button>
+              </div>
+            )}
+
+            {selectedFarmId
+              && homeView
+                === "fields" && (
+                  <div className="home-fields-grid-view">
+                    {overviewLoading && (
+                      <div className="home-inline-status">
+                        Loading {
+                          METRIC_CONFIG[
+                            overviewMetricType
+                          ].label
+                        }…
+                      </div>
+                    )}
+
+                    {!overviewLoading
+                      && overviewError && (
+                        <div className="home-inline-status error">
+                          {overviewError}
+                        </div>
+                      )}
+
+                    {filteredFields.length > 0
+                      ? (
+                        <div className="home-fields-grid">
+                          {filteredFields.map(
+                            (
+                              field,
+                            ) => {
+                              const crop =
+                                chooseFieldCropCycle(
+                                  field.id,
+                                  seasonCropCycles,
+                                );
+
+                              const item =
+                                overviewByField
+                                  .get(
+                                    field.id,
+                                  );
+
+                              return (
+                                <button
+                                  key={
+                                    field.id
+                                  }
+                                  className="field-grid-card"
+                                  onClick={
+                                    () =>
+                                      setSelectedFieldId(
+                                        field.id,
+                                      )
+                                  }
+                                >
+                                  <div className="field-grid-preview">
+                                    <FieldBoundaryPreview
+                                      boundary={
+                                        field.boundary
+                                      }
+                                    />
+
+                                    <span className="field-grid-area">
+                                      {field.area_acres.toFixed(
+                                        2,
+                                      )}
+                                      {" ac"}
+                                    </span>
+                                  </div>
+
+                                  <div className="field-grid-card-body">
+                                    <div className="field-grid-card-title">
+                                      <div>
+                                        <h3>
+                                          {field.name}
+                                        </h3>
+
+                                        <p>
+                                          {crop
+                                            ? (
+                                              <>
+                                                {crop.crop_name}
+                                                {crop.variety
+                                                  ? ` · ${crop.variety}`
+                                                  : ""}
+                                              </>
+                                            )
+                                            : "No crop assigned for this season"}
+                                        </p>
+                                      </div>
+
+                                      <div className="field-grid-card-metric">
+                                        <span>
+                                          {
+                                            METRIC_CONFIG[
+                                              overviewMetricType
+                                            ].label
+                                          }
+                                        </span>
+
+                                        <strong>
+                                          {item
+                                            ? formatMetricValue(
+                                                item.metric.median,
+                                                overviewMetricType
+                                                  === "lst_c"
+                                                  ? 1
+                                                  : 2,
+                                              )
+                                            : "—"}
+                                        </strong>
+                                      </div>
+                                    </div>
+
+                                    <div className="field-grid-card-footer">
+                                      <span>
+                                        {item
+                                          ? (
+                                            <>
+                                              {formatOverviewDate(
+                                                item.observed_on,
+                                              )}
+                                              {" · "}
+                                              {formatSource(
+                                                item.source,
+                                              )}
+                                            </>
+                                          )
+                                          : `No ${METRIC_CONFIG[
+                                              overviewMetricType
+                                            ].label} data`}
+                                      </span>
+
+                                      <span>
+                                        Open field
+                                      </span>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            },
+                          )}
+                        </div>
+                      )
+                      : (
+                        <div className="home-fields-empty">
+                          <FieldBoundaryPreview
+                            boundary={{
+                              type:
+                                "Polygon",
+                              coordinates: [
+                                [
+                                  [0, 0],
+                                  [1.2, 0.1],
+                                  [1.05, 0.8],
+                                  [0.25, 1],
+                                  [0, 0],
+                                ],
+                              ],
+                            }}
+                          />
+
+                          <h2>
+                            {fields.length === 0
+                              ? "No fields yet"
+                              : "No fields found"}
+                          </h2>
+
+                          <p>
+                            {fields.length === 0
+                              ? "Draw your first field boundary to start monitoring it."
+                              : "Try a different field name."}
+                          </p>
+
+                          {fields.length === 0 && (
+                            <button
+                              className="home-action primary"
+                              onClick={
+                                handleStartDrawing
+                              }
+                            >
+                              <MapPin
+                                size={15}
+                              />
+                              Add field
+                            </button>
+                          )}
+                        </div>
+                      )}
+                  </div>
+                )}
+
+            {selectedFarmId
+              && homeView
+                === "map" && (
+                  <div className="home-map-pane">
+                    <FarmOverviewMap
+                      mapMode={
+                        mapMode
+                      }
+                      fields={
+                        fields
+                      }
+                      overview={
+                        overview
+                      }
+                      selectedMetricType={
+                        overviewMetricType
+                      }
+                      drawing={
+                        drawing
+                      }
+                      onSelectField={(
+                        fieldId,
+                      ) => {
+                        setDrawing(
+                          false,
+                        );
+
+                        setPendingBoundary(
+                          null,
+                        );
+
+                        setSelectedFieldId(
+                          fieldId,
+                        );
+                      }}
+                      onPolygonFinished={(
+                        boundary,
+                      ) => {
+                        setDrawing(
+                          false,
+                        );
+
+                        setPendingBoundary(
+                          boundary,
+                        );
+                      }}
+                    />
+
+                    <div className="home-map-legend">
+                      <div
+                        className="home-map-gradient"
+                        style={{
+                          background:
+                            METRIC_CONFIG[
+                              overviewMetricType
+                            ].gradient,
+                        }}
+                      />
+
+                      <div>
+                        <span>
+                          {
+                            METRIC_CONFIG[
+                              overviewMetricType
+                            ].label
+                          }
+                        </span>
+
+                        <small>
+                          {
+                            METRIC_CONFIG[
+                              overviewMetricType
+                            ].displayMin
+                          }
+                          {" → "}
+                          {
+                            METRIC_CONFIG[
+                              overviewMetricType
+                            ].displayMax
+                          }
+                        </small>
+                      </div>
+                    </div>
+
+                    {overviewLoading && (
+                      <div className="home-map-status">
+                        Loading {
+                          METRIC_CONFIG[
+                            overviewMetricType
+                          ].label
+                        }…
+                      </div>
+                    )}
+
+                    {!overviewLoading
+                      && overviewError && (
+                        <div className="home-map-status error">
+                          {overviewError}
+                        </div>
+                      )}
+
+                    {drawing && (
+                      <div className="home-drawing-banner">
+                        <div>
                           <strong>
-                            {field.name}
+                            Draw the field boundary
                           </strong>
 
                           <span>
-                            {field.area_acres.toFixed(
-                              2,
-                            )}
-                            {" ac"}
-
-                            {crop
-                              ? (
-                                <>
-                                  {" · "}
-                                  {crop.crop_name}
-                                  {crop.variety
-                                    ? ` · ${crop.variety}`
-                                    : ""}
-                                </>
-                              )
-                              : ""}
+                            Click around the field and close the polygon at
+                            the first point.
                           </span>
                         </div>
 
-                        <div className="home-field-metric">
-                          {item
-                            ? (
-                              <>
-                                <strong>
-                                  {formatMetricValue(
-                                    item.metric
-                                      .median,
-                                    overviewMetricType
-                                      === "lst_c"
-                                      ? 1
-                                      : 2,
-                                  )}
-                                </strong>
-
-                                <span>
-                                  {formatOverviewDate(
-                                    item.observed_on,
-                                  )}
-                                  {" · "}
-                                  {formatSource(
-                                    item.source,
-                                  )}
-                                </span>
-                              </>
-                            )
-                            : (
-                              <>
-                                <strong>
-                                  —
-                                </strong>
-
-                                <span>
-                                  No {
-                                    METRIC_CONFIG[
-                                      overviewMetricType
-                                    ].label
-                                  }
-                                </span>
-                              </>
-                            )}
-                        </div>
-
-                        <ChevronRight
-                          size={16}
-                        />
-                      </button>
-                    );
-                  },
-                )}
-
-                {filteredFields.length === 0 && (
-                  <div className="home-field-empty">
-                    {fields.length === 0
-                      ? "Draw your first field to start satellite monitoring."
-                      : "No fields match your search."}
+                        <button
+                          onClick={
+                            handleCancelDrawing
+                          }
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            </aside>
-          )}
-
-          <div className="home-map-legend">
-            <div
-              className="home-map-gradient"
-              style={{
-                background:
-                  METRIC_CONFIG[
-                    overviewMetricType
-                  ].gradient,
-              }}
-            />
-
-            <div>
-              <span>
-                {
-                  METRIC_CONFIG[
-                    overviewMetricType
-                  ].label
-                }
-              </span>
-
-              <small>
-                {
-                  METRIC_CONFIG[
-                    overviewMetricType
-                  ].displayMin
-                }
-                {" → "}
-                {
-                  METRIC_CONFIG[
-                    overviewMetricType
-                  ].displayMax
-                }
-              </small>
-            </div>
           </div>
+        </section>
 
-          {overviewLoading && (
-            <div className="home-map-status">
-              Loading {
-                METRIC_CONFIG[
-                  overviewMetricType
-                ].label
-              }…
-            </div>
-          )}
+        {selectedFarm
+          && selectedField && (
+            <FieldDetailsPanel
+              key={
+                `${selectedField.id}-${selectedSeasonId ?? "none"}`
+              }
+              farm={
+                selectedFarm
+              }
+              field={
+                selectedField
+              }
+              season={
+                selectedSeason
+              }
+              cropCycle={
+                selectedCropCycle
+              }
+              onDataChanged={
+                async () => {
+                  await refreshSeasonCropCycles();
 
-          {!overviewLoading
-            && overviewError && (
-              <div className="home-map-status error">
-                {overviewError}
-              </div>
-            )}
-
-          {drawing && (
-            <div className="home-drawing-banner">
-              <div>
-                <strong>
-                  Draw the field boundary
-                </strong>
-
-                <span>
-                  Click around the field and close the polygon at the first point.
-                </span>
-              </div>
-
-              <button
-                onClick={
-                  handleCancelDrawing
-                }
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
-          {!selectedFarmId && (
-            <div className="home-onboarding">
-              <div className="home-onboarding-icon">
-                <Sprout
-                  size={28}
-                />
-              </div>
-
-              <span>
-                START HERE
-              </span>
-
-              <h1>
-                Create your first farm
-              </h1>
-
-              <p>
-                Add a farm, draw its field boundaries and satellite monitoring
-                will begin automatically.
-              </p>
-
-              <button
-                className="home-action primary"
-                onClick={
-                  () =>
-                    setCreateFarmOpen(
-                      true,
-                    )
-                }
-              >
-                <Plus
-                  size={16}
-                />
-                Create farm
-              </button>
-            </div>
-          )}
-
-          {selectedFarm
-            && selectedField && (
-              <FieldDetailsPanel
-                key={
-                  `${selectedField.id}-${selectedSeasonId ?? "none"}`
-                }
-                farm={
-                  selectedFarm
-                }
-                field={
-                  selectedField
-                }
-                season={
-                  selectedSeason
-                }
-                cropCycle={
-                  selectedCropCycle
-                }
-                onDataChanged={
-                  async () => {
-                    await refreshSeasonCropCycles();
-
-                    if (
-                      selectedFarmId
-                    ) {
-                      await loadOverview(
-                        selectedFarmId,
-                        overviewMetricType,
-                        overviewDate,
-                      );
-                    }
+                  if (
+                    selectedFarmId
+                  ) {
+                    await loadOverview(
+                      selectedFarmId,
+                      overviewMetricType,
+                      overviewDate,
+                    );
                   }
                 }
-                onClose={
-                  () =>
-                    setSelectedFieldId(
-                      null,
-                    )
-                }
-              />
-            )}
-        </div>
+              }
+              onClose={
+                () =>
+                  setSelectedFieldId(
+                    null,
+                  )
+              }
+            />
+          )}
       </main>
 
       {createFarmOpen && (
