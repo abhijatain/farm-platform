@@ -348,8 +348,7 @@ export default function FieldDetailsPanel({
 
   useEffect(() => {
     if (
-      satelliteObservations.length > 0
-      || !satelliteIngestion
+      !satelliteIngestion
       || ![
         "pending",
         "running",
@@ -376,7 +375,6 @@ export default function FieldDetailsPanel({
     };
   }, [
     field.id,
-    satelliteObservations.length,
     satelliteIngestion?.status,
   ]);
 
