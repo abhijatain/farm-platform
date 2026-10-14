@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "hardening/**"
+  pull_request:
+
+jobs:
+  backend:
+    name: API + PostGIS
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: farmdb
+          POSTGRES_USER: farmapp
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U farmapp -d farmdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://farmapp:password@localhost:5432/farmdb
+      FIREBASE_PROJECT_ID: ci-farm-platform
+      GCS_BUCKET_NAME: ci-farm-platform
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install API dependencies
+        working-directory: services/api
+        run: uv sync --frozen
+
+      - name: Fresh PostGIS migration
+        working-directory: services/api
+        run: |
+          uv run alembic upgrade head
+          uv run alembic current
+          uv run alembic check
+
+      - name: Compile API
+        working-directory: services/api
+        run: uv run python -m compileall -q app scripts
+
+      - name: Run API tests
+        working-directory: services/api
+        run: uv run --with pytest pytest -q tests
+
+  satellite-worker:
+    name: Satellite worker
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: postgresql+psycopg://unused:unused@localhost/unused
+      GCS_BUCKET_NAME: ci-farm-platform
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install worker dependencies
+        working-directory: services/satellite-worker
+        run: uv sync --frozen
+
+      - name: Compile worker
+        working-directory: services/satellite-worker
+        run: uv run python -m compileall -q src
+
+      - name: Run worker tests
+        working-directory: services/satellite-worker
+        run: uv run --with pytest pytest -q tests
+
+  web:
+    name: Web build + lint
+    runs-on: ubuntu-latest
+
+    env:
+      VITE_API_URL: http://localhost:8000/api/v1
+      VITE_TILER_URL: http://localhost:8081
+      VITE_MAPTILER_KEY: ci-maptiler-key
+      VITE_FIREBASE_API_KEY: ci-firebase-key
+      VITE_FIREBASE_AUTH_DOMAIN: ci.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: ci-farm-platform
+      VITE_FIREBASE_APP_ID: ci-app-id
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "123456789"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.3
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        working-directory: apps/web
+        run: pnpm build
+
+      - name: Lint web
+        working-directory: apps/web
+        run: pnpm lint
