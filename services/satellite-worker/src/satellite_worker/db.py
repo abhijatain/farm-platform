@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine, text
@@ -886,9 +886,7 @@ def enqueue_incremental_satellite_jobs(
 
     start_date = (
         end_date
-        - __import__(
-            "datetime"
-        ).timedelta(
+        - timedelta(
             days=lookback_days - 1
         )
     )
