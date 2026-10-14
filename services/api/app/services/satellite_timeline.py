@@ -463,14 +463,33 @@ def build_satellite_timeline(
         reverse=True,
     )
 
+    latest_optical = next(
+        (
+            observation
+            for observation
+            in sorted_observations
+            if source_kind(
+                observation.source
+            )
+            == "optical"
+        ),
+        None,
+    )
+
     resolved_target_date = (
         target_date
         or (
-            sorted_observations[
-                0
-            ].observed_on
-            if sorted_observations
-            else date.today()
+            latest_optical
+            .observed_on
+            if latest_optical
+            is not None
+            else (
+                sorted_observations[
+                    0
+                ].observed_on
+                if sorted_observations
+                else date.today()
+            )
         )
     )
 
