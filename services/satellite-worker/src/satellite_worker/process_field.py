@@ -136,6 +136,8 @@ def main() -> None:
         f"Found {len(items)} scenes."
     )
 
+    failed_scenes = 0
+
     for item in items:
         if item.datetime is None:
             print(
@@ -291,6 +293,7 @@ def main() -> None:
                 )
 
                 total_anomaly_zones = 0
+                anomaly_failures: list[str] = []
 
                 for metric_result in results:
                     metric_type = (
@@ -418,6 +421,33 @@ def main() -> None:
                         )
 
                     except Exception as error:
+                        # Never keep polygons from an older run attached to a
+                        # newly-published metric raster.
+                        replace_satellite_anomalies(
+                            observation_id=(
+                                observation_id
+                            ),
+                            metric_type=(
+                                metric_type
+                            ),
+                            zones=[],
+                            analysis_json={
+                                "status": "failed",
+                                "method": "robust_mad_metric_v1",
+                                "metric_type": metric_type,
+                                "metric_label": rule.label,
+                                "direction": rule.direction,
+                                "valid_pixel_percent": valid_percent,
+                                "zone_count": 0,
+                                "error_type": type(error).__name__,
+                                "error_message": str(error),
+                            },
+                        )
+
+                        anomaly_failures.append(
+                            metric_type
+                        )
+
                         print(
                             "  "
                             f"{metric_type.upper()}: "
@@ -434,6 +464,15 @@ def main() -> None:
                         observation_id
                     ),
                 )
+
+                if anomaly_failures:
+                    raise RuntimeError(
+                        "Anomaly analysis failed for: "
+                        + ", ".join(
+                            metric.upper()
+                            for metric in anomaly_failures
+                        )
+                    )
 
                 print()
                 print(
@@ -458,11 +497,23 @@ def main() -> None:
                 )
 
             except Exception as error:
+                failed_scenes += 1
+
                 print(
                     "FAILED: "
                     f"{type(error).__name__}: "
                     f"{error}"
                 )
+
+    if failed_scenes:
+        print()
+        print(
+            "Processing completed with "
+            f"{failed_scenes} failed scene"
+            + ("" if failed_scenes == 1 else "s")
+            + "."
+        )
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
