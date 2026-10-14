@@ -184,6 +184,37 @@ export type SatelliteObservation = {
   updated_at: string;
 };
 
+export type SatelliteIngestionJobStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed";
+
+export type SatelliteIngestionJob = {
+  id: string;
+  field_id: string;
+
+  job_type: "initial_backfill" | "incremental";
+
+  start_date: string;
+  end_date: string;
+
+  status: SatelliteIngestionJobStatus;
+
+  attempts: number;
+  max_attempts: number;
+
+  available_at: string;
+
+  started_at: string | null;
+  completed_at: string | null;
+
+  last_error: string | null;
+
+  created_at: string;
+  updated_at: string;
+};
+
 export type SatelliteAnomalySeverity =
   | "low"
   | "moderate"
