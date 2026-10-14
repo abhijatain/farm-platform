@@ -1,5 +1,6 @@
 
 import json
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,6 +12,7 @@ from app.models.farm import Farm
 from app.models.field import Field
 from app.models.satellite_anomaly import SatelliteAnomaly
 from app.models.satellite_ingestion_job import SatelliteIngestionJob
+from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
 from app.schemas.satellite_anomaly import (
     SatelliteAnomalyFeature,
@@ -18,15 +20,135 @@ from app.schemas.satellite_anomaly import (
     SatelliteAnomalyProperties,
 )
 from app.schemas.satellite_observation import (
+    FarmSatelliteOverviewItem,
     SatelliteIngestionJobResponse,
+    SatelliteMetricResponse,
     SatelliteObservationResponse,
 )
-from app.services.ownership import get_owned_field
+from app.services.ownership import (
+    get_owned_farm,
+    get_owned_field,
+)
 
 
 router = APIRouter(
     tags=["satellite observations"],
 )
+
+
+@router.get(
+    "/farms/{farm_id}/satellite-overview",
+    response_model=list[FarmSatelliteOverviewItem],
+)
+def get_farm_satellite_overview(
+    farm_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+    metric_type: str = Query(
+        default="ndvi",
+        min_length=1,
+        max_length=32,
+    ),
+    on_or_before: date | None = Query(
+        default=None,
+    ),
+) -> list[FarmSatelliteOverviewItem]:
+    """
+    Return the newest available observation for one metric per field.
+
+    When on_or_before is supplied, each field independently resolves to its
+    newest observation on or before that date. PostgreSQL DISTINCT ON keeps
+    this to one query regardless of the number of fields in the farm.
+    """
+
+    get_owned_farm(
+        db=db,
+        user_id=current_user.id,
+        farm_id=farm_id,
+    )
+
+    metric_type = (
+        metric_type
+        .strip()
+        .lower()
+    )
+
+    statement = (
+        select(
+            SatelliteObservation,
+            SatelliteMetric,
+        )
+        .join(
+            SatelliteMetric,
+            SatelliteMetric
+            .satellite_observation_id
+            == SatelliteObservation.id,
+        )
+        .join(
+            Field,
+            Field.id
+            == SatelliteObservation.field_id,
+        )
+        .where(
+            Field.farm_id
+            == farm_id,
+            SatelliteMetric.metric_type
+            == metric_type,
+        )
+    )
+
+    if on_or_before is not None:
+        statement = statement.where(
+            SatelliteObservation.observed_on
+            <= on_or_before
+        )
+
+    rows = db.execute(
+        statement
+        .distinct(
+            SatelliteObservation.field_id
+        )
+        .order_by(
+            SatelliteObservation.field_id,
+            SatelliteObservation
+            .observed_on
+            .desc(),
+            SatelliteObservation
+            .created_at
+            .desc(),
+        )
+    ).all()
+
+    return [
+        FarmSatelliteOverviewItem(
+            field_id=(
+                observation.field_id
+            ),
+            observation_id=(
+                observation.id
+            ),
+            observed_on=(
+                observation.observed_on
+            ),
+            source=(
+                observation.source
+            ),
+            cloud_cover_percent=(
+                observation
+                .cloud_cover_percent
+            ),
+            metric=(
+                SatelliteMetricResponse
+                .model_validate(
+                    metric
+                )
+            ),
+        )
+        for (
+            observation,
+            metric,
+        ) in rows
+    ]
 
 
 @router.get(
