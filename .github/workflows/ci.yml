@@ -62,6 +62,10 @@ jobs:
         working-directory: services/api
         run: uv run python -m compileall -q app scripts
 
+      - name: Import API application
+        working-directory: services/api
+        run: uv run python -c "from app.main import app; assert app.routes"
+
       - name: Run API tests
         working-directory: services/api
         run: uv run --with pytest pytest -q tests
@@ -96,6 +100,36 @@ jobs:
       - name: Run worker tests
         working-directory: services/satellite-worker
         run: uv run --with pytest pytest -q tests
+
+  tiler:
+    name: Tiler smoke test
+    runs-on: ubuntu-latest
+
+    env:
+      GCS_BUCKET_NAME: ci-farm-platform
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tiler dependencies
+        working-directory: services/tiler
+        run: uv sync --frozen
+
+      - name: Compile tiler
+        working-directory: services/tiler
+        run: uv run python -m compileall -q src
+
+      - name: Import tiler application
+        working-directory: services/tiler
+        run: uv run python -c "from farm_tiler.main import app; assert app.routes"
 
   web:
     name: Web build + lint
