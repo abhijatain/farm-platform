@@ -19,6 +19,9 @@ dependencies = [
     "scipy>=1.14",
 ]
 
+[project.scripts]
+satellite-ingestion-worker = "satellite_worker.ingestion_worker:main"
+
 
 [build-system]
 requires = ["hatchling"]
