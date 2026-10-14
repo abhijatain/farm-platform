@@ -310,22 +310,12 @@ export default function FieldDetailsPanel({
       const [
         observations,
         ingestion,
-        unifiedTimeline,
       ] = await Promise.all([
         listSatelliteObservations(
           field.id,
         ),
         getSatelliteIngestionStatus(
           field.id,
-        ),
-        getSatelliteTimeline(
-          field.id,
-          "ndvi",
-          {
-            windowDays: 14,
-            minimumValidPercent: 80,
-            eventLimit: 60,
-          },
         ),
       ]);
 
@@ -337,9 +327,34 @@ export default function FieldDetailsPanel({
         ingestion,
       );
 
-      setSatelliteTimeline(
-        unifiedTimeline,
-      );
+      try {
+        const unifiedTimeline =
+          await getSatelliteTimeline(
+            field.id,
+            "ndvi",
+            {
+              windowDays: 14,
+              minimumValidPercent: 80,
+              eventLimit: 60,
+            },
+          );
+
+        setSatelliteTimeline(
+          unifiedTimeline,
+        );
+
+      } catch (
+        timelineRequestError
+      ) {
+        setSatelliteTimeline(
+          null,
+        );
+
+        console.error(
+          "Unable to load unified satellite timeline:",
+          timelineRequestError,
+        );
+      }
 
     } catch (requestError) {
       if (!silent) {
