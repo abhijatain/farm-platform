@@ -1,10 +1,19 @@
 # Satellite Worker
 
-Processes Sentinel-2 L2A scenes for Farm Platform fields.
+Processes optical, radar, and thermal satellite data for Farm Platform fields.
 
-The worker computes the configured satellite metrics, writes temporary COGs,
-publishes canonical objects to private GCS, stores metric rows in PostgreSQL,
-and calculates metric-aware relative anomaly zones.
+Sources and derived metrics:
+
+- Sentinel-2 L2A: NDVI, NDRE, NDMI, GNDVI, EVI2, NDWI, SAVI, MSAVI, BSI,
+  NDTI, CCCI, RECI, MCARI.
+- Sentinel-1 RTC: VV dB, VH dB, VV/VH ratio, dual-pol RVI. Radar is
+  cloud-independent and is stored as a separate observation source.
+- Landsat Collection 2 Level-2: land-surface temperature (LST) in °C with
+  QA_PIXEL cloud/shadow/snow masking.
+
+The worker writes temporary COGs, publishes canonical objects to private GCS,
+stores metric rows in PostgreSQL, and calculates metric-aware relative anomaly
+zones where a scientifically appropriate anomaly rule exists.
 
 ## Setup
 
@@ -26,8 +35,9 @@ historical backfill in the same transaction as field creation. Fields that
 existed before automatic ingestion was deployed and still have zero satellite
 observations are bootstrapped automatically when the worker starts.
 
-The worker also creates idempotent incremental jobs for every field. Each
-incremental job searches a recent lookback window, but skips scenes already
+The worker also creates idempotent incremental jobs for every field. Each job
+runs Sentinel-2 optical, Sentinel-1 RTC radar, and Landsat thermal processors.
+Incremental jobs search a recent lookback window but skip scenes already
 complete in PostgreSQL. Historical pre-v2 observations that already have
 metrics—including NDVI-only observations—are deliberately preserved and are
 never filled in by automatic ingestion.
@@ -42,6 +52,12 @@ uv run satellite-ingestion-worker --once
 A failed job is retried after the configured delay until its attempt limit is
 reached. Stale running jobs are recovered when the worker starts.
 
+Cloud-covered optical scenes are recorded with a terminal processing status,
+date, scene identifier, and available cloud/field-coverage metadata. They are
+not retried and they do not receive fake metric rows. Sentinel-1 radar scenes
+are independent acquisitions, so a cloudy optical date can coexist with a
+nearby radar date containing only the four SAR metrics.
+
 ## Process one field manually
 
 ```bash
@@ -51,8 +67,17 @@ uv run python -m satellite_worker.process_field \
   --end 2026-10-14
 ```
 
-Manual processing remains available when an explicit reprocess is needed.
-Automatic jobs invoke the same processor with `--skip-existing`.
+Manual processing remains available when an explicit reprocess is needed:
+
+```bash
+uv run python -m satellite_worker.process_sentinel1_field \
+  --field-id <FIELD_UUID> --start 2026-10-01 --end 2026-10-14
+
+uv run python -m satellite_worker.process_landsat_field \
+  --field-id <FIELD_UUID> --start 2026-10-01 --end 2026-10-14
+```
+
+Automatic jobs invoke all three processors with `--skip-existing`.
 
 A command exits non-zero if any selected scene fails. Raster publishing stages
 and verifies new COGs before promotion and restores previous canonical objects
