@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Plus, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+} from "lucide-react";
 
 import ActivityMediaSection from "./ActivityMediaSection";
 import {
@@ -514,14 +517,28 @@ export default function FieldDetailsPanel({
   return (
     <section className="field-workspace-panel">
       <header className="field-workspace-header">
-        <div>
+        <button
+          className="field-workspace-back"
+          onClick={onClose}
+        >
+          <ArrowLeft size={17} />
+          Farm map
+        </button>
+
+        <div className="field-workspace-identity">
+          <span>{farm.name}</span>
+
           <h1>{field.name}</h1>
 
           <p>
-            {field.area_hectares.toFixed(2)}
-            {" ha · "}
             {field.area_acres.toFixed(2)}
-            {" acres"}
+            {" acres · "}
+            {field.area_hectares.toFixed(2)}
+            {" ha"}
+
+            {season
+              ? ` · ${season.name}`
+              : ""}
 
             {cropCycle
               ? ` · ${cropCycle.crop_name}${
@@ -541,14 +558,6 @@ export default function FieldDetailsPanel({
               Start crop
             </button>
           )}
-
-          <button
-            className="field-workspace-close"
-            onClick={onClose}
-            aria-label="Close field"
-          >
-            <X size={22} />
-          </button>
         </div>
       </header>
 
@@ -658,6 +667,13 @@ function SatelliteTab({
   error: string | null;
   ingestion: SatelliteIngestionJob | null;
 }) {
+  const [
+    selectedMetricType,
+    setSelectedMetricType,
+  ] = useState<SatelliteMetricType>(
+    "ndvi",
+  );
+
   const sorted = useMemo(
     () =>
       [...observations].sort((a, b) =>
@@ -692,23 +708,100 @@ function SatelliteTab({
     [sorted],
   );
 
+  const selectedMetric =
+    FARMER_METRICS.find(
+      (
+        metric,
+      ) =>
+        metric.metricType
+        === selectedMetricType,
+    )
+    ?? FARMER_METRICS[0];
+
+  const latestByMetric =
+    useMemo(
+      () =>
+        new Map(
+          FARMER_METRICS.map(
+            (
+              metric,
+            ) => {
+              const observation =
+                usableObservations.find(
+                  (
+                    candidate,
+                  ) =>
+                    Boolean(
+                      getObservationMetric(
+                        candidate,
+                        metric.metricType,
+                      )
+                        ?.raster_uri,
+                    ),
+                )
+                ?? null;
+
+              return [
+                metric.metricType,
+                observation,
+              ];
+            },
+          ),
+        ),
+      [
+        usableObservations,
+      ],
+    );
+
+  const latestSelectedObservation =
+    latestByMetric.get(
+      selectedMetricType,
+    )
+    ?? null;
+
+  const latestSelectedMetric =
+    latestSelectedObservation
+      ? getObservationMetric(
+          latestSelectedObservation,
+          selectedMetricType,
+        )
+      : null;
+
   return (
-    <div className="workspace-page satellite-first-page">
-      <div className="workspace-page-title">
+    <div className="workspace-page satellite-first-page compact-workspace-page">
+      <div className="field-tab-heading">
         <div>
           <span>FIELD CONDITION</span>
 
-          <h2>Latest satellite views</h2>
-
-          <p>
-            The latest usable observations for the selected field. Compare
-            recent dates visually before opening more detailed analysis.
-          </p>
+          <h2>Satellite</h2>
         </div>
 
-        <div className="satellite-source-badge">
-          Sentinel-2 · Sentinel-1 · Landsat
-        </div>
+        {latestSelectedObservation && latestSelectedMetric && (
+          <div className="field-tab-current">
+            <span>
+              {METRIC_CONFIG[selectedMetricType].label}
+            </span>
+
+            <strong>
+              {formatMetricValue(
+                latestSelectedMetric.median,
+                selectedMetricType === "lst_c"
+                  ? 1
+                  : 2,
+              )}
+            </strong>
+
+            <small>
+              {formatDate(
+                latestSelectedObservation.observed_on,
+              )}
+              {" · "}
+              {formatObservationSource(
+                latestSelectedObservation.source,
+              )}
+            </small>
+          </div>
+        )}
       </div>
 
       {loading && (
@@ -731,68 +824,140 @@ function SatelliteTab({
       )}
 
       {!loading && !error && usableObservations.length > 0 && (
-        <div className="farmer-metric-stack">
-          {FARMER_METRICS.map((metric) => (
+        <div className="field-satellite-dashboard">
+          <aside className="field-metric-picker">
+            <span className="workspace-eyebrow">
+              VIEW METRIC
+            </span>
+
+            {FARMER_METRICS.map(
+              (
+                metric,
+              ) => {
+                const observation =
+                  latestByMetric.get(
+                    metric.metricType,
+                  )
+                  ?? null;
+
+                const value =
+                  observation
+                    ? getObservationMetric(
+                        observation,
+                        metric.metricType,
+                      )
+                    : null;
+
+                return (
+                  <button
+                    key={metric.metricType}
+                    className={
+                      selectedMetricType
+                        === metric.metricType
+                        ? "field-metric-option active"
+                        : "field-metric-option"
+                    }
+                    onClick={
+                      () =>
+                        setSelectedMetricType(
+                          metric.metricType,
+                        )
+                    }
+                  >
+                    <div>
+                      <strong>
+                        {metric.label}
+                      </strong>
+
+                      <span>
+                        {METRIC_CONFIG[
+                          metric.metricType
+                        ].label}
+                      </span>
+                    </div>
+
+                    <div className="field-metric-option-value">
+                      <strong>
+                        {formatMetricValue(
+                          value?.median,
+                          metric.metricType
+                            === "lst_c"
+                            ? 1
+                            : 2,
+                        )}
+                      </strong>
+
+                      <span>
+                        {observation
+                          ? formatDate(
+                              observation.observed_on,
+                            )
+                          : "No data"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              },
+            )}
+          </aside>
+
+          <div className="field-satellite-primary">
             <MetricImageryStrip
-              key={metric.metricType}
               field={field}
               observations={usableObservations}
-              metric={metric}
+              metric={selectedMetric}
             />
-          ))}
-        </div>
-      )}
 
-      {!loading && !error && skippedObservations.length > 0 && (
-        <section className="metric-imagery-section">
-          <div className="metric-imagery-heading">
-            <div>
-              <h3>Unavailable satellite dates</h3>
+            {skippedObservations.length > 0 && (
+              <details className="field-unavailable-dates">
+                <summary>
+                  {skippedObservations.length}
+                  {" unavailable optical "}
+                  {skippedObservations.length === 1
+                    ? "date"
+                    : "dates"}
+                </summary>
 
-              <p>
-                These optical scenes were recorded but skipped because
-                cloud or quality masking left no useful field imagery.
-                Sentinel-1 radar can still provide all-weather observations.
-              </p>
-            </div>
-          </div>
+                <div>
+                  {skippedObservations.slice(0, 8).map((observation) => {
+                    const status =
+                      observation.metadata_json
+                        ?.processing_status;
 
-          <div className="metric-imagery-empty">
-            {skippedObservations.slice(0, 8).map((observation) => {
-              const status =
-                observation.metadata_json
-                  ?.processing_status;
+                    const fieldCloud =
+                      observation.metadata_json
+                        ?.field_cloud_cover_percent;
 
-              const fieldCloud =
-                observation.metadata_json
-                  ?.field_cloud_cover_percent;
+                    const cloudPercent =
+                      typeof fieldCloud === "number"
+                        ? fieldCloud
+                        : observation.cloud_cover_percent;
 
-              const cloudPercent =
-                typeof fieldCloud === "number"
-                  ? fieldCloud
-                  : observation.cloud_cover_percent;
-
-              return (
-                <div key={observation.id}>
-                  <strong>{formatDate(observation.observed_on)}</strong>
-                  {" · "}
-                  {formatObservationSource(observation.source)}
-                  {" · "}
-                  {status === "skipped_scene_cloud_cover"
-                    ? "Cloud covered"
-                    : "No usable field pixels"}
-                  {cloudPercent != null
-                    ? ` · ${cloudPercent.toFixed(0)}% cloud/shadow`
-                    : ""}
+                    return (
+                      <span key={observation.id}>
+                        <strong>
+                          {formatDate(observation.observed_on)}
+                        </strong>
+                        {" · "}
+                        {status === "skipped_scene_cloud_cover"
+                          ? "Cloud covered"
+                          : "No usable pixels"}
+                        {cloudPercent != null
+                          ? ` · ${cloudPercent.toFixed(0)}%`
+                          : ""}
+                      </span>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </details>
+            )}
           </div>
-        </section>
+        </div>
       )}
     </div>
   );
 }
+
 
 function SatelliteIngestionEmptyState({
   ingestion,
