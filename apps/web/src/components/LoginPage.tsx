@@ -4,6 +4,14 @@ import {
 } from "react";
 
 import {
+  Activity,
+  Map,
+  Satellite,
+  ShieldCheck,
+  Sprout,
+} from "lucide-react";
+
+import {
   type ConfirmationResult,
   RecaptchaVerifier,
   signInWithPhoneNumber,
@@ -15,317 +23,368 @@ import {
 
 
 export default function LoginPage() {
-
   const [
     phone,
     setPhone,
-  ] =
-    useState("+91");
-
+  ] = useState(
+    "+91",
+  );
 
   const [
     code,
     setCode,
-  ] =
-    useState("");
-
+  ] = useState(
+    "",
+  );
 
   const [
     confirmation,
     setConfirmation,
-  ] =
-    useState<
-      ConfirmationResult | null
-    >(null);
-
+  ] = useState<
+    ConfirmationResult | null
+  >(
+    null,
+  );
 
   const [
     loading,
     setLoading,
-  ] =
-    useState(false);
-
+  ] = useState(
+    false,
+  );
 
   const [
     error,
     setError,
-  ] =
-    useState<string | null>(
-      null,
-    );
-
+  ] = useState<
+    string | null
+  >(
+    null,
+  );
 
   const verifierRef =
     useRef<
       RecaptchaVerifier | null
-    >(null);
+    >(
+      null,
+    );
 
 
   async function sendOtp() {
-
     try {
+      setLoading(
+        true,
+      );
 
-      setLoading(true);
-      setError(null);
-
+      setError(
+        null,
+      );
 
       verifierRef.current
         ?.clear();
 
-
       const verifier =
         new RecaptchaVerifier(
           auth,
-
           "recaptcha-container",
-
           {
             size:
               "invisible",
           },
         );
 
-
       verifierRef.current =
         verifier;
-
 
       const result =
         await signInWithPhoneNumber(
           auth,
-
           phone.replace(
             /\s+/g,
             "",
           ),
-
           verifier,
         );
-
 
       setConfirmation(
         result,
       );
 
     } catch (
-      error
+      requestError
     ) {
-
       setError(
-        error instanceof Error
-          ? error.message
+        requestError
+          instanceof Error
+          ? requestError.message
           : "Unable to send OTP.",
       );
 
     } finally {
-
-      setLoading(false);
-
+      setLoading(
+        false,
+      );
     }
-
   }
 
 
   async function verifyOtp() {
-
-    if (!confirmation) {
+    if (
+      !confirmation
+    ) {
       return;
     }
 
-
     try {
-
-      setLoading(true);
-      setError(null);
-
-
-      await confirmation.confirm(
-        code,
+      setLoading(
+        true,
       );
 
-      /*
-       * AuthProvider will now take
-       * over and App will switch to
-       * the farm dashboard.
-       */
+      setError(
+        null,
+      );
+
+      await confirmation
+        .confirm(
+          code,
+        );
 
     } catch (
-      error
+      requestError
     ) {
-
       setError(
-        error instanceof Error
-          ? error.message
+        requestError
+          instanceof Error
+          ? requestError.message
           : "Invalid OTP.",
       );
 
     } finally {
-
-      setLoading(false);
-
+      setLoading(
+        false,
+      );
     }
-
   }
 
 
   return (
-    <div className="login-page">
+    <main className="landing-page">
+      <section className="landing-hero">
+        <div className="landing-brand">
+          <div className="landing-brand-mark">
+            <Sprout
+              size={22}
+            />
+          </div>
 
-      <div className="login-card">
-
-        <div className="login-logo">
-          🌱
+          <strong>
+            Farm Platform
+          </strong>
         </div>
 
+        <div className="landing-copy">
+          <span className="landing-eyebrow">
+            FIELD INTELLIGENCE
+          </span>
 
-        <h1>
-          Farm Platform
-        </h1>
+          <h1>
+            See every field.
+            <br />
+            Know what changed.
+          </h1>
 
+          <p>
+            Bring farm boundaries, crop records, activities and multi-source
+            satellite monitoring into one clear workspace.
+          </p>
 
-        <p className="login-subtitle">
+          <div className="landing-feature-grid">
+            <div>
+              <Map
+                size={19}
+              />
 
-          Your fields, crops and
-          farm records in one place.
+              <strong>
+                One farm map
+              </strong>
 
-        </p>
+              <span>
+                View every field boundary and condition together.
+              </span>
+            </div>
 
+            <div>
+              <Satellite
+                size={19}
+              />
 
-        {!confirmation ? (
-          <>
+              <strong>
+                Optical + radar
+              </strong>
 
-            <label>
-              Mobile number
-            </label>
+              <span>
+                Sentinel-2, all-weather Sentinel-1 and Landsat thermal.
+              </span>
+            </div>
 
+            <div>
+              <Activity
+                size={19}
+              />
 
-            <input
-              className="form-input"
+              <strong>
+                Field history
+              </strong>
 
-              value={phone}
-
-              onChange={(
-                event,
-              ) =>
-                setPhone(
-                  event
-                    .target
-                    .value,
-                )
-              }
-
-              placeholder="+91 98765 43210"
-            />
-
-
-            <button
-              id="phone-login-button"
-
-              className="primary-action"
-
-              disabled={
-                loading
-              }
-
-              onClick={
-                sendOtp
-              }
-            >
-
-              {loading
-                ? "Sending..."
-                : "Send OTP"}
-
-            </button>
-
-          </>
-        ) : (
-          <>
-
-            <label>
-              Verification code
-            </label>
-
-
-            <input
-              className="form-input"
-
-              value={code}
-
-              onChange={(
-                event,
-              ) =>
-                setCode(
-                  event
-                    .target
-                    .value,
-                )
-              }
-
-              placeholder="123456"
-            />
-
-
-            <button
-              className="primary-action"
-
-              disabled={
-                loading
-              }
-
-              onClick={
-                verifyOtp
-              }
-            >
-
-              {loading
-                ? "Checking..."
-                : "Verify"}
-
-            </button>
-
-
-            <button
-              className="text-button"
-
-              onClick={() => {
-                setConfirmation(
-                  null,
-                );
-
-                setCode("");
-              }}
-            >
-              Change phone number
-            </button>
-
-          </>
-        )}
-
-
-        {error && (
-          <div className="login-error">
-            {error}
+              <span>
+                Keep crop activities and satellite observations connected.
+              </span>
+            </div>
           </div>
-        )}
+        </div>
 
+        <div className="landing-trust">
+          <ShieldCheck
+            size={16}
+          />
 
-        <p className="login-disclosure">
+          <span>
+            Your farm data stays private to your account.
+          </span>
+        </div>
+      </section>
 
-          Your phone number is
-          processed by Firebase for
-          authentication and abuse
-          prevention.
+      <section className="landing-login">
+        <div className="landing-login-card">
+          <span className="landing-login-kicker">
+            FARMER LOGIN
+          </span>
 
-        </p>
+          <h2>
+            Welcome back
+          </h2>
 
+          <p>
+            Sign in with the mobile number linked to your farm account.
+          </p>
 
-        <div
-          id="recaptcha-container"
-        />
+          {!confirmation
+            ? (
+              <>
+                <label>
+                  Mobile number
+                </label>
 
-      </div>
+                <input
+                  className="form-input"
+                  inputMode="tel"
+                  value={
+                    phone
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setPhone(
+                      event.target
+                        .value,
+                    )
+                  }
+                  placeholder="+91 98765 43210"
+                />
 
-    </div>
+                <button
+                  id="phone-login-button"
+                  className="primary-action landing-login-action"
+                  disabled={
+                    loading
+                  }
+                  onClick={
+                    sendOtp
+                  }
+                >
+                  {loading
+                    ? "Sending OTP…"
+                    : "Continue with phone"}
+                </button>
+              </>
+            )
+            : (
+              <>
+                <div className="landing-phone-sent">
+                  Code sent to {phone}
+                </div>
+
+                <label>
+                  Verification code
+                </label>
+
+                <input
+                  className="form-input login-code-input"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={
+                    code
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setCode(
+                      event.target
+                        .value,
+                    )
+                  }
+                  placeholder="123456"
+                />
+
+                <button
+                  className="primary-action landing-login-action"
+                  disabled={
+                    loading
+                  }
+                  onClick={
+                    verifyOtp
+                  }
+                >
+                  {loading
+                    ? "Verifying…"
+                    : "Open farm dashboard"}
+                </button>
+
+                <button
+                  className="text-button landing-change-phone"
+                  onClick={
+                    () => {
+                      setConfirmation(
+                        null,
+                      );
+
+                      setCode(
+                        "",
+                      );
+                    }
+                  }
+                >
+                  Use a different number
+                </button>
+              </>
+            )}
+
+          {error && (
+            <div className="login-error">
+              {error}
+            </div>
+          )}
+
+          <p className="login-disclosure">
+            Firebase processes your phone number for authentication and abuse
+            prevention.
+          </p>
+
+          <div
+            id="recaptcha-container"
+          />
+        </div>
+      </section>
+    </main>
   );
 }
