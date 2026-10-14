@@ -1,6 +1,9 @@
 import numpy as np
 import pytest
 
+from satellite_worker.multisource_raster import (
+    RASTERIO_ENV,
+)
 from satellite_worker.process_sentinel1_field import (
     calculate_sar_metric_arrays,
 )
@@ -55,3 +58,16 @@ def test_sentinel1_radar_metric_formulas() -> None:
         0.8,
         abs=1e-6,
     )
+
+
+def test_remote_rasterio_allows_tiff_assets() -> None:
+    allowed = (
+        RASTERIO_ENV[
+            "CPL_VSIL_CURL_ALLOWED_EXTENSIONS"
+        ]
+        .lower()
+        .split(",")
+    )
+
+    assert ".tif" in allowed
+    assert ".tiff" in allowed
