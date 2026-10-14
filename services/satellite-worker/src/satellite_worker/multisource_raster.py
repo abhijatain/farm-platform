@@ -11,6 +11,7 @@ from urllib.request import urlopen
 import numpy as np
 import pystac
 import rasterio
+from affine import Affine
 from pyproj import Transformer
 from rasterio.enums import Resampling
 from rasterio.features import geometry_mask
@@ -36,7 +37,7 @@ RASTERIO_ENV = {
 @dataclass
 class RasterGrid:
     crs: rasterio.crs.CRS
-    transform: rasterio.Affine
+    transform: Affine
 
     width: int
     height: int
