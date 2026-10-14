@@ -1,4 +1,4 @@
-import { auth } from "./firebase";
+import { apiRequest } from "./api-client";
 
 import type {
   Activity,
@@ -15,81 +15,23 @@ import type {
   ActivitySatelliteContext,
 } from "../types/api";
 
-const API_URL = import.meta.env.VITE_API_URL;
-
-if (!API_URL) {
-  throw new Error("VITE_API_URL is missing.");
-}
-
-async function apiFetch<T>(
-  path: string,
-
-  options: RequestInit = {},
-): Promise<T> {
-  const firebaseUser = auth.currentUser;
-
-  if (!firebaseUser) {
-    throw new Error("Not authenticated.");
-  }
-
-  const token = await firebaseUser.getIdToken();
-
-  const headers = new Headers(options.headers);
-
-  headers.set("Authorization", `Bearer ${token}`);
-
-  if (options.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-
-    try {
-      const body = await response.json();
-
-      if (body.detail) {
-        message =
-          typeof body.detail === "string"
-            ? body.detail
-            : JSON.stringify(body.detail);
-      }
-    } catch {
-      // Keep fallback.
-    }
-
-    throw new Error(message);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
-}
-
 /* AUTH */
 
 export function getMe() {
-  return apiFetch<CurrentUser>("/auth/me");
+  return apiRequest<CurrentUser>("/auth/me");
 }
 
 /* FARMS */
 
 export function listFarms() {
-  return apiFetch<Farm[]>("/farms");
+  return apiRequest<Farm[]>("/farms");
 }
 
 export function createFarm(data: {
   name: string;
   location_name: string | null;
 }) {
-  return apiFetch<Farm>("/farms", {
+  return apiRequest<Farm>("/farms", {
     method: "POST",
 
     body: JSON.stringify(data),
@@ -99,7 +41,7 @@ export function createFarm(data: {
 /* FIELDS */
 
 export function listFields(farmId: string) {
-  return apiFetch<Field[]>(`/farms/${farmId}/fields`);
+  return apiRequest<Field[]>(`/farms/${farmId}/fields`);
 }
 
 export function createField(
@@ -111,7 +53,7 @@ export function createField(
     boundary: PolygonGeometry;
   },
 ) {
-  return apiFetch<Field>(
+  return apiRequest<Field>(
     `/farms/${farmId}/fields`,
 
     {
@@ -125,7 +67,7 @@ export function createField(
 /* SEASONS */
 
 export function listSeasons(farmId: string) {
-  return apiFetch<Season[]>(`/farms/${farmId}/seasons`);
+  return apiRequest<Season[]>(`/farms/${farmId}/seasons`);
 }
 
 export function createSeason(
@@ -141,7 +83,7 @@ export function createSeason(
     ended_on: string | null;
   },
 ) {
-  return apiFetch<Season>(
+  return apiRequest<Season>(
     `/farms/${farmId}/seasons`,
 
     {
@@ -155,10 +97,10 @@ export function createSeason(
 /* CROP CYCLES */
 
 export function listFieldCropCycles(fieldId: string) {
-  return apiFetch<CropCycle[]>(`/fields/${fieldId}/crop-cycles`);
+  return apiRequest<CropCycle[]>(`/fields/${fieldId}/crop-cycles`);
 }
 export function listSeasonCropCycles(seasonId: string) {
-  return apiFetch<CropCycle[]>(`/seasons/${seasonId}/crop-cycles`);
+  return apiRequest<CropCycle[]>(`/seasons/${seasonId}/crop-cycles`);
 }
 
 export function createCropCycle(
@@ -180,7 +122,7 @@ export function createCropCycle(
     notes: string | null;
   },
 ) {
-  return apiFetch<CropCycle>(
+  return apiRequest<CropCycle>(
     `/seasons/${seasonId}/crop-cycles`,
 
     {
@@ -232,7 +174,7 @@ export function harvestCropCycle(
     notes: string | null;
   },
 ) {
-  return apiFetch<HarvestResult>(`/crop-cycles/${cropCycleId}/harvest`, {
+  return apiRequest<HarvestResult>(`/crop-cycles/${cropCycleId}/harvest`, {
     method: "POST",
 
     body: JSON.stringify(data),
@@ -256,7 +198,7 @@ export function createActivity(
     details: Record<string, unknown>;
   },
 ) {
-  return apiFetch<Activity>(
+  return apiRequest<Activity>(
     `/fields/${fieldId}/activities`,
 
     {
@@ -279,7 +221,7 @@ export function getActivitySatelliteContext(
     minimum_valid_percent: String(minimumValidPercent),
   });
 
-  return apiFetch<ActivitySatelliteContext>(
+  return apiRequest<ActivitySatelliteContext>(
     `/activities/${activityId}/satellite-context?${params.toString()}`,
   );
 }
@@ -287,11 +229,11 @@ export function getActivitySatelliteContext(
 /* TIMELINE */
 
 export function getFieldTimeline(fieldId: string) {
-  return apiFetch<TimelineItem[]>(`/fields/${fieldId}/timeline`);
+  return apiRequest<TimelineItem[]>(`/fields/${fieldId}/timeline`);
 }
 
 export function listSatelliteObservations(fieldId: string) {
-  return apiFetch<SatelliteObservation[]>(
+  return apiRequest<SatelliteObservation[]>(
     `/fields/${fieldId}/satellite-observations`,
   );
 }
@@ -304,7 +246,7 @@ export function listSatelliteAnomalies(
     metric_type: metricType,
   });
 
-  return apiFetch<SatelliteAnomalyFeatureCollection>(
+  return apiRequest<SatelliteAnomalyFeatureCollection>(
     `/satellite-observations/${observationId}/anomalies?${params.toString()}`,
   );
 }
