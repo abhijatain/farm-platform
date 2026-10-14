@@ -1242,101 +1242,116 @@ function ActivitiesTab({
       )}
 
       {!loading && !error && selectedActivity && (
-        <>
-          <section className="latest-activity-card">
-            <div className="latest-activity-top">
-              <div>
-                <span className="workspace-eyebrow">SELECTED ACTIVITY</span>
+        <div className="activities-workspace-grid">
+          <aside className="activity-history-rail">
+            <div className="activity-history-rail-head">
+              <span className="workspace-eyebrow">
+                FIELD HISTORY
+              </span>
 
-                <h3>{formatActivityName(selectedActivity.activity_type)}</h3>
-
-                <p>
-                  {formatActivityDate(selectedActivity.occurred_at)}
-
-                  {getActivityDetailSummary(selectedActivity)
-                    ? ` · ${getActivityDetailSummary(selectedActivity)}`
-                    : ""}
-                </p>
-
-                {selectedActivity.notes && (
-                  <p className="latest-activity-notes">
-                    {selectedActivity.notes}
-                  </p>
-                )}
-              </div>
-
-              <label className="activity-primary-metric">
-                <span>Response metric</span>
-
-                <select
-                  value={activityMetricType}
-                  onChange={(event) =>
-                    onMetricChange(event.target.value as SatelliteMetricType)
-                  }
-                >
-                  {(Object.keys(METRIC_CONFIG) as SatelliteMetricType[]).map(
-                    (metricType) => (
-                      <option key={metricType} value={metricType}>
-                        {METRIC_CONFIG[metricType].label}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
+              <strong>
+                {timeline.length}
+                {" "}
+                {timeline.length === 1
+                  ? "activity"
+                  : "activities"}
+              </strong>
             </div>
 
-            <ActivityResponsePanel
-              field={field}
-              activity={selectedActivity}
-              metricType={activityMetricType}
-              context={activityContext}
-              loading={activityContextLoading}
-              error={activityContextError}
-            />
-          </section>
-
-          <section className="past-activities-section">
-            <div className="past-activities-heading">
-              <div>
-                <span className="workspace-eyebrow">FIELD HISTORY</span>
-
-                <h3>Past activities</h3>
-              </div>
-
-              <span>Scroll horizontally →</span>
-            </div>
-
-            <div className="past-activities-scroll">
+            <div className="activity-history-list">
               {timeline.map((item) => (
                 <button
                   key={item.id}
                   className={
                     item.id === selectedActivityId
-                      ? "past-activity-card selected"
-                      : "past-activity-card"
+                      ? "activity-history-item selected"
+                      : "activity-history-item"
                   }
                   onClick={() => onSelectActivity(item.id)}
                 >
-                  <span>{formatDate(item.occurred_at.slice(0, 10))}</span>
+                  <span>
+                    {formatDate(item.occurred_at.slice(0, 10))}
+                  </span>
 
-                  <strong>{formatActivityName(item.activity_type)}</strong>
+                  <strong>
+                    {formatActivityName(item.activity_type)}
+                  </strong>
 
-                  <p>
-                    {getActivityDetailSummary(item) ||
-                      item.notes ||
-                      "Recorded farm activity"}
-                  </p>
-
-                  <small>View response →</small>
+                  <small>
+                    {getActivityDetailSummary(item)
+                      || item.notes
+                      || "Recorded activity"}
+                  </small>
                 </button>
               ))}
             </div>
-          </section>
-          <ActivityMediaSection
-            fieldId={field.id}
-            activity={selectedActivity}
-          />
-        </>
+          </aside>
+
+          <div className="activity-selected-pane">
+            <section className="latest-activity-card">
+              <div className="latest-activity-top">
+                <div>
+                  <span className="workspace-eyebrow">
+                    SELECTED ACTIVITY
+                  </span>
+
+                  <h3>
+                    {formatActivityName(selectedActivity.activity_type)}
+                  </h3>
+
+                  <p>
+                    {formatActivityDate(selectedActivity.occurred_at)}
+
+                    {getActivityDetailSummary(selectedActivity)
+                      ? ` · ${getActivityDetailSummary(selectedActivity)}`
+                      : ""}
+                  </p>
+
+                  {selectedActivity.notes && (
+                    <p className="latest-activity-notes">
+                      {selectedActivity.notes}
+                    </p>
+                  )}
+                </div>
+
+                <label className="activity-primary-metric">
+                  <span>Response metric</span>
+
+                  <select
+                    value={activityMetricType}
+                    onChange={(event) =>
+                      onMetricChange(
+                        event.target.value as SatelliteMetricType,
+                      )
+                    }
+                  >
+                    {(Object.keys(METRIC_CONFIG) as SatelliteMetricType[]).map(
+                      (metricType) => (
+                        <option key={metricType} value={metricType}>
+                          {METRIC_CONFIG[metricType].label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+              </div>
+
+              <ActivityResponsePanel
+                field={field}
+                activity={selectedActivity}
+                metricType={activityMetricType}
+                context={activityContext}
+                loading={activityContextLoading}
+                error={activityContextError}
+              />
+            </section>
+
+            <ActivityMediaSection
+              fieldId={field.id}
+              activity={selectedActivity}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
