@@ -1,22 +1,12 @@
 import type {
   SatelliteAnomalyFeatureCollection,
+  SatelliteMetricType,
   SatelliteObservation,
 } from "../../types/api";
 
-export type SatelliteMetricType =
-  | "ndvi"
-  | "ndre"
-  | "ndmi"
-  | "gndvi"
-  | "evi2"
-  | "ndwi"
-  | "savi"
-  | "msavi"
-  | "bsi"
-  | "ndti"
-  | "ccci"
-  | "reci"
-  | "mcari";
+export type {
+  SatelliteMetricType,
+} from "../../types/api";
 
 export type SatelliteMetric = {
   id?: string;
