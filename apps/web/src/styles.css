@@ -2690,6 +2690,16 @@ textarea {
   overflow: hidden;
 }
 
+.home-main {
+  width: 100%;
+  height: 100%;
+}
+
+.home-map-region {
+  width: 100%;
+  height: 100%;
+}
+
 .home-map,
 .home-map-canvas {
   position: absolute;
