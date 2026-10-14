@@ -242,21 +242,21 @@ export function getMetricAnomalyDescription(
   switch (metricType) {
     case "bsi":
       return (
-        "Zones are areas with an unusually high "
-        "bare-soil response relative to the same field. "
+        "Zones are areas with an unusually high bare-soil response " +
+        "relative to the same field. "
       );
 
     case "ndwi":
     case "ndti":
       return (
-        "Zones are unusually high or low relative to "
-        "the same field for this observation. "
+        "Zones are unusually high or low relative to the same field " +
+        "for this observation. "
       );
 
     default:
       return (
-        "Zones are areas with an unusually low "
-        "response relative to the same field. "
+        "Zones are areas with an unusually low response relative " +
+        "to the same field. "
       );
   }
 }
