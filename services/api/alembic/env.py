@@ -158,6 +158,11 @@ def run_migrations_online() -> None:
             )
         )
 
+        # The metadata query above starts an implicit SQLAlchemy transaction.
+        # End it before Alembic opens its own migration transaction; otherwise
+        # connection close would roll back the migration and version table.
+        connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
