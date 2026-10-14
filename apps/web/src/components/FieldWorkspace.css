@@ -1938,3 +1938,325 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* =========================================================
+   HOME-MATCHED FIELD TYPOGRAPHY + METRIC DROPDOWN
+   ========================================================= */
+
+.field-workspace-panel,
+.field-workspace-panel button,
+.field-workspace-panel input,
+.field-workspace-panel select,
+.field-workspace-panel textarea {
+  font-family:
+    system-ui,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+.field-workspace-panel {
+  color: #202822;
+}
+
+.field-workspace-header .field-workspace-identity > span,
+.field-tab-heading > div:first-child > span,
+.workspace-page-title > div:first-child > span,
+.workspace-eyebrow {
+  color: #7d877f;
+
+  font-size: 10px;
+  font-weight: 500;
+
+  letter-spacing: 0.04em;
+}
+
+.field-workspace-header .field-workspace-identity h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.field-workspace-header .field-workspace-identity p {
+  color: #747e76;
+
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.field-workspace-back,
+.field-workspace-header-actions .secondary-action,
+.field-workspace-tab {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.field-workspace-tab.active {
+  font-weight: 600;
+}
+
+.field-tab-heading h2,
+.workspace-page-title h2 {
+  color: #202822;
+
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.field-tab-current span {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.field-tab-current strong {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.field-tab-current small {
+  color: #7f8981;
+
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.field-satellite-layout {
+  min-height: 0;
+
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+}
+
+.field-satellite-controls {
+  flex: 0 0 auto;
+
+  display: flex;
+  align-items: end;
+
+  gap: 16px;
+
+  padding: 12px 14px;
+
+  border: 1px solid #e1e6df;
+  border-radius: 11px;
+
+  background: #fff;
+}
+
+.field-satellite-controls > label {
+  min-width: 260px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+.field-satellite-controls > label > span {
+  color: #6f7971;
+
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.field-satellite-controls select {
+  width: 100%;
+  height: 38px;
+
+  border: 1px solid #d8ded6;
+  border-radius: 8px;
+
+  outline: 0;
+
+  padding: 0 10px;
+
+  background: #fff;
+
+  color: #28312a;
+
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.field-satellite-controls select:focus {
+  border-color: #64a378;
+
+  box-shadow: 0 0 0 3px rgba(42, 133, 76, 0.08);
+}
+
+.field-satellite-metric-description {
+  min-width: 0;
+
+  padding-bottom: 2px;
+}
+
+.field-satellite-metric-description strong,
+.field-satellite-metric-description span {
+  display: block;
+}
+
+.field-satellite-metric-description strong {
+  color: #273129;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field-satellite-metric-description span {
+  margin-top: 3px;
+
+  color: #78827a;
+
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.field-satellite-primary {
+  min-width: 0;
+  min-height: 0;
+
+  flex: 1;
+
+  overflow-y: auto;
+
+  padding-right: 3px;
+
+  scrollbar-width: thin;
+}
+
+.metric-imagery-section {
+  font-family:
+    system-ui,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+.metric-imagery-heading h3 {
+  color: #202822;
+
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.metric-imagery-heading p {
+  color: #758078;
+
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.metric-imagery-heading > span {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.metric-preview-meta strong {
+  color: #1f2821;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.metric-preview-meta span {
+  color: #778179;
+
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.metric-preview-stat > span {
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.metric-preview-stat > strong {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.field-unavailable-dates summary {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.field-unavailable-dates > div > span {
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.field-unavailable-dates > div > span strong {
+  font-weight: 500;
+}
+
+.latest-activity-top h3,
+.activity-response-chart-header h4,
+.activity-response-summary h4 {
+  font-weight: 600;
+}
+
+.latest-activity-top p,
+.latest-activity-notes,
+.activity-response-chart-header p,
+.activity-response-summary p {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.activity-primary-metric span,
+.activity-primary-metric select {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.activity-history-rail-head strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.activity-history-item span {
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.activity-history-item strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.activity-history-item small {
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.yield-active-card h3,
+.yield-dashboard strong {
+  font-weight: 600;
+}
+
+.yield-active-card p,
+.yield-dashboard span {
+  font-weight: 400;
+}
+
+@media (max-width: 900px) {
+  .field-satellite-controls {
+    align-items: stretch;
+
+    flex-direction: column;
+
+    gap: 8px;
+  }
+
+  .field-satellite-controls > label {
+    min-width: 0;
+  }
+}
