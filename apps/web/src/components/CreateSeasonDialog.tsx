@@ -2,6 +2,10 @@ import {
   useState,
 } from "react";
 
+import {
+  localDateInputValue,
+} from "../lib/dates";
+
 
 type Props = {
   onClose:
@@ -14,13 +18,6 @@ type Props = {
       startedOn: string,
     ) => Promise<void>;
 };
-
-
-function today() {
-  return new Date()
-    .toISOString()
-    .slice(0, 10);
-}
 
 
 export default function CreateSeasonDialog({
@@ -42,7 +39,7 @@ export default function CreateSeasonDialog({
   const [
     startedOn,
     setStartedOn,
-  ] = useState(today());
+  ] = useState(localDateInputValue());
 
   const [
     saving,
