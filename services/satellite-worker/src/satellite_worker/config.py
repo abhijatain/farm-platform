@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     satellite_incremental_lookback_days: int = 14
 
+    satellite_initial_backfill_days: int = 90
+
     satellite_job_retry_delay_minutes: int = 15
 
     satellite_job_stale_after_minutes: int = 720
