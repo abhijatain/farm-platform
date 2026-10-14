@@ -90,13 +90,45 @@ uv sync
 uv run uvicorn farm_tiler.main:app --host 0.0.0.0 --port 8081 --reload
 ```
 
-## Process Sentinel-2 data
+## Automatic Sentinel-2 ingestion
+
+After the database migration is applied, field creation automatically queues a
+90-day Sentinel-2 backfill. Run the ingestion worker as a long-lived service:
 
 ```bash
 cd services/satellite-worker
 cp .env.example .env
 uv sync
+uv run satellite-ingestion-worker
+```
 
+The flow is:
+
+```text
+field created
+  -> initial backfill job (default 90 days)
+  -> ingestion worker claims job
+  -> Earth Search STAC discovery
+  -> metric COG processing
+  -> private GCS publish
+  -> PostgreSQL observations/metrics/anomalies
+  -> recovery manifest
+  -> web UI detects the result automatically
+```
+
+The worker also bootstraps existing fields with zero observations and queues
+idempotent incremental refresh jobs. Existing historical scenes with metrics,
+including NDVI-only observations, are preserved and skipped by automation.
+
+For a scheduled/ephemeral worker instead of a long-lived process:
+
+```bash
+uv run satellite-ingestion-worker --once
+```
+
+Manual field processing remains available:
+
+```bash
 uv run python -m satellite_worker.process_field \
   --field-id <FIELD_UUID> \
   --start 2026-10-01 \
@@ -140,7 +172,7 @@ Local API tests:
 
 ```bash
 cd services/api
-uv run --with pytest pytest -q tests
+uv run --with pytest python -m pytest -q tests
 ```
 
 Local worker tests:
