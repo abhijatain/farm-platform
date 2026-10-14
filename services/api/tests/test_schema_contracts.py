@@ -56,7 +56,7 @@ def test_legacy_ndvi_only_observation_is_valid() -> None:
 
     assert [
         metric.metric_type
-        for metric in observation.metrics
+        for metric in payload.metrics
     ] == ["ndvi"]
 
 
