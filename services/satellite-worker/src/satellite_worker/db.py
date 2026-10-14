@@ -746,6 +746,7 @@ def automatic_scene_state_is_complete(
     *,
     processing_version: str | None,
     metric_count: int,
+    ndvi_metric_count: int,
     anomaly_analysis_count: int,
     failed_anomaly_count: int,
     expected_metric_count: int,
@@ -757,6 +758,14 @@ def automatic_scene_state_is_complete(
     as-is. Current v2 scenes are skipped only after all expected metrics and
     anomaly analyses are complete.
     """
+
+    # Historical NDVI-only observations are always valid history. This check
+    # is deliberately independent of processing-version metadata.
+    if (
+        metric_count == 1
+        and ndvi_metric_count == 1
+    ):
+        return True
 
     if (
         processing_version
@@ -803,6 +812,12 @@ def satellite_scene_is_complete_for_automatic_ingestion(
 
             COUNT(sm.id)
                 AS metric_count,
+
+            COUNT(sm.id) FILTER (
+                WHERE sm.metric_type =
+                    'ndvi'
+            )
+                AS ndvi_metric_count,
 
             COUNT(sm.id) FILTER (
                 WHERE COALESCE(
@@ -870,6 +885,13 @@ def satellite_scene_is_complete_for_automatic_ingestion(
         "processing_version"
     ]
 
+    ndvi_metric_count = int(
+        row[
+            "ndvi_metric_count"
+        ]
+        or 0
+    )
+
     anomaly_analysis_count = int(
         row[
             "anomaly_analysis_count"
@@ -890,6 +912,9 @@ def satellite_scene_is_complete_for_automatic_ingestion(
         ),
         metric_count=(
             metric_count
+        ),
+        ndvi_metric_count=(
+            ndvi_metric_count
         ),
         anomaly_analysis_count=(
             anomaly_analysis_count
