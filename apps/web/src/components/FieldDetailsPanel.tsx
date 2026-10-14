@@ -8,6 +8,7 @@ import {
   createCropCycle,
   getActivitySatelliteContext,
   getFieldTimeline,
+  getSatelliteIngestionStatus,
   harvestCropCycle,
   listSatelliteObservations,
 } from "../lib/api";
@@ -20,12 +21,17 @@ import type {
   CropCycle,
   Farm,
   Field,
+  SatelliteIngestionJob,
   SatelliteMetric,
   SatelliteMetricType,
   SatelliteObservation,
   Season,
   TimelineItem,
 } from "../types/api";
+
+import {
+  localDateInputValue,
+} from "../lib/dates";
 
 import "./FieldWorkspace.css";
 
@@ -46,7 +52,13 @@ type FarmerMetric = {
   subtitle: string;
 };
 
-const TILER_URL = import.meta.env.VITE_TILER_URL ?? "http://localhost:8081";
+const TILER_URL = import.meta.env.VITE_TILER_URL;
+
+if (!TILER_URL) {
+  throw new Error(
+    "VITE_TILER_URL is missing.",
+  );
+}
 
 const FARMER_METRICS: FarmerMetric[] = [
   {
@@ -70,10 +82,6 @@ const FARMER_METRICS: FarmerMetric[] = [
     subtitle: "BSI · exposed soil and surface signal",
   },
 ];
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function currentDateTime() {
   const now = new Date();
@@ -223,6 +231,9 @@ export default function FieldDetailsPanel({
 
   const [loading, setLoading] = useState(true);
 
+  const [timelineError, setTimelineError] =
+    useState<string | null>(null);
+
   const [cropForm, setCropForm] = useState(false);
 
   const [activityForm, setActivityForm] = useState(false);
@@ -234,6 +245,12 @@ export default function FieldDetailsPanel({
   >([]);
 
   const [satelliteLoading, setSatelliteLoading] = useState(true);
+
+  const [satelliteError, setSatelliteError] =
+    useState<string | null>(null);
+
+  const [satelliteIngestion, setSatelliteIngestion] =
+    useState<SatelliteIngestionJob | null>(null);
 
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(
     null,
@@ -251,25 +268,70 @@ export default function FieldDetailsPanel({
     string | null
   >(null);
 
-  async function loadSatelliteObservations() {
+  async function loadSatelliteObservations(
+    silent = false,
+  ) {
     try {
-      setSatelliteLoading(true);
+      if (!silent) {
+        setSatelliteLoading(true);
+      }
 
-      const result = await listSatelliteObservations(field.id);
+      setSatelliteError(null);
 
-      setSatelliteObservations(result);
+      const [
+        observations,
+        ingestion,
+      ] = await Promise.all([
+        listSatelliteObservations(
+          field.id,
+        ),
+        getSatelliteIngestionStatus(
+          field.id,
+        ),
+      ]);
+
+      setSatelliteObservations(
+        observations,
+      );
+
+      setSatelliteIngestion(
+        ingestion,
+      );
+
+    } catch (requestError) {
+      if (!silent) {
+        setSatelliteObservations([]);
+      }
+
+      setSatelliteError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load satellite observations.",
+      );
+
     } finally {
-      setSatelliteLoading(false);
+      if (!silent) {
+        setSatelliteLoading(false);
+      }
     }
   }
 
   async function loadTimeline() {
     try {
       setLoading(true);
+      setTimelineError(null);
 
       const result = await getFieldTimeline(field.id);
 
       setTimeline(result);
+    } catch (requestError) {
+      setTimeline([]);
+
+      setTimelineError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load field activities.",
+      );
     } finally {
       setLoading(false);
     }
@@ -278,10 +340,43 @@ export default function FieldDetailsPanel({
   useEffect(() => {
     setActiveTab("satellite");
     setSelectedActivityId(null);
+    setSatelliteIngestion(null);
 
     void loadTimeline();
     void loadSatelliteObservations();
   }, [field.id]);
+
+  useEffect(() => {
+    if (
+      !satelliteIngestion
+      || ![
+        "pending",
+        "running",
+      ].includes(
+        satelliteIngestion.status,
+      )
+    ) {
+      return;
+    }
+
+    const interval = window.setInterval(
+      () => {
+        void loadSatelliteObservations(
+          true,
+        );
+      },
+      15_000,
+    );
+
+    return () => {
+      window.clearInterval(
+        interval,
+      );
+    };
+  }, [
+    field.id,
+    satelliteIngestion?.status,
+  ]);
 
   const visibleTimeline = useMemo(() => {
     if (!season) {
@@ -460,6 +555,8 @@ export default function FieldDetailsPanel({
             field={field}
             observations={satelliteObservations}
             loading={satelliteLoading}
+            error={satelliteError}
+            ingestion={satelliteIngestion}
           />
         )}
 
@@ -468,6 +565,7 @@ export default function FieldDetailsPanel({
             field={field}
             timeline={visibleTimeline}
             loading={loading}
+            error={timelineError}
             cropCycle={cropCycle}
             selectedActivity={selectedActivity}
             selectedActivityId={selectedActivityId}
@@ -527,10 +625,14 @@ function SatelliteTab({
   field,
   observations,
   loading,
+  error,
+  ingestion,
 }: {
   field: Field;
   observations: SatelliteObservation[];
   loading: boolean;
+  error: string | null;
+  ingestion: SatelliteIngestionJob | null;
 }) {
   const sorted = useMemo(
     () =>
@@ -563,18 +665,20 @@ function SatelliteTab({
         </div>
       )}
 
-      {!loading && observations.length === 0 && (
+      {!loading && error && (
         <div className="workspace-empty-card">
-          <h3>No satellite data yet</h3>
-
-          <p>
-            Run the satellite worker for this field to populate the latest
-            imagery.
-          </p>
+          <h3>Unable to load satellite data</h3>
+          <p>{error}</p>
         </div>
       )}
 
-      {!loading && observations.length > 0 && (
+      {!loading && !error && observations.length === 0 && (
+        <SatelliteIngestionEmptyState
+          ingestion={ingestion}
+        />
+      )}
+
+      {!loading && !error && observations.length > 0 && (
         <div className="farmer-metric-stack">
           {FARMER_METRICS.map((metric) => (
             <MetricImageryStrip
@@ -589,6 +693,80 @@ function SatelliteTab({
     </div>
   );
 }
+
+function SatelliteIngestionEmptyState({
+  ingestion,
+}: {
+  ingestion: SatelliteIngestionJob | null;
+}) {
+  if (!ingestion) {
+    return (
+      <div className="workspace-empty-card">
+        <h3>Waiting for satellite ingestion</h3>
+
+        <p>
+          Automatic ingestion has not queued a job for this field yet.
+          The ingestion worker will pick it up during its next scan.
+        </p>
+      </div>
+    );
+  }
+
+  if (ingestion.status === "pending") {
+    return (
+      <div className="workspace-empty-card">
+        <h3>Satellite history queued</h3>
+
+        <p>
+          Sentinel-2 imagery from {formatDate(ingestion.start_date)}
+          {" to "}
+          {formatDate(ingestion.end_date)}
+          {" is waiting to be processed. This page checks automatically."}
+        </p>
+      </div>
+    );
+  }
+
+  if (ingestion.status === "running") {
+    return (
+      <div className="workspace-empty-card">
+        <h3>Processing satellite imagery…</h3>
+
+        <p>
+          Sentinel-2 scenes are being processed for this field.
+          Results will appear here automatically when the job finishes.
+        </p>
+      </div>
+    );
+  }
+
+  if (ingestion.status === "failed") {
+    return (
+      <div className="workspace-empty-card">
+        <h3>Satellite ingestion failed</h3>
+
+        <p>
+          Automatic processing reached its retry limit.
+          {ingestion.last_error
+            ? ` Last error: ${ingestion.last_error}`
+            : ""}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="workspace-empty-card">
+      <h3>No usable satellite scenes found yet</h3>
+
+      <p>
+        The latest automatic scan completed without producing usable imagery.
+        This field will continue to be checked for new Sentinel-2 scenes.
+      </p>
+    </div>
+  );
+}
+
 
 function MetricImageryStrip({
   field,
@@ -723,6 +901,7 @@ function ActivitiesTab({
   field,
   timeline,
   loading,
+  error,
   cropCycle,
   selectedActivity,
   selectedActivityId,
@@ -737,6 +916,7 @@ function ActivitiesTab({
   field: Field;
   timeline: TimelineItem[];
   loading: boolean;
+  error: string | null;
   cropCycle: CropCycle | null;
   selectedActivity: TimelineItem | null;
   selectedActivityId: string | null;
@@ -774,7 +954,14 @@ function ActivitiesTab({
         <div className="workspace-empty-card">Loading activities…</div>
       )}
 
-      {!loading && timeline.length === 0 && (
+      {!loading && error && (
+        <div className="workspace-empty-card">
+          <h3>Unable to load activities</h3>
+          <p>{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && timeline.length === 0 && (
         <div className="workspace-empty-card">
           <h3>No activity recorded</h3>
 
@@ -785,7 +972,7 @@ function ActivitiesTab({
         </div>
       )}
 
-      {!loading && selectedActivity && (
+      {!loading && !error && selectedActivity && (
         <>
           <section className="latest-activity-card">
             <div className="latest-activity-top">
@@ -1544,7 +1731,7 @@ function StartCropDialog({
 
   const [variety, setVariety] = useState("");
 
-  const [startedOn, setStartedOn] = useState(today());
+  const [startedOn, setStartedOn] = useState(localDateInputValue());
 
   const [plantedOn, setPlantedOn] = useState("");
 

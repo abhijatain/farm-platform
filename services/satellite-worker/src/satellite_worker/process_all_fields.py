@@ -134,6 +134,8 @@ def main() -> None:
         for field_name in failed:
             print(f"  ✗ {field_name}")
 
+        raise SystemExit(1)
+
 
 if __name__ == "__main__":
     main()

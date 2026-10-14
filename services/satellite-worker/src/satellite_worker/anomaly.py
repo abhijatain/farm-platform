@@ -556,35 +556,3 @@ def detect_metric_anomalies(
             zones=zones,
             analysis=analysis,
         )
-
-
-def detect_ndvi_anomalies(
-    *,
-    raster_path: Path,
-    field_geometry: dict,
-    absolute_deficit_floor: float = 0.08,
-    relative_deficit_fraction: float = 0.15,
-    robust_sigma_factor: float = 1.5,
-    min_cluster_pixels: int = 3,
-    min_field_pixels: int = 12,
-) -> AnomalyDetectionResult:
-    """
-    Temporary compatibility wrapper.
-
-    Existing process_field.py can continue calling the old
-    NDVI function while 8H is being integrated.
-
-    Remove this once every caller uses
-    detect_metric_anomalies().
-    """
-
-    return detect_metric_anomalies(
-        metric_type="ndvi",
-        raster_path=raster_path,
-        field_geometry=field_geometry,
-        minimum_difference=(absolute_deficit_floor),
-        relative_difference_fraction=(relative_deficit_fraction),
-        robust_sigma_factor=(robust_sigma_factor),
-        min_cluster_pixels=(min_cluster_pixels),
-        min_field_pixels=(min_field_pixels),
-    )

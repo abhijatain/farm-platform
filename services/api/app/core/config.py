@@ -54,6 +54,12 @@ class Settings(BaseSettings):
 
     media_video_poster_max_pixels: int = 1280
 
+    # -------------------------------------------------
+    # SATELLITE INGESTION
+    # -------------------------------------------------
+
+    satellite_initial_backfill_days: int = 90
+
     ffmpeg_binary: str = "ffmpeg"
 
     ffprobe_binary: str = "ffprobe"

@@ -307,7 +307,7 @@ export default function FarmMap({
       "bottom-right",
     );
     map.addControl(
-      new GeocodingControl({ apiKey: MAPTILER_KEY, maplibregl }),
+      new GeocodingControl({ apiKey: MAPTILER_KEY }),
       "top-right",
     );
 

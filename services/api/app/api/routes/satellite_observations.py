@@ -3,20 +3,24 @@ import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DBSession, get_current_user, get_db
 from app.models.farm import Farm
 from app.models.field import Field
 from app.models.satellite_anomaly import SatelliteAnomaly
+from app.models.satellite_ingestion_job import SatelliteIngestionJob
 from app.models.satellite_observation import SatelliteObservation
 from app.schemas.satellite_anomaly import (
     SatelliteAnomalyFeature,
     SatelliteAnomalyFeatureCollection,
     SatelliteAnomalyProperties,
 )
-from app.schemas.satellite_observation import SatelliteObservationResponse
+from app.schemas.satellite_observation import (
+    SatelliteIngestionJobResponse,
+    SatelliteObservationResponse,
+)
 from app.services.ownership import get_owned_field
 
 
@@ -60,6 +64,64 @@ def list_satellite_observations(
 
     return list(
         observations
+    )
+
+
+@router.get(
+    "/fields/{field_id}/satellite-ingestion",
+    response_model=SatelliteIngestionJobResponse | None,
+)
+def get_satellite_ingestion_status(
+    field_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> SatelliteIngestionJob | None:
+    get_owned_field(
+        db=db,
+        user_id=current_user.id,
+        field_id=field_id,
+    )
+
+    return db.scalar(
+        select(
+            SatelliteIngestionJob
+        )
+        .where(
+            SatelliteIngestionJob.field_id
+            == field_id
+        )
+        .order_by(
+            case(
+                (
+                    SatelliteIngestionJob.status
+                    == "running",
+                    0,
+                ),
+                (
+                    SatelliteIngestionJob.status
+                    == "pending",
+                    1,
+                ),
+                (
+                    SatelliteIngestionJob.status
+                    == "failed",
+                    2,
+                ),
+                else_=3,
+            ),
+            case(
+                (
+                    SatelliteIngestionJob.job_type
+                    == "initial_backfill",
+                    0,
+                ),
+                else_=1,
+            ),
+            SatelliteIngestionJob
+            .created_at
+            .desc(),
+        )
+        .limit(1)
     )
 
 

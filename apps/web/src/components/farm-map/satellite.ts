@@ -1,22 +1,12 @@
 import type {
   SatelliteAnomalyFeatureCollection,
+  SatelliteMetricType,
   SatelliteObservation,
 } from "../../types/api";
 
-export type SatelliteMetricType =
-  | "ndvi"
-  | "ndre"
-  | "ndmi"
-  | "gndvi"
-  | "evi2"
-  | "ndwi"
-  | "savi"
-  | "msavi"
-  | "bsi"
-  | "ndti"
-  | "ccci"
-  | "reci"
-  | "mcari";
+export type {
+  SatelliteMetricType,
+} from "../../types/api";
 
 export type SatelliteMetric = {
   id?: string;
@@ -244,6 +234,31 @@ function metricsOf(
 
 export function getMetricConfig(metricType: SatelliteMetricType) {
   return METRIC_CONFIG[metricType];
+}
+
+export function getMetricAnomalyDescription(
+  metricType: SatelliteMetricType,
+) {
+  switch (metricType) {
+    case "bsi":
+      return (
+        "Zones are areas with an unusually high bare-soil response " +
+        "relative to the same field. "
+      );
+
+    case "ndwi":
+    case "ndti":
+      return (
+        "Zones are unusually high or low relative to the same field " +
+        "for this observation. "
+      );
+
+    default:
+      return (
+        "Zones are areas with an unusually low response relative " +
+        "to the same field. "
+      );
+  }
 }
 
 export function getMetricFromObservation(

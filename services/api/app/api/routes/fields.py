@@ -19,6 +19,9 @@ from app.services.ownership import (
     get_owned_farm,
     get_owned_field,
 )
+from app.services.satellite_ingestion import (
+    enqueue_initial_satellite_backfill,
+)
 
 router = APIRouter(
     tags=["fields"],
@@ -58,6 +61,8 @@ def calculate_area_square_metres(
 def field_to_response(
     field: FarmField,
     db: DBSession,
+    *,
+    area_square_metres: float | None = None,
 ) -> FieldResponse:
     shapely_geometry = to_shape(
         field.boundary
@@ -67,9 +72,13 @@ def field_to_response(
         mapping(shapely_geometry)
     )
 
-    square_metres = calculate_area_square_metres(
-        field,
-        db,
+    square_metres = (
+        area_square_metres
+        if area_square_metres is not None
+        else calculate_area_square_metres(
+            field,
+            db,
+        )
     )
 
     return FieldResponse(
@@ -153,6 +162,16 @@ def create_field(
     )
 
     db.add(field)
+
+    # Flush first so the UUID exists, then enqueue the satellite backfill in
+    # the same transaction as field creation.
+    db.flush()
+
+    enqueue_initial_satellite_backfill(
+        field=field,
+        db=db,
+    )
+
     db.commit()
     db.refresh(field)
 
@@ -178,8 +197,23 @@ def list_fields(
         db=db,
     )
 
-    fields = db.scalars(
-        select(FarmField)
+    area_expression = func.ST_Area(
+        cast(
+            FarmField.boundary,
+            Geography(
+                geometry_type="POLYGON",
+                srid=4326,
+            ),
+        )
+    ).label(
+        "area_square_metres"
+    )
+
+    rows = db.execute(
+        select(
+            FarmField,
+            area_expression,
+        )
         .where(
             FarmField.farm_id == farm_id
         )
@@ -189,8 +223,20 @@ def list_fields(
     ).all()
 
     return [
-        field_to_response(field, db)
-        for field in fields
+        field_to_response(
+            field,
+            db,
+            area_square_metres=(
+                float(
+                    area_square_metres
+                    or 0.0
+                )
+            ),
+        )
+        for (
+            field,
+            area_square_metres,
+        ) in rows
     ]
 
 

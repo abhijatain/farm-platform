@@ -1,11 +1,10 @@
-
 from __future__ import annotations
 
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from satellite_worker.gcs_client import (
     gcs_bucket,
@@ -16,6 +15,22 @@ from satellite_worker.storage_layout import (
 )
 
 
+def _delete_quietly(
+    *,
+    bucket,
+    object_key: str,
+    client,
+) -> None:
+    try:
+        bucket.blob(
+            object_key
+        ).delete(
+            client=client
+        )
+    except Exception:
+        pass
+
+
 def publish_metric_rasters(
     *,
     context: dict,
@@ -24,17 +39,37 @@ def publish_metric_rasters(
     results: list,
 ) -> dict[str, str]:
     """
-    Upload all generated metric COGs to their final private GCS keys.
+    Publish metric COGs without corrupting an existing observation on reruns.
 
-    The worker never stores file:// paths in PostgreSQL.
+    Every result is first uploaded and verified under a temporary staging key.
+    Existing canonical objects are backed up before promotion. If promotion
+    fails, already-promoted keys are restored to their previous content.
     """
 
     bucket = gcs_bucket()
+    client = gcs_client()
+    run_id = uuid4().hex
 
-    uploaded_keys: list[str] = []
+    staged: list[
+        tuple[
+            str,
+            Path,
+            str,
+            str,
+        ]
+    ] = []
+
+    backup_keys: dict[
+        str,
+        str | None,
+    ] = {}
+
+    promoted_keys: list[str] = []
     raster_uris: dict[str, str] = {}
 
     try:
+        # Stage and verify every generated raster before touching a canonical
+        # object. Upload/verification failures leave the old run intact.
         for result in results:
             metric_type = (
                 result.metric_type
@@ -53,7 +88,7 @@ def publish_metric_rasters(
                     f"{source_path}"
                 )
 
-            object_key = (
+            final_key = (
                 satellite_metric_key(
                     context=context,
                     observed_on=(
@@ -68,17 +103,22 @@ def publish_metric_rasters(
                 )
             )
 
-            blob = bucket.blob(
-                object_key
+            staging_key = (
+                f"{final_key}.staging-"
+                f"{run_id}"
             )
 
-            blob.upload_from_filename(
+            staging_blob = bucket.blob(
+                staging_key
+            )
+
+            staging_blob.upload_from_filename(
                 str(source_path),
                 content_type="image/tiff",
             )
 
-            blob.reload(
-                client=gcs_client()
+            staging_blob.reload(
+                client=client
             )
 
             local_size = (
@@ -88,26 +128,119 @@ def publish_metric_rasters(
             )
 
             remote_size = int(
-                blob.size or 0
+                staging_blob.size
+                or 0
             )
 
             if local_size != remote_size:
                 raise RuntimeError(
-                    "Uploaded COG size mismatch "
+                    "Staged COG size mismatch "
                     f"for {metric_type}: "
                     f"local={local_size}, "
                     f"gcs={remote_size}"
                 )
 
-            uploaded_keys.append(
-                object_key
+            staged.append(
+                (
+                    metric_type,
+                    source_path,
+                    final_key,
+                    staging_key,
+                )
             )
+
+        # Snapshot existing canonical objects before any overwrite.
+        for (
+            _,
+            _,
+            final_key,
+            _,
+        ) in staged:
+            final_blob = bucket.blob(
+                final_key
+            )
+
+            if final_blob.exists(
+                client=client
+            ):
+                backup_key = (
+                    f"{final_key}.backup-"
+                    f"{run_id}"
+                )
+
+                bucket.copy_blob(
+                    final_blob,
+                    bucket,
+                    new_name=(
+                        backup_key
+                    ),
+                    client=client,
+                )
+
+                backup_keys[
+                    final_key
+                ] = backup_key
+
+            else:
+                backup_keys[
+                    final_key
+                ] = None
+
+        # Promote staged objects only after every stage/backup succeeded.
+        for (
+            metric_type,
+            source_path,
+            final_key,
+            staging_key,
+        ) in staged:
+            staging_blob = bucket.blob(
+                staging_key
+            )
+
+            bucket.copy_blob(
+                staging_blob,
+                bucket,
+                new_name=final_key,
+                client=client,
+            )
+
+            # Record immediately so verification failures are also rolled back.
+            promoted_keys.append(
+                final_key
+            )
+
+            final_blob = bucket.blob(
+                final_key
+            )
+
+            final_blob.reload(
+                client=client
+            )
+
+            expected_size = (
+                source_path
+                .stat()
+                .st_size
+            )
+
+            final_size = int(
+                final_blob.size
+                or 0
+            )
+
+            if expected_size != final_size:
+                raise RuntimeError(
+                    "Published COG size mismatch "
+                    f"for {metric_type}: "
+                    f"local={expected_size}, "
+                    f"gcs={final_size}"
+                )
 
             raster_uris[
                 metric_type
             ] = (
                 f"gs://{bucket.name}/"
-                f"{object_key}"
+                f"{final_key}"
             )
 
             print(
@@ -117,17 +250,66 @@ def publish_metric_rasters(
             )
 
     except Exception:
-        for object_key in uploaded_keys:
-            try:
-                bucket.blob(
-                    object_key
-                ).delete(
-                    client=gcs_client()
+        for final_key in reversed(
+            promoted_keys
+        ):
+            backup_key = (
+                backup_keys.get(
+                    final_key
                 )
+            )
+
+            try:
+                if backup_key:
+                    bucket.copy_blob(
+                        bucket.blob(
+                            backup_key
+                        ),
+                        bucket,
+                        new_name=(
+                            final_key
+                        ),
+                        client=client,
+                    )
+                else:
+                    bucket.blob(
+                        final_key
+                    ).delete(
+                        client=client
+                    )
             except Exception:
+                # Preserve the original error. Storage reconciliation can
+                # detect a rare rollback failure later.
                 pass
 
         raise
+
+    finally:
+        for (
+            _,
+            _,
+            _,
+            staging_key,
+        ) in staged:
+            _delete_quietly(
+                bucket=bucket,
+                object_key=(
+                    staging_key
+                ),
+                client=client,
+            )
+
+        for backup_key in (
+            backup_keys.values()
+        ):
+            if backup_key:
+                _delete_quietly(
+                    bucket=bucket,
+                    object_key=(
+                        backup_key
+                    ),
+                    client=client,
+                )
 
     return raster_uris
 

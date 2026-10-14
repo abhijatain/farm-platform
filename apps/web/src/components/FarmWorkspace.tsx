@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -223,6 +224,21 @@ export default function FarmWorkspace() {
   );
 
 
+  const selectedFarmIdRef =
+    useRef<string | null>(
+      selectedFarmId,
+    );
+
+  const farmContextRequestRef =
+    useRef(0);
+
+  const seasonCropCyclesRequestRef =
+    useRef(0);
+
+  selectedFarmIdRef.current =
+    selectedFarmId;
+
+
   async function loadFarms() {
     try {
       setError(null);
@@ -273,6 +289,9 @@ export default function FarmWorkspace() {
   async function loadFarmContext(
     farmId: string,
   ) {
+    const requestId =
+      ++farmContextRequestRef.current;
+
     try {
       setError(null);
 
@@ -290,6 +309,17 @@ export default function FarmWorkspace() {
             farmId,
           ),
         ]);
+
+
+      if (
+        requestId !==
+          farmContextRequestRef.current
+        ||
+        selectedFarmIdRef.current !==
+          farmId
+      ) {
+        return;
+      }
 
 
       setFields(
@@ -326,6 +356,16 @@ export default function FarmWorkspace() {
       );
 
     } catch (error) {
+      if (
+        requestId !==
+          farmContextRequestRef.current
+        ||
+        selectedFarmIdRef.current !==
+          farmId
+      ) {
+        return;
+      }
+
       setError(
         error instanceof Error
           ? error.message
@@ -402,6 +442,9 @@ export default function FarmWorkspace() {
     seasonId?:
       string | null,
   ) {
+    const requestId =
+      ++seasonCropCyclesRequestRef.current;
+
     const id =
       seasonId
       ?? selectedSeasonId;
@@ -421,11 +464,26 @@ export default function FarmWorkspace() {
         );
 
 
+      if (
+        requestId !==
+        seasonCropCyclesRequestRef.current
+      ) {
+        return;
+      }
+
+
       setSeasonCropCycles(
         result,
       );
 
     } catch (error) {
+      if (
+        requestId !==
+        seasonCropCyclesRequestRef.current
+      ) {
+        return;
+      }
+
       setError(
         error instanceof Error
           ? error.message
@@ -448,6 +506,9 @@ export default function FarmWorkspace() {
    */
   useEffect(() => {
     if (!selectedFarmId) {
+      farmContextRequestRef.current += 1;
+      seasonCropCyclesRequestRef.current += 1;
+
       setFields([]);
       setSeasons([]);
       setSeasonCropCycles([]);
@@ -478,6 +539,8 @@ export default function FarmWorkspace() {
    * beside each field to change.
    */
   useEffect(() => {
+    seasonCropCyclesRequestRef.current += 1;
+
     setSeasonCropCycles([]);
 
 
