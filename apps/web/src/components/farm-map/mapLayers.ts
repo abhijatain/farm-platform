@@ -1,4 +1,9 @@
-import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import type {
+  FillLayerSpecification,
+  GeoJSONSource,
+  LineLayerSpecification,
+  Map as MapLibreMap,
+} from "maplibre-gl";
 import type {
   Field,
   SatelliteAnomalyFeatureCollection,
@@ -26,10 +31,13 @@ export const ANOMALY_OUTLINE_LAYER_ID = "satellite-anomalies-outline";
 
 function buildFieldsGeoJson(fields: Field[]) {
   return {
-    type: "FeatureCollection",
+    type: "FeatureCollection" as const,
     features: fields.map((field) => ({
-      type: "Feature",
-      properties: { fieldId: field.id, name: field.name },
+      type: "Feature" as const,
+      properties: {
+        fieldId: field.id,
+        name: field.name,
+      },
       geometry: field.boundary,
     })),
   };
@@ -196,9 +204,9 @@ export function installAnomalyLayers(
     data: data as any,
   });
 
-  const fillLayer = {
+  const fillLayer: FillLayerSpecification = {
     id: ANOMALY_FILL_LAYER_ID,
-    type: "fill" as const,
+    type: "fill",
     source: ANOMALY_SOURCE_ID,
     paint: {
       "fill-color": [
@@ -216,9 +224,9 @@ export function installAnomalyLayers(
     },
   };
 
-  const outlineLayer = {
+  const outlineLayer: LineLayerSpecification = {
     id: ANOMALY_OUTLINE_LAYER_ID,
-    type: "line" as const,
+    type: "line",
     source: ANOMALY_SOURCE_ID,
     paint: {
       "line-color": [
