@@ -40,6 +40,40 @@ function boundsFromCoordinates(coordinates: unknown) {
   return bounds.isEmpty() ? null : bounds;
 }
 
+export function zoomToFields(
+  map: MapLibreMap,
+  fields: Field[],
+) {
+  const bounds =
+    new maplibregl.LngLatBounds();
+
+  for (const field of fields) {
+    extendBounds(
+      bounds,
+      field.boundary.coordinates,
+    );
+  }
+
+  if (bounds.isEmpty()) {
+    return;
+  }
+
+  map.fitBounds(
+    bounds,
+    {
+      padding: {
+        top: 86,
+        bottom: 86,
+        left: 86,
+        right: 86,
+      },
+      maxZoom: 17,
+      duration: 700,
+    },
+  );
+}
+
+
 export function zoomToField(map: MapLibreMap, field: Field) {
   /*
    * Backend field geometry can be Polygon or MultiPolygon.
