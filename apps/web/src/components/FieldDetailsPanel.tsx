@@ -8,6 +8,7 @@ import {
   createCropCycle,
   getActivitySatelliteContext,
   getFieldTimeline,
+  getSatelliteIngestionStatus,
   harvestCropCycle,
   listSatelliteObservations,
 } from "../lib/api";
@@ -20,6 +21,7 @@ import type {
   CropCycle,
   Farm,
   Field,
+  SatelliteIngestionJob,
   SatelliteMetric,
   SatelliteMetricType,
   SatelliteObservation,
@@ -247,6 +249,9 @@ export default function FieldDetailsPanel({
   const [satelliteError, setSatelliteError] =
     useState<string | null>(null);
 
+  const [satelliteIngestion, setSatelliteIngestion] =
+    useState<SatelliteIngestionJob | null>(null);
+
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(
     null,
   );
@@ -263,24 +268,51 @@ export default function FieldDetailsPanel({
     string | null
   >(null);
 
-  async function loadSatelliteObservations() {
+  async function loadSatelliteObservations(
+    silent = false,
+  ) {
     try {
-      setSatelliteLoading(true);
+      if (!silent) {
+        setSatelliteLoading(true);
+      }
+
       setSatelliteError(null);
 
-      const result = await listSatelliteObservations(field.id);
+      const [
+        observations,
+        ingestion,
+      ] = await Promise.all([
+        listSatelliteObservations(
+          field.id,
+        ),
+        getSatelliteIngestionStatus(
+          field.id,
+        ),
+      ]);
 
-      setSatelliteObservations(result);
+      setSatelliteObservations(
+        observations,
+      );
+
+      setSatelliteIngestion(
+        ingestion,
+      );
+
     } catch (requestError) {
-      setSatelliteObservations([]);
+      if (!silent) {
+        setSatelliteObservations([]);
+      }
 
       setSatelliteError(
         requestError instanceof Error
           ? requestError.message
           : "Unable to load satellite observations.",
       );
+
     } finally {
-      setSatelliteLoading(false);
+      if (!silent) {
+        setSatelliteLoading(false);
+      }
     }
   }
 
@@ -308,10 +340,45 @@ export default function FieldDetailsPanel({
   useEffect(() => {
     setActiveTab("satellite");
     setSelectedActivityId(null);
+    setSatelliteIngestion(null);
 
     void loadTimeline();
     void loadSatelliteObservations();
   }, [field.id]);
+
+  useEffect(() => {
+    if (
+      satelliteObservations.length > 0
+      || !satelliteIngestion
+      || ![
+        "pending",
+        "running",
+      ].includes(
+        satelliteIngestion.status,
+      )
+    ) {
+      return;
+    }
+
+    const interval = window.setInterval(
+      () => {
+        void loadSatelliteObservations(
+          true,
+        );
+      },
+      15_000,
+    );
+
+    return () => {
+      window.clearInterval(
+        interval,
+      );
+    };
+  }, [
+    field.id,
+    satelliteObservations.length,
+    satelliteIngestion?.status,
+  ]);
 
   const visibleTimeline = useMemo(() => {
     if (!season) {
@@ -491,6 +558,7 @@ export default function FieldDetailsPanel({
             observations={satelliteObservations}
             loading={satelliteLoading}
             error={satelliteError}
+            ingestion={satelliteIngestion}
           />
         )}
 
@@ -560,11 +628,13 @@ function SatelliteTab({
   observations,
   loading,
   error,
+  ingestion,
 }: {
   field: Field;
   observations: SatelliteObservation[];
   loading: boolean;
   error: string | null;
+  ingestion: SatelliteIngestionJob | null;
 }) {
   const sorted = useMemo(
     () =>
@@ -605,14 +675,9 @@ function SatelliteTab({
       )}
 
       {!loading && !error && observations.length === 0 && (
-        <div className="workspace-empty-card">
-          <h3>No satellite data yet</h3>
-
-          <p>
-            Run the satellite worker for this field to populate the latest
-            imagery.
-          </p>
-        </div>
+        <SatelliteIngestionEmptyState
+          ingestion={ingestion}
+        />
       )}
 
       {!loading && !error && observations.length > 0 && (
@@ -630,6 +695,80 @@ function SatelliteTab({
     </div>
   );
 }
+
+function SatelliteIngestionEmptyState({
+  ingestion,
+}: {
+  ingestion: SatelliteIngestionJob | null;
+}) {
+  if (!ingestion) {
+    return (
+      <div className="workspace-empty-card">
+        <h3>Waiting for satellite ingestion</h3>
+
+        <p>
+          Automatic ingestion has not queued a job for this field yet.
+          The ingestion worker will pick it up during its next scan.
+        </p>
+      </div>
+    );
+  }
+
+  if (ingestion.status === "pending") {
+    return (
+      <div className="workspace-empty-card">
+        <h3>Satellite history queued</h3>
+
+        <p>
+          Sentinel-2 imagery from {formatDate(ingestion.start_date)}
+          {" to "}
+          {formatDate(ingestion.end_date)}
+          {" is waiting to be processed. This page checks automatically."}
+        </p>
+      </div>
+    );
+  }
+
+  if (ingestion.status === "running") {
+    return (
+      <div className="workspace-empty-card">
+        <h3>Processing satellite imagery…</h3>
+
+        <p>
+          Sentinel-2 scenes are being processed for this field.
+          Results will appear here automatically when the job finishes.
+        </p>
+      </div>
+    );
+  }
+
+  if (ingestion.status === "failed") {
+    return (
+      <div className="workspace-empty-card">
+        <h3>Satellite ingestion failed</h3>
+
+        <p>
+          Automatic processing reached its retry limit.
+          {ingestion.last_error
+            ? ` Last error: ${ingestion.last_error}`
+            : ""}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="workspace-empty-card">
+      <h3>No usable satellite scenes found yet</h3>
+
+      <p>
+        The latest automatic scan completed without producing usable imagery.
+        This field will continue to be checked for new Sentinel-2 scenes.
+      </p>
+    </div>
+  );
+}
+
 
 function MetricImageryStrip({
   field,
