@@ -391,3 +391,97 @@ def test_usable_preferred_metric_wins_on_target_date() -> None:
         .metric_type
         == "ndvi"
     )
+
+
+
+def test_default_target_uses_latest_optical_attempt() -> None:
+    field_id = uuid4()
+
+    cloudy_optical = (
+        _observation(
+            field_id=field_id,
+            observed_on=date(
+                2026,
+                10,
+                10,
+            ),
+            source="sentinel-2",
+            processing_status=(
+                "skipped_scene_cloud_cover"
+            ),
+            metrics=[],
+        )
+    )
+
+    radar = (
+        _observation(
+            field_id=field_id,
+            observed_on=date(
+                2026,
+                10,
+                11,
+            ),
+            source="sentinel-1-rtc",
+            processing_status=(
+                "metrics_processed"
+            ),
+            metrics=[
+                _metric(
+                    "sar_rvi",
+                    median=0.83,
+                )
+            ],
+        )
+    )
+
+    older_optical = (
+        _observation(
+            field_id=field_id,
+            observed_on=date(
+                2026,
+                10,
+                5,
+            ),
+            source="sentinel-2",
+            processing_status=(
+                "metrics_processed"
+            ),
+            metrics=[
+                _metric(
+                    "ndvi",
+                    median=0.61,
+                )
+            ],
+        )
+    )
+
+    timeline = (
+        build_satellite_timeline(
+            field_id=field_id,
+            observations=[
+                radar,
+                cloudy_optical,
+                older_optical,
+            ],
+            preferred_metric_type="ndvi",
+            target_date=None,
+            minimum_valid_percent=80.0,
+            window_days=14,
+        )
+    )
+
+    assert (
+        timeline.selection
+        .target_date
+        == date(
+            2026,
+            10,
+            10,
+        )
+    )
+
+    assert (
+        timeline.selection
+        .recommended_kind
+        == "radar_fallback"
+    )
