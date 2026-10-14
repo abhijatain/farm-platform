@@ -41,6 +41,42 @@ SAR_METRIC_TYPES = (
 )
 
 
+def calculate_sar_metric_arrays(
+    *,
+    vv: np.ndarray,
+    vh: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """
+    Derive radar metrics from linear Sentinel-1 RTC gamma-naught power.
+    """
+    with np.errstate(
+        divide="ignore",
+        invalid="ignore",
+    ):
+        return {
+            "sar_vv_db":
+                10.0
+                * np.log10(
+                    vv
+                ),
+            "sar_vh_db":
+                10.0
+                * np.log10(
+                    vh
+                ),
+            "sar_vv_vh_ratio":
+                vv
+                / vh,
+            "sar_rvi":
+                4.0
+                * vh
+                / (
+                    vv
+                    + vh
+                ),
+        }
+
+
 def search_sentinel1_rtc(
     *,
     geometry: dict,
@@ -159,37 +195,12 @@ def process_scene(
         )
     )
 
-    with np.errstate(
-        divide="ignore",
-        invalid="ignore",
-    ):
-        vv_db = (
-            10.0
-            * np.log10(
-                vv
-            )
+    metric_arrays = (
+        calculate_sar_metric_arrays(
+            vv=vv,
+            vh=vh,
         )
-
-        vh_db = (
-            10.0
-            * np.log10(
-                vh
-            )
-        )
-
-        vv_vh_ratio = (
-            vv
-            / vh
-        )
-
-        rvi = (
-            4.0
-            * vh
-            / (
-                vv
-                + vh
-            )
-        )
+    )
 
     native_resolution = float(
         item.properties.get(
@@ -201,25 +212,25 @@ def process_scene(
     definitions = (
         (
             "sar_vv_db",
-            vv_db,
+            metric_arrays["sar_vv_db"],
             "10*log10(VV_gamma0)",
             "dB",
         ),
         (
             "sar_vh_db",
-            vh_db,
+            metric_arrays["sar_vh_db"],
             "10*log10(VH_gamma0)",
             "dB",
         ),
         (
             "sar_vv_vh_ratio",
-            vv_vh_ratio,
+            metric_arrays["sar_vv_vh_ratio"],
             "VV_gamma0/VH_gamma0",
             "ratio",
         ),
         (
             "sar_rvi",
-            rvi,
+            metric_arrays["sar_rvi"],
             "4*VH_gamma0/(VV_gamma0+VH_gamma0)",
             "unitless",
         ),
