@@ -3,7 +3,7 @@ import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DBSession, get_current_user, get_db
@@ -91,9 +91,35 @@ def get_satellite_ingestion_status(
             == field_id
         )
         .order_by(
+            case(
+                (
+                    SatelliteIngestionJob.status
+                    == "running",
+                    0,
+                ),
+                (
+                    SatelliteIngestionJob.status
+                    == "pending",
+                    1,
+                ),
+                (
+                    SatelliteIngestionJob.status
+                    == "failed",
+                    2,
+                ),
+                else_=3,
+            ),
+            case(
+                (
+                    SatelliteIngestionJob.job_type
+                    == "initial_backfill",
+                    0,
+                ),
+                else_=1,
+            ),
             SatelliteIngestionJob
             .created_at
-            .desc()
+            .desc(),
         )
         .limit(1)
     )
