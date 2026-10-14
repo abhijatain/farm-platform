@@ -925,19 +925,6 @@ def main() -> None:
                         so.id
                 )
                 """,
-            "satellite observations not having exactly 13 metrics": """
-                SELECT COUNT(*)
-                FROM (
-                    SELECT
-                        so.id
-                    FROM satellite_observations AS so
-                    LEFT JOIN satellite_metrics AS sm
-                      ON sm.satellite_observation_id =
-                            so.id
-                    GROUP BY so.id
-                    HAVING COUNT(sm.id) <> 13
-                ) AS incomplete
-                """,
             "satellite metric rows with non-GCS raster URI": """
                 SELECT COUNT(*)
                 FROM satellite_metrics
@@ -975,6 +962,41 @@ def main() -> None:
                     handle.write(
                         f"{label}: ERROR " f"{type(error).__name__}: {error}\n"
                     )
+
+        handle.write(
+            "\n--- SATELLITE METRIC COVERAGE (INFORMATIONAL) ---\n"
+        )
+
+        with engine.connect() as connection:
+            rows = fetch_all_dicts(
+                connection,
+                """
+                SELECT
+                    metric_count,
+                    COUNT(*) AS observation_count
+                FROM (
+                    SELECT
+                        so.id,
+                        COUNT(sm.id) AS metric_count
+                    FROM satellite_observations AS so
+                    LEFT JOIN satellite_metrics AS sm
+                      ON sm.satellite_observation_id = so.id
+                    GROUP BY so.id
+                ) AS coverage
+                GROUP BY metric_count
+                ORDER BY metric_count
+                """,
+            )
+
+            write_rows(
+                handle,
+                rows,
+            )
+
+        handle.write(
+            "Note: historical observations with only NDVI are valid "
+            "legacy runs and are intentionally not backfilled.\n"
+        )
 
         # ---------------------------------------------------------
         # NULL / duplicate audit for key identity columns
