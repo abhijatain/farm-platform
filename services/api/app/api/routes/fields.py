@@ -19,6 +19,9 @@ from app.services.ownership import (
     get_owned_farm,
     get_owned_field,
 )
+from app.services.satellite_ingestion import (
+    enqueue_initial_satellite_backfill,
+)
 
 router = APIRouter(
     tags=["fields"],
@@ -159,6 +162,16 @@ def create_field(
     )
 
     db.add(field)
+
+    # Flush first so the UUID exists, then enqueue the satellite backfill in
+    # the same transaction as field creation.
+    db.flush()
+
+    enqueue_initial_satellite_backfill(
+        field=field,
+        db=db,
+    )
+
     db.commit()
     db.refresh(field)
 
