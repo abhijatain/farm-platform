@@ -84,3 +84,16 @@ class SatelliteIngestionJobResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+
+
+class FarmSatelliteOverviewItem(BaseModel):
+    field_id: UUID
+
+    observation_id: UUID
+    observed_on: date
+
+    source: str
+    cloud_cover_percent: float | None
+
+    metric: SatelliteMetricResponse
