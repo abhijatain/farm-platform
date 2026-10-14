@@ -6,7 +6,13 @@ import type {
 import { buildMetricTileJsonUrl, type SatelliteMetric } from "./satellite";
 
 const TILER_URL =
-  import.meta.env.VITE_TILER_URL ?? "http://localhost:8081";
+  import.meta.env.VITE_TILER_URL;
+
+if (!TILER_URL) {
+  throw new Error(
+    "VITE_TILER_URL is missing.",
+  );
+}
 
 export const FIELD_SOURCE_ID = "farm-fields";
 export const FIELD_FILL_LAYER_ID = "farm-fields-fill";
