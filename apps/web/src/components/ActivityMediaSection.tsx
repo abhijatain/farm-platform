@@ -488,39 +488,67 @@ export default function ActivityMediaSection({
       for (
         const item of pendingMedia
       ) {
-        const target =
-          await createMediaUpload(
-            fieldId,
-            {
-              original_filename:
-                item.file.name,
-              content_type:
-                item.contentType,
-              size_bytes:
-                item.file.size,
-              activity_id:
-                mode ===
-                "activity"
-                  ? activity.id
-                  : null,
-              crop_cycle_id:
-                activity.crop_cycle_id,
-              captured_at:
-                null,
-              caption:
-                item.caption.trim() ||
-                null,
-            },
+        let createdMediaId:
+          string | null = null;
+
+        try {
+          const target =
+            await createMediaUpload(
+              fieldId,
+              {
+                original_filename:
+                  item.file.name,
+                content_type:
+                  item.contentType,
+                size_bytes:
+                  item.file.size,
+                activity_id:
+                  mode ===
+                  "activity"
+                    ? activity.id
+                    : null,
+                crop_cycle_id:
+                  activity.crop_cycle_id,
+                captured_at:
+                  null,
+                caption:
+                  item.caption.trim() ||
+                  null,
+              },
+            );
+
+          createdMediaId =
+            target.media.id;
+
+          await uploadMediaFile(
+            target,
+            item.file,
           );
 
-        await uploadMediaFile(
-          target,
-          item.file,
-        );
+          await completeMediaUpload(
+            target.media.id,
+          );
 
-        await completeMediaUpload(
-          target.media.id,
-        );
+          createdMediaId = null;
+
+        } catch (uploadError) {
+          if (createdMediaId) {
+            try {
+              await deleteMediaAsset(
+                createdMediaId,
+              );
+            } catch (
+              cleanupError
+            ) {
+              console.error(
+                "Unable to clean failed media upload:",
+                cleanupError,
+              );
+            }
+          }
+
+          throw uploadError;
+        }
       }
 
       clearPendingMedia();
