@@ -1139,26 +1139,45 @@ def enqueue_missing_multisource_backfill_jobs(
                         field.id
                 )
 
-                AND NOT EXISTS (
-                    SELECT 1
+                AND (
+                    NOT EXISTS (
+                        SELECT 1
 
-                    FROM satellite_metrics
-                        AS new_metric
+                        FROM satellite_metrics
+                            AS radar_metric
 
-                    JOIN satellite_observations
-                        AS new_observation
-                      ON new_observation.id =
-                            new_metric.satellite_observation_id
+                        JOIN satellite_observations
+                            AS radar_observation
+                          ON radar_observation.id =
+                                radar_metric.satellite_observation_id
 
-                    WHERE new_observation.field_id =
-                        field.id
+                        WHERE radar_observation.field_id =
+                            field.id
 
-                    AND new_metric.metric_type IN (
-                        'sar_vv_db',
-                        'sar_vh_db',
-                        'sar_vv_vh_ratio',
-                        'sar_rvi',
-                        'lst_c'
+                        AND radar_metric.metric_type IN (
+                            'sar_vv_db',
+                            'sar_vh_db',
+                            'sar_vv_vh_ratio',
+                            'sar_rvi'
+                        )
+                    )
+
+                    OR NOT EXISTS (
+                        SELECT 1
+
+                        FROM satellite_metrics
+                            AS thermal_metric
+
+                        JOIN satellite_observations
+                            AS thermal_observation
+                          ON thermal_observation.id =
+                                thermal_metric.satellite_observation_id
+
+                        WHERE thermal_observation.field_id =
+                            field.id
+
+                        AND thermal_metric.metric_type =
+                            'lst_c'
                     )
                 )
 
