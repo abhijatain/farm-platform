@@ -54,6 +54,7 @@ import {
 import {
   METRIC_CONFIG,
   METRIC_GROUPS,
+  buildMetricPreviewUrl,
   formatMetricValue,
 } from "./farm-map/satellite";
 
@@ -75,6 +76,18 @@ import type {
 type HomeView =
   | "fields"
   | "map";
+
+
+const TILER_URL =
+  import.meta.env
+    .VITE_TILER_URL;
+
+
+if (!TILER_URL) {
+  throw new Error(
+    "VITE_TILER_URL is missing.",
+  );
+}
 
 
 function chooseDefaultSeason(
@@ -1746,6 +1759,15 @@ export default function FarmWorkspace() {
                                     <FieldBoundaryPreview
                                       boundary={
                                         field.boundary
+                                      }
+                                      imageUrl={
+                                        item
+                                          ? buildMetricPreviewUrl(
+                                              TILER_URL,
+                                              item.metric,
+                                              420,
+                                            )
+                                          : null
                                       }
                                     />
 
