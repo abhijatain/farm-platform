@@ -4217,13 +4217,24 @@ textarea {
   height: 78%;
 }
 
-.field-boundary-preview polygon {
+.field-boundary-preview image {
+  image-rendering: pixelated;
+}
+
+.field-boundary-outline {
   fill: rgba(48, 139, 79, 0.12);
 
   stroke: #2e8a50;
   stroke-width: 2.2;
 
   stroke-linejoin: round;
+}
+
+.field-boundary-outline.raster {
+  fill: transparent;
+
+  stroke: #226f41;
+  stroke-width: 2.2;
 }
 
 .field-grid-area {
