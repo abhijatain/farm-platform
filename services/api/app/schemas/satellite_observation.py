@@ -55,3 +55,32 @@ class SatelliteObservationResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+
+class SatelliteIngestionJobResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: UUID
+    field_id: UUID
+
+    job_type: str
+
+    start_date: date
+    end_date: date
+
+    status: str
+
+    attempts: int
+    max_attempts: int
+
+    available_at: datetime
+
+    started_at: datetime | None
+    completed_at: datetime | None
+
+    last_error: str | None
+
+    created_at: datetime
+    updated_at: datetime
