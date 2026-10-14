@@ -53,19 +53,30 @@ def search_sentinel2(
     end_date: date,
     max_scene_cloud: float = 60,
     limit: int = 20,
+    include_cloudy: bool = False,
 ) -> list[pystac.Item]:
 
     catalog = Client.open(settings.earth_search_url)
 
-    search = catalog.search(
-        collections=["sentinel-2-l2a"],
-        intersects=geometry,
-        datetime=(f"{start_date.isoformat()}" "/" f"{end_date.isoformat()}"),
-        query={
+    search_kwargs = {
+        "collections": ["sentinel-2-l2a"],
+        "intersects": geometry,
+        "datetime": (
+            f"{start_date.isoformat()}"
+            "/"
+            f"{end_date.isoformat()}"
+        ),
+    }
+
+    if not include_cloudy:
+        search_kwargs["query"] = {
             "eo:cloud_cover": {
                 "lt": max_scene_cloud,
             }
-        },
+        }
+
+    search = catalog.search(
+        **search_kwargs
     )
 
     items = list(search.items())

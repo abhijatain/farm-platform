@@ -14,6 +14,10 @@ class Settings(BaseSettings):
         "https://earth-search.aws.element84.com/v1"
     )
 
+    planetary_computer_stac_url: str = (
+        "https://planetarycomputer.microsoft.com/api/stac/v1"
+    )
+
     gcs_bucket_name: str
 
     gcs_project_id: str | None = None

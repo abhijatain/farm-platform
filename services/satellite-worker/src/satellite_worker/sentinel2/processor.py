@@ -12,7 +12,9 @@ from rio_cogeo.cogeo import cog_translate
 from rio_cogeo.profiles import cog_profiles
 
 from satellite_worker.sentinel2.grid import (
+    INVALID_SCL_VALUES,
     AnalysisGrid,
+    ClassificationBand,
     build_analysis_grid,
     build_scene_valid_mask,
     read_scl,
@@ -52,6 +54,131 @@ class MetricResult:
         str,
         str,
     ]
+
+
+@dataclass(frozen=True)
+class SceneCoverage:
+    pixel_count: int
+
+    classified_pixel_count: int
+
+    usable_pixel_count: int
+    usable_pixel_percent: float
+
+    cloud_pixel_count: int
+    cloud_cover_percent: float
+
+    excluded_pixel_count: int
+    excluded_pixel_percent: float
+
+
+@dataclass
+class MetricProcessingResult:
+    metrics: list[MetricResult]
+
+    coverage: SceneCoverage
+
+
+CLOUD_SCL_VALUES = {
+    3,   # cloud shadow
+    8,   # medium cloud probability
+    9,   # high cloud probability
+    10,  # thin cirrus
+}
+
+
+def summarize_scene_coverage(
+    *,
+    grid: AnalysisGrid,
+    scl: ClassificationBand,
+) -> SceneCoverage:
+    inside_field = (
+        grid.inside_field
+    )
+
+    pixel_count = (
+        grid.pixel_count
+    )
+
+    classified = (
+        inside_field
+        & ~scl.invalid_mask
+    )
+
+    cloud = (
+        classified
+        & np.isin(
+            scl.data,
+            list(
+                CLOUD_SCL_VALUES
+            ),
+        )
+    )
+
+    usable = (
+        classified
+        & ~np.isin(
+            scl.data,
+            list(
+                INVALID_SCL_VALUES
+            ),
+        )
+    )
+
+    classified_pixel_count = int(
+        classified.sum()
+    )
+
+    cloud_pixel_count = int(
+        cloud.sum()
+    )
+
+    usable_pixel_count = int(
+        usable.sum()
+    )
+
+    excluded_pixel_count = max(
+        0,
+        pixel_count
+        - usable_pixel_count,
+    )
+
+    def percent(
+        count: int,
+    ) -> float:
+        if pixel_count <= 0:
+            return 0.0
+
+        return (
+            count
+            / pixel_count
+            * 100.0
+        )
+
+    return SceneCoverage(
+        pixel_count=pixel_count,
+        classified_pixel_count=(
+            classified_pixel_count
+        ),
+        usable_pixel_count=(
+            usable_pixel_count
+        ),
+        usable_pixel_percent=percent(
+            usable_pixel_count
+        ),
+        cloud_pixel_count=(
+            cloud_pixel_count
+        ),
+        cloud_cover_percent=percent(
+            cloud_pixel_count
+        ),
+        excluded_pixel_count=(
+            excluded_pixel_count
+        ),
+        excluded_pixel_percent=percent(
+            excluded_pixel_count
+        ),
+    )
 
 
 def write_metric_cog(
@@ -156,7 +283,7 @@ def process_metrics(
         "reci",
         "mcari",
     ),
-) -> list[MetricResult]:
+) -> MetricProcessingResult:
     for metric_type in metric_types:
         if metric_type not in METRIC_DEFINITIONS:
             raise ValueError(f"Unsupported metric " f"{metric_type!r}")
@@ -170,6 +297,26 @@ def process_metrics(
         item=item,
         grid=grid,
     )
+
+    coverage = summarize_scene_coverage(
+        grid=grid,
+        scl=scl,
+    )
+
+    print(
+        "Field scene coverage: "
+        f"{coverage.usable_pixel_percent:.1f}% usable, "
+        f"{coverage.cloud_cover_percent:.1f}% cloud/shadow."
+    )
+
+    if (
+        coverage.usable_pixel_count
+        == 0
+    ):
+        return MetricProcessingResult(
+            metrics=[],
+            coverage=coverage,
+        )
 
     required_band_names = {
         band_name
@@ -325,4 +472,7 @@ def process_metrics(
             "m",
         )
 
-    return results
+    return MetricProcessingResult(
+        metrics=results,
+        coverage=coverage,
+    )

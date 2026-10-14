@@ -32,7 +32,9 @@ export type MetricGroup =
   | "Vegetation"
   | "Chlorophyll / red edge"
   | "Moisture / water"
-  | "Soil / residue";
+  | "Soil / residue"
+  | "Radar / all-weather"
+  | "Thermal";
 
 export type MetricDisplayConfig = {
   label: string;
@@ -40,7 +42,7 @@ export type MetricDisplayConfig = {
   description: string;
   displayMin: number;
   displayMax: number;
-  colormap: "rdylgn" | "rdbu" | "viridis";
+  colormap: "rdylgn" | "rdbu" | "viridis" | "inferno";
   gradient: string;
 };
 
@@ -189,6 +191,61 @@ export const METRIC_CONFIG: Record<
     gradient:
       "linear-gradient(90deg, #440154 0%, #31688e 35%, #35b779 70%, #fde725 100%)",
   },
+  sar_vv_db: {
+    label: "SAR VV",
+    group: "Radar / all-weather",
+    description:
+      "Sentinel-1 VV radar backscatter in dB; responds to surface roughness, moisture and crop structure through clouds.",
+    displayMin: -25,
+    displayMax: 0,
+    colormap: "viridis",
+    gradient:
+      "linear-gradient(90deg, #440154 0%, #31688e 35%, #35b779 70%, #fde725 100%)",
+  },
+  sar_vh_db: {
+    label: "SAR VH",
+    group: "Radar / all-weather",
+    description:
+      "Sentinel-1 cross-polarized VH radar backscatter in dB; useful for vegetation structure and change through clouds.",
+    displayMin: -32,
+    displayMax: -5,
+    colormap: "viridis",
+    gradient:
+      "linear-gradient(90deg, #440154 0%, #31688e 35%, #35b779 70%, #fde725 100%)",
+  },
+  sar_vv_vh_ratio: {
+    label: "VV/VH",
+    group: "Radar / all-weather",
+    description:
+      "Ratio of co-polarized to cross-polarized Sentinel-1 RTC backscatter.",
+    displayMin: 1,
+    displayMax: 20,
+    colormap: "viridis",
+    gradient:
+      "linear-gradient(90deg, #440154 0%, #31688e 35%, #35b779 70%, #fde725 100%)",
+  },
+  sar_rvi: {
+    label: "Radar RVI",
+    group: "Radar / all-weather",
+    description:
+      "Dual-polarization radar vegetation index from Sentinel-1 VV and VH; cloud-independent canopy structure signal.",
+    displayMin: 0,
+    displayMax: 2,
+    colormap: "rdylgn",
+    gradient:
+      "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
+  },
+  lst_c: {
+    label: "LST °C",
+    group: "Thermal",
+    description:
+      "Landsat land-surface temperature in degrees Celsius after QA cloud masking.",
+    displayMin: 10,
+    displayMax: 50,
+    colormap: "inferno",
+    gradient:
+      "linear-gradient(90deg, #000004 0%, #781c6d 45%, #ed6925 75%, #fcffa4 100%)",
+  },
 };
 
 export const METRIC_GROUPS: Array<{
@@ -210,6 +267,19 @@ export const METRIC_GROUPS: Array<{
   {
     label: "Soil / residue",
     metrics: ["bsi", "ndti"],
+  },
+  {
+    label: "Radar / all-weather",
+    metrics: [
+      "sar_vv_db",
+      "sar_vh_db",
+      "sar_vv_vh_ratio",
+      "sar_rvi",
+    ],
+  },
+  {
+    label: "Thermal",
+    metrics: ["lst_c"],
   },
 ];
 
@@ -251,6 +321,19 @@ export function getMetricAnomalyDescription(
       return (
         "Zones are unusually high or low relative to the same field " +
         "for this observation. "
+      );
+
+    case "lst_c":
+      return (
+        "Zones are unusually hot relative to the same field for this Landsat observation. "
+      );
+
+    case "sar_vv_db":
+    case "sar_vh_db":
+    case "sar_vv_vh_ratio":
+    case "sar_rvi":
+      return (
+        "Radar values are shown as all-weather field structure/moisture signals; automatic anomaly polygons are not enabled for radar yet. "
       );
 
     default:

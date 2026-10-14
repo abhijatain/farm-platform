@@ -81,6 +81,16 @@ const FARMER_METRICS: FarmerMetric[] = [
     label: "Soil exposure",
     subtitle: "BSI · exposed soil and surface signal",
   },
+  {
+    metricType: "sar_rvi",
+    label: "All-weather radar",
+    subtitle: "Sentinel-1 RVI · cloud-independent canopy structure signal",
+  },
+  {
+    metricType: "lst_c",
+    label: "Surface temperature",
+    subtitle: "Landsat LST · thermal crop-surface temperature in °C",
+  },
 ];
 
 function currentDateTime() {
@@ -119,6 +129,20 @@ function formatActivityName(value: string) {
 
 function formatMetricValue(value: number | null | undefined, digits = 3) {
   return value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
+}
+
+function formatObservationSource(value: string) {
+  switch (value) {
+    case "sentinel-1-rtc":
+      return "Sentinel-1 radar";
+
+    case "landsat-c2-l2":
+      return "Landsat thermal";
+
+    case "sentinel-2":
+    default:
+      return "Sentinel-2 optical";
+  }
 }
 
 function formatSignedMetricValue(value: number | null | undefined, digits = 3) {
@@ -642,6 +666,32 @@ function SatelliteTab({
     [observations],
   );
 
+  const usableObservations = useMemo(
+    () =>
+      sorted.filter(
+        (observation) =>
+          observation.metrics.length > 0,
+      ),
+    [sorted],
+  );
+
+  const skippedObservations = useMemo(
+    () =>
+      sorted.filter((observation) => {
+        const status =
+          observation.metadata_json
+            ?.processing_status;
+
+        return (
+          typeof status === "string"
+          && status.startsWith(
+            "skipped_",
+          )
+        );
+      }),
+    [sorted],
+  );
+
   return (
     <div className="workspace-page satellite-first-page">
       <div className="workspace-page-title">
@@ -656,7 +706,9 @@ function SatelliteTab({
           </p>
         </div>
 
-        <div className="satellite-source-badge">Sentinel-2</div>
+        <div className="satellite-source-badge">
+          Sentinel-2 · Sentinel-1 · Landsat
+        </div>
       </div>
 
       {loading && (
@@ -672,23 +724,71 @@ function SatelliteTab({
         </div>
       )}
 
-      {!loading && !error && observations.length === 0 && (
+      {!loading && !error && usableObservations.length === 0 && (
         <SatelliteIngestionEmptyState
           ingestion={ingestion}
         />
       )}
 
-      {!loading && !error && observations.length > 0 && (
+      {!loading && !error && usableObservations.length > 0 && (
         <div className="farmer-metric-stack">
           {FARMER_METRICS.map((metric) => (
             <MetricImageryStrip
               key={metric.metricType}
               field={field}
-              observations={sorted}
+              observations={usableObservations}
               metric={metric}
             />
           ))}
         </div>
+      )}
+
+      {!loading && !error && skippedObservations.length > 0 && (
+        <section className="metric-imagery-section">
+          <div className="metric-imagery-heading">
+            <div>
+              <h3>Unavailable satellite dates</h3>
+
+              <p>
+                These optical scenes were recorded but skipped because
+                cloud or quality masking left no useful field imagery.
+                Sentinel-1 radar can still provide all-weather observations.
+              </p>
+            </div>
+          </div>
+
+          <div className="metric-imagery-empty">
+            {skippedObservations.slice(0, 8).map((observation) => {
+              const status =
+                observation.metadata_json
+                  ?.processing_status;
+
+              const fieldCloud =
+                observation.metadata_json
+                  ?.field_cloud_cover_percent;
+
+              const cloudPercent =
+                typeof fieldCloud === "number"
+                  ? fieldCloud
+                  : observation.cloud_cover_percent;
+
+              return (
+                <div key={observation.id}>
+                  <strong>{formatDate(observation.observed_on)}</strong>
+                  {" · "}
+                  {formatObservationSource(observation.source)}
+                  {" · "}
+                  {status === "skipped_scene_cloud_cover"
+                    ? "Cloud covered"
+                    : "No usable field pixels"}
+                  {cloudPercent != null
+                    ? ` · ${cloudPercent.toFixed(0)}% cloud/shadow`
+                    : ""}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );
@@ -718,7 +818,8 @@ function SatelliteIngestionEmptyState({
         <h3>Satellite history queued</h3>
 
         <p>
-          Sentinel-2 imagery from {formatDate(ingestion.start_date)}
+          Optical, all-weather radar, and thermal imagery from{" "}
+          {formatDate(ingestion.start_date)}
           {" to "}
           {formatDate(ingestion.end_date)}
           {" is waiting to be processed. This page checks automatically."}
@@ -733,8 +834,9 @@ function SatelliteIngestionEmptyState({
         <h3>Processing satellite imagery…</h3>
 
         <p>
-          Sentinel-2 scenes are being processed for this field.
-          Results will appear here automatically when the job finishes.
+          Sentinel-2 optical, Sentinel-1 radar, and Landsat thermal scenes
+          are being processed for this field. Results appear here
+          automatically as each source is stored.
         </p>
       </div>
     );
@@ -881,6 +983,8 @@ function MetricPreviewCard({
           <strong>{formatDate(observation.observed_on)}</strong>
 
           <span>
+            {formatObservationSource(observation.source)}
+            {" · "}
             {metric.valid_pixel_percent != null
               ? `${metric.valid_pixel_percent.toFixed(0)}% valid`
               : "Coverage —"}

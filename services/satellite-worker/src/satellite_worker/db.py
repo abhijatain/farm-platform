@@ -67,6 +67,7 @@ def save_satellite_observation(
     scene_id: str,
     cloud_cover_percent: float | None,
     metadata_json: dict,
+    source: str = "sentinel-2",
 ) -> UUID:
     """
     Upsert scene-level metadata only.
@@ -94,7 +95,7 @@ def save_satellite_observation(
             :id,
             :field_id,
             :observed_on,
-            'sentinel-2',
+            :source,
             :scene_id,
             :cloud_cover_percent,
             CAST(
@@ -113,6 +114,9 @@ def save_satellite_observation(
         DO UPDATE SET
             observed_on =
                 EXCLUDED.observed_on,
+
+            source =
+                EXCLUDED.source,
 
             cloud_cover_percent =
                 EXCLUDED.cloud_cover_percent,
@@ -137,6 +141,8 @@ def save_satellite_observation(
                     field_id,
                 "observed_on":
                     observed_on,
+                "source":
+                    source,
                 "scene_id":
                     scene_id,
                 "cloud_cover_percent":
@@ -276,8 +282,23 @@ def save_satellite_metrics(
                 "calibration_methods":
                     result.calibration_methods,
                 "source":
-                    "earth-search-sentinel-2-l2a",
+                    getattr(
+                        result,
+                        "source_name",
+                        "earth-search-sentinel-2-l2a",
+                    ),
             }
+
+            extra_metadata = getattr(
+                result,
+                "metadata_json",
+                None,
+            )
+
+            if extra_metadata:
+                metric_metadata.update(
+                    extra_metadata
+                )
 
             connection.execute(
                 query,
@@ -745,6 +766,7 @@ def list_satellite_metric_rasters_for_backfill(
 def automatic_scene_state_is_complete(
     *,
     processing_version: str | None,
+    processing_status: str | None,
     metric_count: int,
     ndvi_metric_count: int,
     anomaly_analysis_count: int,
@@ -758,6 +780,12 @@ def automatic_scene_state_is_complete(
     as-is. Current v2 scenes are skipped only after all expected metrics and
     anomaly analyses are complete.
     """
+
+    if processing_status in {
+        "skipped_scene_cloud_cover",
+        "skipped_no_usable_pixels",
+    }:
+        return True
 
     # Historical NDVI-only observations are always valid history. This check
     # is deliberately independent of processing-version metadata.
@@ -809,6 +837,10 @@ def satellite_scene_is_complete_for_automatic_ingestion(
             so.metadata_json
                 ->> 'processing_version'
                 AS processing_version,
+
+            so.metadata_json
+                ->> 'processing_status'
+                AS processing_status,
 
             COUNT(sm.id)
                 AS metric_count,
@@ -885,6 +917,10 @@ def satellite_scene_is_complete_for_automatic_ingestion(
         "processing_version"
     ]
 
+    processing_status = row[
+        "processing_status"
+    ]
+
     ndvi_metric_count = int(
         row[
             "ndvi_metric_count"
@@ -909,6 +945,9 @@ def satellite_scene_is_complete_for_automatic_ingestion(
     return automatic_scene_state_is_complete(
         processing_version=(
             processing_version
+        ),
+        processing_status=(
+            processing_status
         ),
         metric_count=(
             metric_count
@@ -1037,6 +1076,171 @@ def enqueue_missing_initial_satellite_jobs(
                     "dedupe_key":
                         (
                             "initial_backfill:"
+                            f"{field_id}"
+                        ),
+                },
+            )
+
+            inserted += max(
+                0,
+                result.rowcount
+                or 0,
+            )
+
+    return inserted
+
+
+def enqueue_missing_multisource_backfill_jobs(
+    *,
+    end_date: date,
+    backfill_days: int,
+    max_attempts: int,
+) -> int:
+    """
+    One-time rollout backfill for fields that already had optical metric data
+    before Sentinel-1 radar and Landsat thermal ingestion were introduced.
+
+    Empty/new fields are handled by the normal initial-backfill queue.
+    """
+
+    backfill_days = max(
+        1,
+        backfill_days,
+    )
+
+    start_date = (
+        end_date
+        - timedelta(
+            days=backfill_days - 1
+        )
+    )
+
+    with engine.begin() as connection:
+        field_ids = connection.execute(
+            text(
+                """
+                SELECT
+                    field.id
+
+                FROM fields AS field
+
+                WHERE EXISTS (
+                    SELECT 1
+
+                    FROM satellite_metrics
+                        AS existing_metric
+
+                    JOIN satellite_observations
+                        AS existing_observation
+                      ON existing_observation.id =
+                            existing_metric.satellite_observation_id
+
+                    WHERE existing_observation.field_id =
+                        field.id
+                )
+
+                AND (
+                    NOT EXISTS (
+                        SELECT 1
+
+                        FROM satellite_metrics
+                            AS radar_metric
+
+                        JOIN satellite_observations
+                            AS radar_observation
+                          ON radar_observation.id =
+                                radar_metric.satellite_observation_id
+
+                        WHERE radar_observation.field_id =
+                            field.id
+
+                        AND radar_metric.metric_type IN (
+                            'sar_vv_db',
+                            'sar_vh_db',
+                            'sar_vv_vh_ratio',
+                            'sar_rvi'
+                        )
+                    )
+
+                    OR NOT EXISTS (
+                        SELECT 1
+
+                        FROM satellite_metrics
+                            AS thermal_metric
+
+                        JOIN satellite_observations
+                            AS thermal_observation
+                          ON thermal_observation.id =
+                                thermal_metric.satellite_observation_id
+
+                        WHERE thermal_observation.field_id =
+                            field.id
+
+                        AND thermal_metric.metric_type =
+                            'lst_c'
+                    )
+                )
+
+                ORDER BY field.created_at
+                """
+            )
+        ).scalars().all()
+
+        inserted = 0
+
+        for field_id in field_ids:
+            result = connection.execute(
+                text(
+                    """
+                    INSERT INTO satellite_ingestion_jobs (
+                        id,
+                        field_id,
+                        job_type,
+                        start_date,
+                        end_date,
+                        status,
+                        attempts,
+                        max_attempts,
+                        available_at,
+                        dedupe_key,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (
+                        :id,
+                        :field_id,
+                        'initial_backfill',
+                        :start_date,
+                        :end_date,
+                        'pending',
+                        0,
+                        :max_attempts,
+                        NOW(),
+                        :dedupe_key,
+                        NOW(),
+                        NOW()
+                    )
+
+                    ON CONFLICT (
+                        dedupe_key
+                    )
+                    DO NOTHING
+                    """
+                ),
+                {
+                    "id":
+                        uuid4(),
+                    "field_id":
+                        field_id,
+                    "start_date":
+                        start_date,
+                    "end_date":
+                        end_date,
+                    "max_attempts":
+                        max_attempts,
+                    "dedupe_key":
+                        (
+                            "multisource_backfill_v1:"
                             f"{field_id}"
                         ),
                 },
@@ -1428,3 +1632,100 @@ def recover_stale_satellite_ingestion_jobs(
             or 0
         )
 
+
+
+
+def satellite_scene_is_handled_for_metrics(
+    *,
+    field_id: UUID,
+    scene_id: str,
+    metric_types: tuple[str, ...],
+) -> bool:
+    """
+    Return True when a non-Sentinel-2 scene has already been handled.
+
+    Cloud/unusable terminal statuses count as handled. Otherwise all expected
+    metric types must already exist for the scene.
+    """
+
+    query = text(
+        """
+        SELECT
+            so.metadata_json
+                ->> 'processing_status'
+                AS processing_status,
+
+            ARRAY_REMOVE(
+                ARRAY_AGG(
+                    sm.metric_type
+                ),
+                NULL
+            )
+                AS metric_types
+
+        FROM satellite_observations AS so
+
+        LEFT JOIN satellite_metrics AS sm
+          ON sm.satellite_observation_id =
+                so.id
+
+        WHERE
+            so.field_id = :field_id
+
+        AND so.scene_id = :scene_id
+
+        GROUP BY
+            so.id,
+            so.metadata_json
+        """
+    )
+
+    with engine.connect() as connection:
+        row = (
+            connection.execute(
+                query,
+                {
+                    "field_id":
+                        field_id,
+                    "scene_id":
+                        scene_id,
+                },
+            )
+            .mappings()
+            .first()
+        )
+
+    if row is None:
+        return False
+
+    if row[
+        "processing_status"
+    ] in {
+        "skipped_scene_cloud_cover",
+        "skipped_no_usable_pixels",
+        "skipped_missing_required_assets",
+    }:
+        return True
+
+    existing = {
+        str(
+            metric
+        ).strip().lower()
+        for metric in (
+            row[
+                "metric_types"
+            ]
+            or []
+        )
+    }
+
+    expected = {
+        metric
+        .strip()
+        .lower()
+        for metric in metric_types
+    }
+
+    return expected.issubset(
+        existing
+    )
