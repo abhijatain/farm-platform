@@ -46,7 +46,13 @@ type FarmerMetric = {
   subtitle: string;
 };
 
-const TILER_URL = import.meta.env.VITE_TILER_URL ?? "http://localhost:8081";
+const TILER_URL = import.meta.env.VITE_TILER_URL;
+
+if (!TILER_URL) {
+  throw new Error(
+    "VITE_TILER_URL is missing.",
+  );
+}
 
 const FARMER_METRICS: FarmerMetric[] = [
   {
