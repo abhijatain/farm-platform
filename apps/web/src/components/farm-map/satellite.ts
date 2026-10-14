@@ -418,6 +418,39 @@ export function formatMetricValue(value: number | null, digits = 2) {
     : value.toFixed(digits);
 }
 
+export function buildMetricPreviewUrl(
+  tilerUrl: string,
+  metric: SatelliteMetric,
+  maxSize = 600,
+) {
+  const config = getMetricConfig(
+    metric.metric_type,
+  );
+
+  const params =
+    new URLSearchParams({
+      url:
+        metric.raster_uri,
+
+      rescale:
+        `${config.displayMin},${config.displayMax}`,
+
+      colormap_name:
+        config.colormap,
+
+      max_size:
+        String(
+          maxSize,
+        ),
+    });
+
+  return (
+    `${tilerUrl}/cog/preview.png?`
+    + params.toString()
+  );
+}
+
+
 export function buildMetricTileJsonUrl(
   tilerUrl: string,
   metric: SatelliteMetric,
