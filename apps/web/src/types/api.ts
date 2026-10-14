@@ -189,6 +189,18 @@ export type SatelliteObservation = {
   updated_at: string;
 };
 
+export type FarmSatelliteOverviewItem = {
+  field_id: string;
+
+  observation_id: string;
+  observed_on: string;
+
+  source: string;
+  cloud_cover_percent: number | null;
+
+  metric: SatelliteMetric;
+};
+
 export type SatelliteIngestionJobStatus =
   | "pending"
   | "running"
