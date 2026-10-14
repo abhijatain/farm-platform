@@ -27,7 +27,10 @@ NODATA_VALUE = -9999.0
 
 RASTERIO_ENV = {
     "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR",
-    "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": ".tif,.TIF",
+    # Sentinel-1 RTC assets on Planetary Computer use .tiff while
+    # Sentinel-2/Landsat commonly use .tif. GDAL rejects remote files whose
+    # extension is not explicitly allowed here.
+    "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": ".tif,.TIF,.tiff,.TIFF",
     "GDAL_HTTP_MULTIRANGE": "YES",
     "GDAL_HTTP_MERGE_CONSECUTIVE_RANGES": "YES",
     "VSI_CACHE": "TRUE",
