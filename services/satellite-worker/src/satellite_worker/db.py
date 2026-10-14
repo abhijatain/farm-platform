@@ -867,6 +867,124 @@ def satellite_scene_is_complete_for_automatic_ingestion(
     )
 
 
+def enqueue_missing_initial_satellite_jobs(
+    *,
+    end_date: date,
+    backfill_days: int,
+    max_attempts: int,
+) -> int:
+    """
+    Bootstrap fields that existed before automatic ingestion was deployed.
+
+    Only fields with zero satellite observations are eligible, so historical
+    NDVI-only fields are never treated as missing or backfilled.
+    """
+
+    backfill_days = max(
+        1,
+        backfill_days,
+    )
+
+    start_date = (
+        end_date
+        - timedelta(
+            days=backfill_days - 1
+        )
+    )
+
+    with engine.begin() as connection:
+        field_ids = connection.execute(
+            text(
+                """
+                SELECT
+                    field.id
+
+                FROM fields AS field
+
+                WHERE NOT EXISTS (
+                    SELECT 1
+
+                    FROM satellite_observations
+                        AS observation
+
+                    WHERE observation.field_id =
+                        field.id
+                )
+
+                ORDER BY field.created_at
+                """
+            )
+        ).scalars().all()
+
+        inserted = 0
+
+        for field_id in field_ids:
+            result = connection.execute(
+                text(
+                    """
+                    INSERT INTO satellite_ingestion_jobs (
+                        id,
+                        field_id,
+                        job_type,
+                        start_date,
+                        end_date,
+                        status,
+                        attempts,
+                        max_attempts,
+                        available_at,
+                        dedupe_key,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (
+                        :id,
+                        :field_id,
+                        'initial_backfill',
+                        :start_date,
+                        :end_date,
+                        'pending',
+                        0,
+                        :max_attempts,
+                        NOW(),
+                        :dedupe_key,
+                        NOW(),
+                        NOW()
+                    )
+
+                    ON CONFLICT (
+                        dedupe_key
+                    )
+                    DO NOTHING
+                    """
+                ),
+                {
+                    "id":
+                        uuid4(),
+                    "field_id":
+                        field_id,
+                    "start_date":
+                        start_date,
+                    "end_date":
+                        end_date,
+                    "max_attempts":
+                        max_attempts,
+                    "dedupe_key":
+                        (
+                            "initial_backfill:"
+                            f"{field_id}"
+                        ),
+                },
+            )
+
+            inserted += max(
+                0,
+                result.rowcount
+                or 0,
+            )
+
+    return inserted
+
+
 def enqueue_incremental_satellite_jobs(
     *,
     end_date: date,
