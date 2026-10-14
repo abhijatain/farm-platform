@@ -81,6 +81,16 @@ const FARMER_METRICS: FarmerMetric[] = [
     label: "Soil exposure",
     subtitle: "BSI · exposed soil and surface signal",
   },
+  {
+    metricType: "sar_rvi",
+    label: "All-weather radar",
+    subtitle: "Sentinel-1 RVI · cloud-independent canopy structure signal",
+  },
+  {
+    metricType: "lst_c",
+    label: "Surface temperature",
+    subtitle: "Landsat LST · thermal crop-surface temperature in °C",
+  },
 ];
 
 function currentDateTime() {
