@@ -131,6 +131,20 @@ function formatMetricValue(value: number | null | undefined, digits = 3) {
   return value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
 }
 
+function formatObservationSource(value: string) {
+  switch (value) {
+    case "sentinel-1-rtc":
+      return "Sentinel-1 radar";
+
+    case "landsat-c2-l2":
+      return "Landsat thermal";
+
+    case "sentinel-2":
+    default:
+      return "Sentinel-2 optical";
+  }
+}
+
 function formatSignedMetricValue(value: number | null | undefined, digits = 3) {
   if (value == null || !Number.isFinite(value)) {
     return "—";
@@ -762,6 +776,8 @@ function SatelliteTab({
                 <div key={observation.id}>
                   <strong>{formatDate(observation.observed_on)}</strong>
                   {" · "}
+                  {formatObservationSource(observation.source)}
+                  {" · "}
                   {status === "skipped_scene_cloud_cover"
                     ? "Cloud covered"
                     : "No usable field pixels"}
@@ -967,6 +983,8 @@ function MetricPreviewCard({
           <strong>{formatDate(observation.observed_on)}</strong>
 
           <span>
+            {formatObservationSource(observation.source)}
+            {" · "}
             {metric.valid_pixel_percent != null
               ? `${metric.valid_pixel_percent.toFixed(0)}% valid`
               : "Coverage —"}
