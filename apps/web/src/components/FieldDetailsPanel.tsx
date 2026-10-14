@@ -642,6 +642,32 @@ function SatelliteTab({
     [observations],
   );
 
+  const usableObservations = useMemo(
+    () =>
+      sorted.filter(
+        (observation) =>
+          observation.metrics.length > 0,
+      ),
+    [sorted],
+  );
+
+  const skippedObservations = useMemo(
+    () =>
+      sorted.filter((observation) => {
+        const status =
+          observation.metadata_json
+            ?.processing_status;
+
+        return (
+          typeof status === "string"
+          && status.startsWith(
+            "skipped_",
+          )
+        );
+      }),
+    [sorted],
+  );
+
   return (
     <div className="workspace-page satellite-first-page">
       <div className="workspace-page-title">
@@ -672,23 +698,68 @@ function SatelliteTab({
         </div>
       )}
 
-      {!loading && !error && observations.length === 0 && (
+      {!loading && !error && usableObservations.length === 0 && (
         <SatelliteIngestionEmptyState
           ingestion={ingestion}
         />
       )}
 
-      {!loading && !error && observations.length > 0 && (
+      {!loading && !error && usableObservations.length > 0 && (
         <div className="farmer-metric-stack">
           {FARMER_METRICS.map((metric) => (
             <MetricImageryStrip
               key={metric.metricType}
               field={field}
-              observations={sorted}
+              observations={usableObservations}
               metric={metric}
             />
           ))}
         </div>
+      )}
+
+      {!loading && !error && skippedObservations.length > 0 && (
+        <section className="metric-imagery-section">
+          <div className="metric-imagery-heading">
+            <div>
+              <h3>Unavailable satellite dates</h3>
+
+              <p>
+                These Sentinel-2 scenes were recorded but skipped because
+                cloud or masking left no useful field imagery.
+              </p>
+            </div>
+          </div>
+
+          <div className="metric-imagery-empty">
+            {skippedObservations.slice(0, 8).map((observation) => {
+              const status =
+                observation.metadata_json
+                  ?.processing_status;
+
+              const fieldCloud =
+                observation.metadata_json
+                  ?.field_cloud_cover_percent;
+
+              const cloudPercent =
+                typeof fieldCloud === "number"
+                  ? fieldCloud
+                  : observation.cloud_cover_percent;
+
+              return (
+                <div key={observation.id}>
+                  <strong>{formatDate(observation.observed_on)}</strong>
+                  {" · "}
+                  {status === "skipped_scene_cloud_cover"
+                    ? "Cloud covered"
+                    : "No usable field pixels"}
+                  {cloudPercent != null
+                    ? ` · ${cloudPercent.toFixed(0)}% cloud/shadow`
+                    : ""}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );
