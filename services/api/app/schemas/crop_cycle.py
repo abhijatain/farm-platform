@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class CropCycleCreate(BaseModel):
@@ -73,6 +73,22 @@ class CropCycleResponse(BaseModel):
 
 class HarvestCropCycleRequest(BaseModel):
     harvested_at: datetime
+
+    @field_validator("harvested_at")
+    @classmethod
+    def require_timezone(
+        cls,
+        value: datetime,
+    ) -> datetime:
+        if (
+            value.tzinfo is None
+            or value.utcoffset() is None
+        ):
+            raise ValueError(
+                "harvested_at must include a timezone."
+            )
+
+        return value
 
     yield_kg: float = Field(
         gt=0,
