@@ -692,7 +692,9 @@ function SatelliteTab({
           </p>
         </div>
 
-        <div className="satellite-source-badge">Sentinel-2</div>
+        <div className="satellite-source-badge">
+          Sentinel-2 · Sentinel-1 · Landsat
+        </div>
       </div>
 
       {loading && (
@@ -734,8 +736,9 @@ function SatelliteTab({
               <h3>Unavailable satellite dates</h3>
 
               <p>
-                These Sentinel-2 scenes were recorded but skipped because
-                cloud or masking left no useful field imagery.
+                These optical scenes were recorded but skipped because
+                cloud or quality masking left no useful field imagery.
+                Sentinel-1 radar can still provide all-weather observations.
               </p>
             </div>
           </div>
@@ -799,7 +802,8 @@ function SatelliteIngestionEmptyState({
         <h3>Satellite history queued</h3>
 
         <p>
-          Sentinel-2 imagery from {formatDate(ingestion.start_date)}
+          Optical, all-weather radar, and thermal imagery from{" "}
+          {formatDate(ingestion.start_date)}
           {" to "}
           {formatDate(ingestion.end_date)}
           {" is waiting to be processed. This page checks automatically."}
@@ -814,8 +818,9 @@ function SatelliteIngestionEmptyState({
         <h3>Processing satellite imagery…</h3>
 
         <p>
-          Sentinel-2 scenes are being processed for this field.
-          Results will appear here automatically when the job finishes.
+          Sentinel-2 optical, Sentinel-1 radar, and Landsat thermal scenes
+          are being processed for this field. Results appear here
+          automatically as each source is stored.
         </p>
       </div>
     );
