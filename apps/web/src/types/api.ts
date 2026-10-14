@@ -136,7 +136,12 @@ export type SatelliteMetricType =
   | "ndti"
   | "ccci"
   | "reci"
-  | "mcari";
+  | "mcari"
+  | "sar_vv_db"
+  | "sar_vh_db"
+  | "sar_vv_vh_ratio"
+  | "sar_rvi"
+  | "lst_c";
 
 export type SatelliteMetric = {
   id: string;
