@@ -11,17 +11,36 @@ from satellite_worker.config import settings
 from satellite_worker.db import (
     claim_next_satellite_ingestion_job,
     enqueue_incremental_satellite_jobs,
+    enqueue_missing_initial_satellite_jobs,
     mark_satellite_ingestion_job_completed,
     mark_satellite_ingestion_job_failed,
     recover_stale_satellite_ingestion_jobs,
 )
 
 
+def _today():
+    return datetime.now(
+        timezone.utc
+    ).date()
+
+
+def _enqueue_initial_jobs() -> int:
+    return enqueue_missing_initial_satellite_jobs(
+        end_date=_today(),
+        backfill_days=(
+            settings
+            .satellite_initial_backfill_days
+        ),
+        max_attempts=(
+            settings
+            .satellite_job_max_attempts
+        ),
+    )
+
+
 def _enqueue_incremental_jobs() -> int:
     return enqueue_incremental_satellite_jobs(
-        end_date=datetime.now(
-            timezone.utc
-        ).date(),
+        end_date=_today(),
         lookback_days=(
             settings
             .satellite_incremental_lookback_days
@@ -190,6 +209,16 @@ def _run_once() -> None:
             f"{recovered}"
         )
 
+    initial_inserted = (
+        _enqueue_initial_jobs()
+    )
+
+    if initial_inserted:
+        print(
+            "Queued initial satellite backfills: "
+            f"{initial_inserted}"
+        )
+
     inserted = (
         _enqueue_incremental_jobs()
     )
@@ -252,6 +281,16 @@ def _run_forever() -> None:
                 now
                 >= next_incremental_enqueue_at
             ):
+                initial_inserted = (
+                    _enqueue_initial_jobs()
+                )
+
+                if initial_inserted:
+                    print(
+                        "Queued initial satellite backfills: "
+                        f"{initial_inserted}"
+                    )
+
                 inserted = (
                     _enqueue_incremental_jobs()
                 )
