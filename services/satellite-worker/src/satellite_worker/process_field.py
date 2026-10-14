@@ -140,6 +140,7 @@ def main() -> None:
             args.max_scene_cloud
         ),
         limit=args.limit,
+        include_cloudy=True,
     )
 
     print(
@@ -160,6 +161,102 @@ def main() -> None:
         observed_on = (
             item.datetime.date()
         )
+
+        cloud_cover = (
+            item.properties.get(
+                "eo:cloud_cover"
+            )
+        )
+
+        cloud_cover_percent = (
+            float(
+                cloud_cover
+            )
+            if cloud_cover
+            is not None
+            else None
+        )
+
+        observation_metadata = {
+            "processing_version":
+                "sentinel2-metrics-v2",
+            "stac_item_id":
+                item.id,
+            "stac_collection":
+                item.collection_id,
+            "datetime":
+                item.datetime.isoformat(),
+            "platform":
+                item.properties.get(
+                    "platform"
+                ),
+            "constellation":
+                item.properties.get(
+                    "constellation"
+                ),
+            "processing_baseline":
+                item.properties.get(
+                    "s2:processing_baseline"
+                ),
+            "boa_offset_applied":
+                item.properties.get(
+                    "earthsearch:"
+                    "boa_offset_applied"
+                ),
+        }
+
+        if (
+            cloud_cover_percent
+            is not None
+            and cloud_cover_percent
+            >= args.max_scene_cloud
+        ):
+            skipped_metadata = {
+                **observation_metadata,
+                "processing_status":
+                    "skipped_scene_cloud_cover",
+                "skip_reason":
+                    "scene_cloud_cover_threshold",
+                "scene_cloud_cover_percent":
+                    cloud_cover_percent,
+                "scene_cloud_threshold_percent":
+                    float(
+                        args.max_scene_cloud
+                    ),
+            }
+
+            observation_id = (
+                save_satellite_observation(
+                    field_id=field_id,
+                    observed_on=(
+                        observed_on
+                    ),
+                    scene_id=item.id,
+                    cloud_cover_percent=(
+                        cloud_cover_percent
+                    ),
+                    metadata_json=(
+                        skipped_metadata
+                    ),
+                )
+            )
+
+            write_satellite_manifest_from_database(
+                context=context,
+                observation_id=(
+                    observation_id
+                ),
+            )
+
+            print()
+            print(
+                "Skipping cloudy scene: "
+                f"{cloud_cover_percent:.1f}% "
+                "scene cloud cover "
+                f"(threshold {args.max_scene_cloud:.1f}%)."
+            )
+
+            continue
 
         if (
             args.skip_existing
@@ -204,7 +301,7 @@ def main() -> None:
             )
 
             try:
-                results = process_metrics(
+                processing = process_metrics(
                     item=item,
                     field_geometry=(
                         geometry
@@ -217,44 +314,81 @@ def main() -> None:
                     ),
                 )
 
-                if not results:
-                    raise RuntimeError(
-                        "Metric processor produced "
-                        "no results."
-                    )
-
-                cloud_cover = (
-                    item.properties.get(
-                        "eo:cloud_cover"
-                    )
+                results = (
+                    processing.metrics
                 )
 
+                coverage = (
+                    processing.coverage
+                )
+
+                if not results:
+                    skipped_metadata = {
+                        **observation_metadata,
+                        "processing_status":
+                            "skipped_no_usable_pixels",
+                        "skip_reason":
+                            "no_usable_field_pixels_after_masks",
+                        "scene_cloud_cover_percent":
+                            cloud_cover_percent,
+                        "field_cloud_cover_percent":
+                            coverage.cloud_cover_percent,
+                        "field_usable_pixel_percent":
+                            coverage.usable_pixel_percent,
+                        "field_excluded_pixel_percent":
+                            coverage.excluded_pixel_percent,
+                        "field_pixel_count":
+                            coverage.pixel_count,
+                    }
+
+                    observation_id = (
+                        save_satellite_observation(
+                            field_id=field_id,
+                            observed_on=(
+                                observed_on
+                            ),
+                            scene_id=item.id,
+                            cloud_cover_percent=(
+                                cloud_cover_percent
+                            ),
+                            metadata_json=(
+                                skipped_metadata
+                            ),
+                        )
+                    )
+
+                    write_satellite_manifest_from_database(
+                        context=context,
+                        observation_id=(
+                            observation_id
+                        ),
+                    )
+
+                    print()
+                    print(
+                        "Skipping unusable scene: "
+                        f"{coverage.cloud_cover_percent:.1f}% "
+                        "of field is cloud/shadow; "
+                        f"{coverage.usable_pixel_percent:.1f}% "
+                        "of field remains usable."
+                    )
+
+                    continue
+
                 observation_metadata = {
-                    "processing_version":
-                        "sentinel2-metrics-v2",
-                    "stac_item_id":
-                        item.id,
-                    "stac_collection":
-                        item.collection_id,
-                    "datetime":
-                        item.datetime.isoformat(),
-                    "platform":
-                        item.properties.get(
-                            "platform"
-                        ),
-                    "constellation":
-                        item.properties.get(
-                            "constellation"
-                        ),
-                    "processing_baseline":
-                        item.properties.get(
-                            "s2:processing_baseline"
-                        ),
-                    "boa_offset_applied":
-                        item.properties.get(
-                            "earthsearch:"
-                            "boa_offset_applied"
-                        ),
+                    **observation_metadata,
+                    "processing_status":
+                        "metrics_processed",
+                    "scene_cloud_cover_percent":
+                        cloud_cover_percent,
+                    "field_cloud_cover_percent":
+                        coverage.cloud_cover_percent,
+                    "field_usable_pixel_percent":
+                        coverage.usable_pixel_percent,
+                    "field_excluded_pixel_percent":
+                        coverage.excluded_pixel_percent,
+                    "field_pixel_count":
+                        coverage.pixel_count,
                 }
 
                 # Observation is scene-level only.
@@ -270,12 +404,7 @@ def main() -> None:
                             item.id
                         ),
                         cloud_cover_percent=(
-                            float(
-                                cloud_cover
-                            )
-                            if cloud_cover
-                            is not None
-                            else None
+                            cloud_cover_percent
                         ),
                         metadata_json=(
                             observation_metadata
