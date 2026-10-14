@@ -1448,9 +1448,8 @@ export default function FarmWorkspace() {
                   event,
                 ) =>
                   setOverviewMetricType(
-                    event.target
-                      .value
-                    as SatelliteMetricType,
+                    event.target.value
+                      as SatelliteMetricType,
                   )
                 }
               >
