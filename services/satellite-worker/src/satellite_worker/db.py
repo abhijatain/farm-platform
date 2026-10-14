@@ -67,6 +67,7 @@ def save_satellite_observation(
     scene_id: str,
     cloud_cover_percent: float | None,
     metadata_json: dict,
+    source: str = "sentinel-2",
 ) -> UUID:
     """
     Upsert scene-level metadata only.
@@ -94,7 +95,7 @@ def save_satellite_observation(
             :id,
             :field_id,
             :observed_on,
-            'sentinel-2',
+            :source,
             :scene_id,
             :cloud_cover_percent,
             CAST(
@@ -113,6 +114,9 @@ def save_satellite_observation(
         DO UPDATE SET
             observed_on =
                 EXCLUDED.observed_on,
+
+            source =
+                EXCLUDED.source,
 
             cloud_cover_percent =
                 EXCLUDED.cloud_cover_percent,
@@ -137,6 +141,8 @@ def save_satellite_observation(
                     field_id,
                 "observed_on":
                     observed_on,
+                "source":
+                    source,
                 "scene_id":
                     scene_id,
                 "cloud_cover_percent":
@@ -276,8 +282,23 @@ def save_satellite_metrics(
                 "calibration_methods":
                     result.calibration_methods,
                 "source":
-                    "earth-search-sentinel-2-l2a",
+                    getattr(
+                        result,
+                        "source_name",
+                        "earth-search-sentinel-2-l2a",
+                    ),
             }
+
+            extra_metadata = getattr(
+                result,
+                "metadata_json",
+                None,
+            )
+
+            if extra_metadata:
+                metric_metadata.update(
+                    extra_metadata
+                )
 
             connection.execute(
                 query,
@@ -1446,3 +1467,100 @@ def recover_stale_satellite_ingestion_jobs(
             or 0
         )
 
+
+
+
+def satellite_scene_is_handled_for_metrics(
+    *,
+    field_id: UUID,
+    scene_id: str,
+    metric_types: tuple[str, ...],
+) -> bool:
+    """
+    Return True when a non-Sentinel-2 scene has already been handled.
+
+    Cloud/unusable terminal statuses count as handled. Otherwise all expected
+    metric types must already exist for the scene.
+    """
+
+    query = text(
+        """
+        SELECT
+            so.metadata_json
+                ->> 'processing_status'
+                AS processing_status,
+
+            ARRAY_REMOVE(
+                ARRAY_AGG(
+                    sm.metric_type
+                ),
+                NULL
+            )
+                AS metric_types
+
+        FROM satellite_observations AS so
+
+        LEFT JOIN satellite_metrics AS sm
+          ON sm.satellite_observation_id =
+                so.id
+
+        WHERE
+            so.field_id = :field_id
+
+        AND so.scene_id = :scene_id
+
+        GROUP BY
+            so.id,
+            so.metadata_json
+        """
+    )
+
+    with engine.connect() as connection:
+        row = (
+            connection.execute(
+                query,
+                {
+                    "field_id":
+                        field_id,
+                    "scene_id":
+                        scene_id,
+                },
+            )
+            .mappings()
+            .first()
+        )
+
+    if row is None:
+        return False
+
+    if row[
+        "processing_status"
+    ] in {
+        "skipped_scene_cloud_cover",
+        "skipped_no_usable_pixels",
+        "skipped_missing_required_assets",
+    }:
+        return True
+
+    existing = {
+        str(
+            metric
+        ).strip().lower()
+        for metric in (
+            row[
+                "metric_types"
+            ]
+            or []
+        )
+    }
+
+    expected = {
+        metric
+        .strip()
+        .lower()
+        for metric in metric_types
+    }
+
+    return expected.issubset(
+        existing
+    )
