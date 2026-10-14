@@ -206,6 +206,24 @@ def main() -> None:
         }
 
         if (
+            args.skip_existing
+            and satellite_scene_is_complete_for_automatic_ingestion(
+                field_id=field_id,
+                scene_id=item.id,
+                expected_metric_count=len(
+                    METRIC_TYPES
+                ),
+            )
+        ):
+            print()
+            print(
+                "Skipping already-ingested scene: "
+                f"{item.id} ({observed_on})"
+            )
+
+            continue
+
+        if (
             cloud_cover_percent
             is not None
             and cloud_cover_percent
@@ -254,24 +272,6 @@ def main() -> None:
                 f"{cloud_cover_percent:.1f}% "
                 "scene cloud cover "
                 f"(threshold {args.max_scene_cloud:.1f}%)."
-            )
-
-            continue
-
-        if (
-            args.skip_existing
-            and satellite_scene_is_complete_for_automatic_ingestion(
-                field_id=field_id,
-                scene_id=item.id,
-                expected_metric_count=len(
-                    METRIC_TYPES
-                ),
-            )
-        ):
-            print()
-            print(
-                "Skipping already-ingested scene: "
-                f"{item.id} ({observed_on})"
             )
 
             continue
