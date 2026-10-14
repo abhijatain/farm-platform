@@ -68,7 +68,7 @@ jobs:
 
       - name: Run API tests
         working-directory: services/api
-        run: uv run --with pytest pytest -q tests
+        run: uv run --with pytest python -m pytest -q tests
 
   satellite-worker:
     name: Satellite worker
