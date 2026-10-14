@@ -745,6 +745,7 @@ def list_satellite_metric_rasters_for_backfill(
 def automatic_scene_state_is_complete(
     *,
     processing_version: str | None,
+    processing_status: str | None,
     metric_count: int,
     ndvi_metric_count: int,
     anomaly_analysis_count: int,
@@ -758,6 +759,12 @@ def automatic_scene_state_is_complete(
     as-is. Current v2 scenes are skipped only after all expected metrics and
     anomaly analyses are complete.
     """
+
+    if processing_status in {
+        "skipped_scene_cloud_cover",
+        "skipped_no_usable_pixels",
+    }:
+        return True
 
     # Historical NDVI-only observations are always valid history. This check
     # is deliberately independent of processing-version metadata.
@@ -809,6 +816,10 @@ def satellite_scene_is_complete_for_automatic_ingestion(
             so.metadata_json
                 ->> 'processing_version'
                 AS processing_version,
+
+            so.metadata_json
+                ->> 'processing_status'
+                AS processing_status,
 
             COUNT(sm.id)
                 AS metric_count,
@@ -885,6 +896,10 @@ def satellite_scene_is_complete_for_automatic_ingestion(
         "processing_version"
     ]
 
+    processing_status = row[
+        "processing_status"
+    ]
+
     ndvi_metric_count = int(
         row[
             "ndvi_metric_count"
@@ -909,6 +924,9 @@ def satellite_scene_is_complete_for_automatic_ingestion(
     return automatic_scene_state_is_complete(
         processing_version=(
             processing_version
+        ),
+        processing_status=(
+            processing_status
         ),
         metric_count=(
             metric_count
