@@ -742,6 +742,41 @@ def list_satellite_metric_rasters_for_backfill(
     ]
 
 
+def automatic_scene_state_is_complete(
+    *,
+    processing_version: str | None,
+    metric_count: int,
+    anomaly_analysis_count: int,
+    failed_anomaly_count: int,
+    expected_metric_count: int,
+) -> bool:
+    """
+    Pure decision rule used by automatic ingestion.
+
+    Any historical pre-v2 scene that already has metrics is preserved exactly
+    as-is. Current v2 scenes are skipped only after all expected metrics and
+    anomaly analyses are complete.
+    """
+
+    if (
+        processing_version
+        != "sentinel2-metrics-v2"
+    ):
+        return (
+            metric_count
+            > 0
+        )
+
+    return (
+        metric_count
+        == expected_metric_count
+        and anomaly_analysis_count
+        == expected_metric_count
+        and failed_anomaly_count
+        == 0
+    )
+
+
 def satellite_scene_is_complete_for_automatic_ingestion(
     *,
     field_id: UUID,
@@ -835,14 +870,6 @@ def satellite_scene_is_complete_for_automatic_ingestion(
         "processing_version"
     ]
 
-    # Never use automatic ingestion to backfill old historical runs. An old
-    # NDVI-only row is valid historical data by design.
-    if (
-        processing_version
-        != "sentinel2-metrics-v2"
-    ):
-        return metric_count > 0
-
     anomaly_analysis_count = int(
         row[
             "anomaly_analysis_count"
@@ -857,13 +884,22 @@ def satellite_scene_is_complete_for_automatic_ingestion(
         or 0
     )
 
-    return (
-        metric_count
-        == expected_metric_count
-        and anomaly_analysis_count
-        == expected_metric_count
-        and failed_anomaly_count
-        == 0
+    return automatic_scene_state_is_complete(
+        processing_version=(
+            processing_version
+        ),
+        metric_count=(
+            metric_count
+        ),
+        anomaly_analysis_count=(
+            anomaly_analysis_count
+        ),
+        failed_anomaly_count=(
+            failed_anomaly_count
+        ),
+        expected_metric_count=(
+            expected_metric_count
+        ),
     )
 
 
