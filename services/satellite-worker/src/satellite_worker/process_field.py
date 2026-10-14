@@ -15,6 +15,7 @@ from satellite_worker.anomaly_rules import (
 )
 from satellite_worker.db import (
     replace_satellite_anomalies,
+    satellite_scene_is_complete_for_automatic_ingestion,
     save_satellite_metrics,
     save_satellite_observation,
 )
@@ -94,6 +95,15 @@ def main() -> None:
         ),
     )
 
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help=(
+            "Skip scenes already complete for automatic ingestion. "
+            "Legacy observations with existing metrics are always preserved."
+        ),
+    )
+
     args = parser.parse_args()
 
     field_id = UUID(
@@ -150,6 +160,24 @@ def main() -> None:
         observed_on = (
             item.datetime.date()
         )
+
+        if (
+            args.skip_existing
+            and satellite_scene_is_complete_for_automatic_ingestion(
+                field_id=field_id,
+                scene_id=item.id,
+                expected_metric_count=len(
+                    METRIC_TYPES
+                ),
+            )
+        ):
+            print()
+            print(
+                "Skipping already-ingested scene: "
+                f"{item.id} ({observed_on})"
+            )
+
+            continue
 
         print()
         print(
