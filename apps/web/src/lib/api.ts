@@ -6,6 +6,7 @@ import type {
   CurrentUser,
   Farm,
   Field,
+  FarmSatelliteOverviewItem,
   PolygonGeometry,
   Season,
   TimelineItem,
@@ -231,6 +232,27 @@ export function getActivitySatelliteContext(
 
 export function getFieldTimeline(fieldId: string) {
   return apiRequest<TimelineItem[]>(`/fields/${fieldId}/timeline`);
+}
+
+export function getFarmSatelliteOverview(
+  farmId: string,
+  metricType: SatelliteMetricType,
+  onOrBefore: string | null,
+) {
+  const params = new URLSearchParams({
+    metric_type: metricType,
+  });
+
+  if (onOrBefore) {
+    params.set(
+      "on_or_before",
+      onOrBefore,
+    );
+  }
+
+  return apiRequest<FarmSatelliteOverviewItem[]>(
+    `/farms/${farmId}/satellite-overview?${params.toString()}`,
+  );
 }
 
 export function listSatelliteObservations(fieldId: string) {
