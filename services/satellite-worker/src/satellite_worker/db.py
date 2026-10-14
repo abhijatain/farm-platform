@@ -965,8 +965,13 @@ def enqueue_missing_initial_satellite_jobs(
                 WHERE NOT EXISTS (
                     SELECT 1
 
-                    FROM satellite_observations
+                    FROM satellite_metrics
+                        AS metric
+
+                    JOIN satellite_observations
                         AS observation
+                      ON observation.id =
+                            metric.satellite_observation_id
 
                     WHERE observation.field_id =
                         field.id
