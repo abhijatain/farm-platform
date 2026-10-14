@@ -4,8 +4,8 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass, field
-from functools import lru_cache
 from pathlib import Path
+import time
 from urllib.request import urlopen
 
 import numpy as np
@@ -83,10 +83,30 @@ class DerivedMetricResult:
     )
 
 
-@lru_cache(maxsize=8)
+_PC_TOKEN_CACHE: dict[
+    str,
+    tuple[
+        float,
+        str,
+    ],
+] = {}
+
+
 def _planetary_computer_token(
     collection_id: str,
 ) -> str:
+    now = time.monotonic()
+
+    cached = _PC_TOKEN_CACHE.get(
+        collection_id
+    )
+
+    if (
+        cached is not None
+        and cached[0] > now
+    ):
+        return cached[1]
+
     url = (
         "https://planetarycomputer.microsoft.com/"
         "api/sas/v1/token/"
@@ -106,6 +126,15 @@ def _planetary_computer_token(
             "token"
         ]
     ).lstrip("?")
+
+    # Planetary Computer SAS lifetimes can change. Cache conservatively for
+    # 30 minutes so a continuously-running worker refreshes well before expiry.
+    _PC_TOKEN_CACHE[
+        collection_id
+    ] = (
+        now + 30 * 60,
+        token,
+    )
 
     return token
 
