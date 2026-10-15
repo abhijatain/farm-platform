@@ -4,6 +4,7 @@ from app.api.routes import (
     activities,
     auth,
     crop_cycles,
+    crop_growth,
     farms,
     fields,
     weather,
@@ -25,6 +26,7 @@ api_router.include_router(weather.router)
 api_router.include_router(seasons.router)
 
 api_router.include_router(crop_cycles.router)
+api_router.include_router(crop_growth.router)
 
 api_router.include_router(activities.router)
 

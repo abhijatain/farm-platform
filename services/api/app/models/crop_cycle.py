@@ -110,6 +110,12 @@ class CropCycle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="crop_cycles",
     )
 
+    stage_observations: Mapped[list["CropStageObservation"]] = relationship(
+        back_populates="crop_cycle",
+        cascade="all, delete-orphan",
+        order_by="CropStageObservation.observed_on",
+    )
+
     activities: Mapped[list["Activity"]] = relationship(
         back_populates="crop_cycle",
         order_by="Activity.occurred_at",

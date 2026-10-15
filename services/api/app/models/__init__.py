@@ -1,5 +1,6 @@
 from app.models.activity import Activity
 from app.models.crop_cycle import CropCycle
+from app.models.crop_stage_observation import CropStageObservation
 from app.models.farm import Farm
 from app.models.field import Field
 from app.models.media_asset import MediaAsset
@@ -16,6 +17,7 @@ __all__ = [
     "Field",
     "Season",
     "CropCycle",
+    "CropStageObservation",
     "Activity",
     "SatelliteObservation",
     "SatelliteIngestionJob",

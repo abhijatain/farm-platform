@@ -7,9 +7,11 @@ import {
 import {
   getSatelliteTrends,
   getFieldWeather,
+  getCropGrowthStages,
 } from "../lib/api";
 
 import WeatherContextPanel from "./WeatherContextPanel";
+import CropGrowthStagePanel from "./CropGrowthStagePanel";
 
 import {
   METRIC_CONFIG,
@@ -17,6 +19,8 @@ import {
 
 import type {
   CropCycle,
+  CropGrowth,
+  CropStageObservation,
   FieldSatelliteTrends,
   FieldWeather,
   SatelliteMetricType,
@@ -53,6 +57,7 @@ type TrendChartProps = {
 
   series: ChartSeries[];
   activities: SatelliteTrendActivity[];
+  stageMarkers?: CropStageObservation[];
 
   startDate: string;
   endDate: string;
@@ -357,6 +362,7 @@ function TrendChart({
   subtitle,
   series,
   activities,
+  stageMarkers = [],
   startDate,
   endDate,
   valueLabel,
@@ -574,6 +580,13 @@ function TrendChart({
           ),
         )}
 
+        {stageMarkers.length > 0 && (
+          <span className="satellite-trend-legend-item confirmed-stage">
+            <i />
+            Farmer-confirmed crop stage
+          </span>
+        )}
+
         {activities.length > 0 && (
           <span className="satellite-trend-legend-item activity">
             <i />
@@ -770,6 +783,19 @@ function TrendChart({
                   );
                 },
               )}
+
+              {stageMarkers.map((stage) => {
+                const x = xForDate(stage.observed_on);
+                if (x < margins.left || x > width - margins.right) return null;
+                return (
+                  <g key={stage.id} className="crop-stage-chart-marker">
+                    <line x1={x} x2={x} y1={margins.top} y2={height - margins.bottom} />
+                    <circle cx={x} cy={margins.top + 8} r={4}>
+                      <title>{stage.stage_code.replace(/_/g, " ")} · {formatLongDate(stage.observed_on)} · Farmer confirmed</title>
+                    </circle>
+                  </g>
+                );
+              })}
 
               {series.map(
                 (
@@ -1101,9 +1127,11 @@ function radarPointTooltip(
 function RadarTrendPanel({
   trends,
   weather,
+  stageMarkers,
 }: {
   trends: FieldSatelliteTrends;
   weather: FieldWeather | null;
+  stageMarkers: CropStageObservation[];
 }) {
   const radarPoints =
     useMemo(
@@ -1658,6 +1686,7 @@ function RadarTrendPanel({
       <div className="radar-primary-chart">
         <TrendChart
           title="Radar RVI"
+          stageMarkers={stageMarkers}
           subtitle="Relative dual-polarization canopy/structure signal for the selected orbit geometry."
           series={
             radarSeries(
@@ -1893,6 +1922,42 @@ export default function SatelliteTrendCharts({
   const [weather, setWeather] = useState<FieldWeather | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [weatherError, setWeatherError] = useState<string | null>(null);
+
+  const [growth, setGrowth] = useState<CropGrowth | null>(null);
+  const [growthLoading, setGrowthLoading] = useState(false);
+  const [growthError, setGrowthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cropCycle) {
+      setGrowth(null);
+      setGrowthLoading(false);
+      setGrowthError(null);
+      return;
+    }
+    let cancelled = false;
+    setGrowth(null);
+    setGrowthLoading(true);
+    setGrowthError(null);
+    void getCropGrowthStages(cropCycle.id)
+      .then((result) => {
+        if (!cancelled) setGrowth(result);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setGrowthError(
+          err instanceof Error ? err.message : "Could not load crop stages.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setGrowthLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [cropCycle?.id]);
+
+  async function refreshGrowthStages() {
+    if (!cropCycle) return;
+    const updated = await getCropGrowthStages(cropCycle.id);
+    setGrowth(updated);
+  }
 
   const [
     anomalyMetric,
@@ -2241,8 +2306,18 @@ export default function SatelliteTrendCharts({
         && !error
         && trends && (
         <div className="satellite-trends-grid">
+          {cropCycle && (
+            <CropGrowthStagePanel
+              cropCycle={cropCycle}
+              growth={growth}
+              loading={growthLoading}
+              error={growthError}
+              onChanged={refreshGrowthStages}
+            />
+          )}
           <TrendChart
             title="Optical crop signals"
+            stageMarkers={growth?.observations ?? []}
             subtitle="NDVI, NDRE and NDMI on one comparable index scale."
             series={
               opticalSeries
@@ -2263,6 +2338,7 @@ export default function SatelliteTrendCharts({
           <RadarTrendPanel
             trends={trends}
             weather={weather}
+            stageMarkers={growth?.observations ?? []}
           />
           <WeatherContextPanel
             weather={weather}

@@ -101,7 +101,7 @@ function RainfallChart({
                 y={y(mm)}
                 width={barWidth}
                 height={Math.max(1, top + plotHeight - y(mm))}
-                className={isForecast ? "weather-bar forecast" : day.source === "recent_model" ? "weather-bar recent" : "weather-bar historical"}
+                className={isForecast ? "weather-bar forecast" : day.source === "historical_forecast" ? "weather-bar historical-forecast" : day.source === "recent_model" ? "weather-bar recent" : "weather-bar historical"}
               />
               <title>
                 {dateLabel(day.date) + " · " + amount(mm, "mm") + " precipitation · " + day.source.replace("_", " ") +
@@ -228,6 +228,7 @@ export default function WeatherContextPanel({
 
           <div className="weather-chart-legend">
             <span><i className="weather-key historical" /> Historical reanalysis</span>
+            <span><i className="weather-key historical-forecast" /> Historical forecast fallback</span>
             <span><i className="weather-key recent" /> Recent modeled weather</span>
             <span><i className="weather-key forecast" /> Forecast</span>
             <span><i className="weather-key activity" /> Farm activity</span>
@@ -251,7 +252,7 @@ export default function WeatherContextPanel({
             <p className="weather-warning" key={warning}>{warning}</p>
           ))}
           <p className="weather-method-note">
-            Historical = weather reanalysis; recent = latest weather-model estimates;
+            Historical = reanalysis; historical forecast = archived model estimates (fallback); recent = latest weather-model estimates;
             future = forecast. Values describe a model grid cell, not exact field rainfall.
             Sources may use different models and resolutions. ET₀ is reference
             evapotranspiration, not measured crop water consumption.

@@ -659,7 +659,7 @@ export type ActivitySatelliteContext = {
 /* Modeled weather is field-level context, not a satellite observation. */
 export type FieldWeatherDay = {
   date: string;
-  source: "historical" | "recent_model" | "forecast";
+  source: "historical" | "historical_forecast" | "recent_model" | "forecast";
   precipitation_mm: number | null;
   temperature_max_c: number | null;
   temperature_min_c: number | null;
@@ -679,5 +679,41 @@ export type FieldWeather = {
   end_date: string;
   forecast_end_date: string | null;
   days: FieldWeatherDay[];
+  warnings: string[];
+};
+
+/** Provisional day milestones must not be mistaken for confirmed growth. */
+export type CropStageDefinition = {
+  code: string;
+  label: string;
+  approx_days_after_planting: number | null;
+};
+
+export type CropStageObservation = {
+  id: string;
+  crop_cycle_id: string;
+  stage_code: string;
+  observed_on: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CropGrowth = {
+  crop_cycle_id: string;
+  crop_name: string;
+  profile_key: string;
+  profile_version: string;
+  planting_date: string | null;
+  as_of: string;
+  days_after_planting: number | null;
+  stages: CropStageDefinition[];
+  observations: CropStageObservation[];
+  latest_recorded_stage: string | null;
+  provisional_stage: string | null;
+  degree_day_base_c: number | null;
+  accumulated_gdd_c_days: number | null;
+  gdd_days_available: number;
+  gdd_days_expected: number;
   warnings: string[];
 };
