@@ -3,6 +3,14 @@
 Digital field intelligence and agricultural record system for farms, fields,
 crop cycles, activities, media, yield, and multi-source satellite analysis.
 
+## Product plan and current capabilities
+
+- [Feature inventory: already implemented, foundations, and open PRs](docs/FEATURE_INVENTORY.md)
+- [Prioritized non-drone TODO and detailed rollout sequence](TODO.md)
+
+Feature importance/feasibility scores in these documents are planning judgments,
+not scientific accuracy guarantees. Drone-dependent features are deferred.
+
 ## Stack
 
 - Web: React 19 + Vite + TypeScript
