@@ -1,3 +1,5 @@
+"""Seed local-only development data for testing farm workflows."""
+
 from __future__ import annotations
 
 from datetime import date, datetime

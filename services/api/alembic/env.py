@@ -1,3 +1,5 @@
+"""Configure offline and online database migrations for registered ORM models."""
+
 from logging.config import fileConfig
 
 from alembic import context

@@ -1,3 +1,4 @@
+"""Maintain object recovery manifests independent of operational database availability."""
 
 from __future__ import annotations
 

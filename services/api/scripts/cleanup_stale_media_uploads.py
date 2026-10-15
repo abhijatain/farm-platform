@@ -1,3 +1,5 @@
+"""Prune abandoned pending uploads while preserving completed field media."""
+
 from __future__ import annotations
 
 import argparse

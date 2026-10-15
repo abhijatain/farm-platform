@@ -1,3 +1,4 @@
+"""Refresh cloud recovery manifests for stored field media."""
 
 from __future__ import annotations
 

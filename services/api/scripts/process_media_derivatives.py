@@ -1,3 +1,4 @@
+"""Process queued media conversions and thumbnails."""
 
 from __future__ import annotations
 

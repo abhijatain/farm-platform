@@ -1,3 +1,5 @@
+"""Generate a schema and integrity report for the development database."""
+
 from __future__ import annotations
 
 import argparse
