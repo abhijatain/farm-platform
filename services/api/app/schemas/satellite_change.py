@@ -100,6 +100,7 @@ class FieldSatelliteChangeResponse(BaseModel):
     date_tolerance_days: int
 
     pixel_change_threshold: float
+    pixel_change_display_max: float
 
     before: SatelliteChangeObservation | None
     after: SatelliteChangeObservation | None
