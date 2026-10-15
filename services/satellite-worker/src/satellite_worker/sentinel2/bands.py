@@ -1,3 +1,5 @@
+"""Define Sentinel-2 spectral bands, naming and native pixel resolution."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

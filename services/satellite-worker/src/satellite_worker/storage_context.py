@@ -1,3 +1,4 @@
+"""Resolve farm and field storage identifiers needed by satellite jobs."""
 
 from __future__ import annotations
 

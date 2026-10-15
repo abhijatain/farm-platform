@@ -1,3 +1,5 @@
+"""Apply correct reflectance scaling and upstream data offsets."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

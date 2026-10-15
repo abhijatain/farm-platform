@@ -1,3 +1,5 @@
+"""Calculate documented multispectral vegetation and soil indices."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,3 +1,5 @@
+"""Create a field-aligned target raster grid for consistent metric sampling."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

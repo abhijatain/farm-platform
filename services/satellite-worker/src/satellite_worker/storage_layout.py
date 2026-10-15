@@ -1,3 +1,4 @@
+"""Build stable object storage keys for satellite raster outputs."""
 
 from __future__ import annotations
 

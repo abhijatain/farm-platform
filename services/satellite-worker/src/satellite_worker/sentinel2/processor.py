@@ -1,3 +1,5 @@
+"""Coordinate Sentinel-2 band reads, quality masks and index generation."""
+
 from __future__ import annotations
 
 import os

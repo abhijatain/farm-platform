@@ -1,3 +1,5 @@
+"""Search satellite STAC catalogs using verified field geometry and dates."""
+
 from datetime import date
 
 import pystac

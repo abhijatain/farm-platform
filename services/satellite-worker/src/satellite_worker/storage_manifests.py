@@ -1,3 +1,4 @@
+"""Persist satellite observation recovery metadata alongside COGs."""
 
 from __future__ import annotations
 
