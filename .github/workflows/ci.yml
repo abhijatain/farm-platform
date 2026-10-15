@@ -62,6 +62,9 @@ jobs:
       - name: Verify backend module documentation
         run: python tools/check_backend_docs.py
 
+      - name: Verify backend dependency boundaries
+        run: python tools/check_backend_architecture.py
+
       - name: Compile API
         working-directory: services/api
         run: uv run python -m compileall -q app scripts
