@@ -1,3 +1,5 @@
+"""Choose usable satellite data and radar fallbacks across observation dates."""
+
 from __future__ import annotations
 
 from datetime import date, timedelta

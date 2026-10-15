@@ -1,3 +1,5 @@
+"""Build source-specific field time series without mixing radar orbit geometry."""
+
 from __future__ import annotations
 
 from datetime import date, timedelta

@@ -1,3 +1,5 @@
+"""Compute quality-filtered satellite and spatial anomaly changes."""
+
 from __future__ import annotations
 
 import json

@@ -1,3 +1,4 @@
+"""Generate image derivatives, video metadata and preview artifacts."""
 
 from __future__ import annotations
 
