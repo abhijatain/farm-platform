@@ -6,6 +6,7 @@ import type { CropRadarScreening, RadarOrbitScreen, RadarScreenMetric } from "..
 type Props = {
   cropCycleId: string;
   stagesFingerprint: string;
+  selectedOrbitKey: string;
 };
 
 function displayDate(value: string) {
@@ -128,11 +129,10 @@ function OrbitReport({ report }: { report: RadarOrbitScreen }) {
   );
 }
 
-export default function RadarScreeningPanel({ cropCycleId, stagesFingerprint }: Props) {
+export default function RadarScreeningPanel({ cropCycleId, stagesFingerprint, selectedOrbitKey }: Props) {
   const [result, setResult] = useState<CropRadarScreening | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedOrbit, setSelectedOrbit] = useState("");
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
@@ -157,9 +157,9 @@ export default function RadarScreeningPanel({ cropCycleId, stagesFingerprint }: 
   }, [cropCycleId, stagesFingerprint, refresh]);
 
   const active = useMemo(
-    () => result?.orbits.find((orbit) => orbit.radar_orbit_key === selectedOrbit) ??
-      result?.orbits[0] ?? null,
-    [result, selectedOrbit],
+    () => result?.orbits.find((orbit) => orbit.radar_orbit_key === selectedOrbitKey) ??
+      (!selectedOrbitKey ? result?.orbits[0] ?? null : null),
+    [result, selectedOrbitKey],
   );
 
   return (
@@ -189,20 +189,15 @@ export default function RadarScreeningPanel({ cropCycleId, stagesFingerprint }: 
             </p>
           ) : (
             <>
-              <div className="radar-screen-selector-row">
-                <label htmlFor="radar-screen-orbit">Comparable radar orbit</label>
-                <select
-                  id="radar-screen-orbit"
-                  value={active?.radar_orbit_key ?? ""}
-                  onChange={(event) => setSelectedOrbit(event.currentTarget.value)}
-                >
-                  {result.orbits.map((orbit) => (
-                    <option key={orbit.radar_orbit_key} value={orbit.radar_orbit_key}>
-                      {orbit.orbit_state} · orbit {orbit.relative_orbit} · {displayDate(orbit.observed_on)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <p className="radar-screen-message">
+                Radar geometry selected above: {selectedOrbitKey || "Loading selection…"}
+              </p>
+              {!active && (
+                <p className="radar-screen-message">
+                  The selected orbit has no valid screening geometry. Choose a complete
+                  orbit in the radar chart selector above.
+                </p>
+              )}
               {active && <OrbitReport report={active} />}
             </>
           )}

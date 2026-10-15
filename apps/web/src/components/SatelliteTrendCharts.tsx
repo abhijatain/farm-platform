@@ -1129,10 +1129,14 @@ function RadarTrendPanel({
   trends,
   weather,
   stageMarkers,
+  selectedOrbitKey,
+  onSelectOrbit,
 }: {
   trends: FieldSatelliteTrends;
   weather: FieldWeather | null;
   stageMarkers: CropStageObservation[];
+  selectedOrbitKey: string;
+  onSelectOrbit: (key: string) => void;
 }) {
   const radarPoints =
     useMemo(
@@ -1240,22 +1244,13 @@ function RadarTrendPanel({
       ],
     );
 
-  const [
-    selectedOrbitKey,
-    setSelectedOrbitKey,
-  ] = useState(
-    "",
-  );
-
   useEffect(
     () => {
       if (
         orbitGroups.length
         === 0
       ) {
-        setSelectedOrbitKey(
-          "",
-        );
+        onSelectOrbit("");
 
         return;
       }
@@ -1272,15 +1267,12 @@ function RadarTrendPanel({
         return;
       }
 
-      setSelectedOrbitKey(
-        orbitGroups[
-          0
-        ].key,
-      );
+      onSelectOrbit(orbitGroups[0].key);
     },
     [
       orbitGroups,
       selectedOrbitKey,
+      onSelectOrbit,
     ],
   );
 
@@ -1552,10 +1544,7 @@ function RadarTrendPanel({
             onChange={(
               event,
             ) =>
-              setSelectedOrbitKey(
-                event.currentTarget
-                  .value,
-              )
+              onSelectOrbit(event.currentTarget.value)
             }
           >
             {orbitGroups.map(
@@ -1919,6 +1908,8 @@ export default function SatelliteTrendCharts({
   >(
     null,
   );
+
+  const [selectedRadarOrbit, setSelectedRadarOrbit] = useState("");
 
   const [weather, setWeather] = useState<FieldWeather | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
@@ -2340,9 +2331,12 @@ export default function SatelliteTrendCharts({
             trends={trends}
             weather={weather}
             stageMarkers={growth?.observations ?? []}
+            selectedOrbitKey={selectedRadarOrbit}
+            onSelectOrbit={setSelectedRadarOrbit}
           />
           {cropCycle && !growthLoading && (
             <RadarScreeningPanel
+              selectedOrbitKey={selectedRadarOrbit}
               cropCycleId={cropCycle.id}
               stagesFingerprint={
                 growth?.observations.map((item) => (
