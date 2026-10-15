@@ -1,9 +1,9 @@
 # WhatsApp-First Farmer Interface — Product and Architecture Plan
 
-**Status:** Planned; no WhatsApp code exists on \`main\` or PR #11. Last reviewed 2026-10-15.
+**Status:** Planned; no WhatsApp code exists on `main` or PR #11. Last reviewed 2026-10-15.
 **Strategy:** Treat WhatsApp as the everyday farmer interface, and the existing web interface as the deep-analysis, administration, map-editing and agronomist workspace. The product assumption that ~80% of farmers may prefer WhatsApp is a **target/hypothesis**, not a measured adoption percentage. Validate in a pilot.
 
-**Primary workflow:** capture actual farmer observations and activities → run the existing owner-authorized farm services → return field-specific, simple-language reports → collect field verification/corrections → learn over seasons. The same \`farm_id\`, \`field_id\`, \`crop_cycle_id\`, media and activity rows serve both interfaces; do not introduce a second farm database.
+**Primary workflow:** capture actual farmer observations and activities → run the existing owner-authorized farm services → return field-specific, simple-language reports → collect field verification/corrections → learn over seasons. The same `farm_id`, `field_id`, `crop_cycle_id`, media and activity rows serve both interfaces; do not introduce a second farm database.
 
 ## What farmers can do (MVP first, richer capabilities later)
 
@@ -63,7 +63,7 @@ Use *verified data bound to the actual field* instead of these illustrative figu
 
 ## Proposed architecture (one backend data model)
 
-\`\`\`text
+```text
 Farmer WhatsApp
    ↕
 Meta WhatsApp Business Platform — Cloud API
@@ -87,18 +87,18 @@ GCS media, TiTiler, activity and yield services
    ↕
 Outbound dispatch with opt-in, Meta template/window validation,
 deliverability tracking, retries, rate and spend budgets
-\`\`\`
+```
 
 **Prefer Meta's direct Cloud API** in initial development (already compatible with FastAPI). BSPs may improve onboarding/operator tooling, but add fees/dependencies. Cloud API access requires a Meta Business Portfolio, WhatsApp Business Account, business phone number, API app credentials and production setup. Do not use unofficial WhatsApp Web scraping/bot tools.
 
 ### Suggested new data structures (proposed, not implemented)
 
-- \`whatsapp_identities\`: user ID, WABA sender phone ID, WhatsApp recipient ID, verified link state, consent status, created/updated timestamps.
-- \`whatsapp_conversation_states\`: current farm/field/crop, expected answer, language/script, state TTL, handoff state and version (with opt-in).
-- \`whatsapp_inbound_events\`: unique external message ID, channel, minimal normalized payload, idempotency/deduplication, processing outcome and expiry.
-- \`whatsapp_outbox\`: recipient, requested kind, category/template ID, scheduled time, status, attempt count, delivery receipts, error and cost estimate.
-- \`whatsapp_opt_in_events\`: scope, channel, source, explicit permission, notice version, opt-out, quiet hours.
-- \`whatsapp_report_requests\` / \`whatsapp_feedback\`: field-scoped report request, rendered artifacts, what was checked and farmer corrections.
+- `whatsapp_identities`: user ID, WABA sender phone ID, WhatsApp recipient ID, verified link state, consent status, created/updated timestamps.
+- `whatsapp_conversation_states`: current farm/field/crop, expected answer, language/script, state TTL, handoff state and version (with opt-in).
+- `whatsapp_inbound_events`: unique external message ID, channel, minimal normalized payload, idempotency/deduplication, processing outcome and expiry.
+- `whatsapp_outbox`: recipient, requested kind, category/template ID, scheduled time, status, attempt count, delivery receipts, error and cost estimate.
+- `whatsapp_opt_in_events`: scope, channel, source, explicit permission, notice version, opt-out, quiet hours.
+- `whatsapp_report_requests` / `whatsapp_feedback`: field-scoped report request, rendered artifacts, what was checked and farmer corrections.
 - New geotagged scout observations belong in canonical field/scouting tables, **not only** in WhatsApp message logs.
 
 Design retention, encryption, access control, redaction, deletion/export paths and local legal compliance before storing farmer voices, photos and precise field locations.

@@ -2,6 +2,8 @@
 
 Reviewed: 2026-10-15. This is the **persistent feature backlog**, ranked for small/medium Indian farms, with rice/wheat/maize and orchards supported as separate crop contexts. No promised timelines or accuracy guarantees. See [verified existing inventory](docs/FEATURE_INVENTORY.md) before calling something “not built.”
 
+**Delivery strategy:** **WhatsApp-first** for everyday farmer conversations, input collection, weather/satellite summaries, scouting and reports; web for detailed maps and advanced work. See [WhatsApp architecture and experience](docs/WHATSAPP_FIRST_PRODUCT.md). The assumption that 80% of users will prefer WhatsApp is a pilot target, not a measured fact.
+
 **Scope:** Include non-drone functions inspired by Agremo, OneSoil, EOSDA, CropX, xarvio, PIX4Dfields, Taranis and Climate FieldView. **Exclude all drone acquisition and drone-dependent individual plant/weed counting, drone orthomosaics and drone spray flight planning for now.** Manually entered counts and ground-level/phone photos are allowed, but must not be described as satellite counts.
 
 ## Scoring rubric and release gate
@@ -92,10 +94,51 @@ Reviewed: 2026-10-15. This is the **persistent feature backlog**, ranked for sma
 - [ ] **T59 — Equipment and work-order feedback loop** (**I 5 for small farms · F 3 · E L**): record actual tractor/sprayer application positions and rates where connected and compare execution to intended zones.
 - [ ] **T60 — Site-specific N/P/K variable-rate validation trials** (**I 7 · F 2 · E XL**): agronomist-approved prescriptions backed by soil/harvest ground truth and economic trials; required before automated application guidance.
 
+
+## P0–P2 — WhatsApp-first farmer interface (new strategic channel, NOT implemented)
+
+Treat this as a **primary product interface**, not a push-notification add-on. It reuses the same crop-cycle, field, weather, satellite, activity, media, yield, and future scouting records as the web. The detailed security, architecture, conversation and compliance plan is in [docs/WHATSAPP_FIRST_PRODUCT.md](docs/WHATSAPP_FIRST_PRODUCT.md).
+
+**MVP gate:** A farmer can message our official number, opt in, select Punjabi/Hindi/English, securely link/select a field, ask for a plain-language dated crop report, log an irrigation activity with an explicit confirmation, share a geotagged issue/photo, request help, and stop future proactive messages. Every record is visible from the web app and vice versa. Do not claim this works yet.
+
+| Task | Priority | Importance | Feasibility | Effort | Farmer use case and acceptance criteria |
+|---|---|---:|---:|---|---|
+| **T61 — Direct Meta Cloud API gateway** | P0 | 10 | 5 | M | Set up WABA, webhook challenge + signature validation, securely stored tokens, typed inbound message parsing and outbound sender. No unofficial WhatsApp Web bots. |
+| **T62 — Secure farmer / farm / field account linking** | P0 | 10 | 4 | M | Verified link to current Firebase identity; user can select authorized farms and fields. A sender's phone number, field name or chat text alone cannot grant access. |
+| **T63 — Opt-in, STOP, preferences, quiet hours** | P0 | 10 | 5 | M | Store explicit, revocable consent by message type, locale and business identity; opt-out acknowledged and honored; per-farmer schedule. |
+| **T64 — Regional languages and plain-language terminology** | P0 | 10 | 4 | M | Punjabi Gurmukhi, Hindi, English first; recognize Roman Punjabi/Hinglish; local vocabulary, date and unit conventions; user-selectable script and language. Native-speaker testing. |
+| **T65 — WhatsApp menus, buttons and conversation state** | P0 | 10 | 5 | L | “My field / Weather / Record work / View report / Ask for help”; resume interrupted workflows, ask which field when needed, support numeric replies. |
+| **T66 — Dated weather, crop stage and satellite report replies** | P0 | 10 | 5 | M | A short verified summary: last usable satellite date, relative change, modeled vs observed rain, crop stage and suggested scouting action; no NDVI-based disease diagnosis. |
+| **T67 — Farm activity capture through chat** | P0 | 10 | 5 | M | Irrigation, fertilizer, planting, harvesting, scouting and crop-protection logs with date, field, quantity and units; read back for confirmation before calling existing activity API. |
+| **T68 — Ground photo + location issue reporting** | P0 | 10 | 4 | M | Farmer sends phone photo, location, simple symptom and timestamp; create a geotagged scouting issue linked to the crop/field. Distinguish photo-derived user observation from AI suggestion. |
+| **T69 — Field onboarding and boundary verification** | P0 | 9 | 4 | L | Choose a saved field, share location pin for approximate location, and open secure short-lived web map link/assisted Flow for actual polygon boundary. A pin is NOT a field boundary. |
+| **T70 — Voice-note understanding with confirmation** | P1 | 10 | 3 | L | Punjabi/Hindi voice clips -> transcript -> verified entities and farm actions; check mixed languages, numerals, “yesterday” and negation before saving. |
+| **T71 — Optional spoken audio reports and accessibility** | P1 | 9 | 3 | L | Listen to weather/field report in preferred voice/language, alongside short text and numeric menus; low-bandwidth fallback and quality testing. |
+| **T72 — Interactive WhatsApp Flows for structured forms** | P1 | 9 | 4 | L | Onboarding, select crop, record work and scouting; signed/encrypted Meta Flows with numbered-text fallback for unsupported clients. |
+| **T73 — Opt-in notifications and scheduled field updates** | P1 | 10 | 4 | L | Weather risk, new satellite view, weekly status and farmer-selected reminder cadence using **approved template messages** outside service window; configurable limit and disable. |
+| **T74 — Shareable field reports, maps and PDFs through WhatsApp** | P1 | 10 | 4 | L | Small readable static PNG, PDF when useful, short explanatory text, expiring permission-checked URL, no raw technical chart wall. Builds on T02/T44. |
+| **T75 — Grounded crop Q&A, explanations and safeguards** | P1 | 9 | 3 | XL | Questions in farmer's language answered from verified own-field facts and reviewed crop guidance; no invented yield/stress/pesticide rates or assumed sensor readings. |
+| **T76 — Confirm, clarify and recover from wrong intent** | P0 | 10 | 5 | M | Verify field, crop, date, units and actions; “Undo/correct” options, no database write from uncertain AI transcript or language guess, clear errors. |
+| **T77 — Human support / agronomist escalation** | P1 | 9 | 4 | M | A real agent queue/phone fallback, escalation state and audit, handoff from automated replies, no false pretense that a bot is an expert. |
+| **T78 — Privacy, security, media retention and deletion/export** | P0 | 10 | 4 | L | Signed webhook, dedupe, least-privilege access, media scanning, safe storage, log redaction, consent histories, deletion and India-relevant data protection review. |
+| **T79 — Durable queue, delivery receipts and cost/rate observability** | P0 | 9 | 5 | M | Webhook quick-ack, idempotent queue/outbox, retries, backoff, Meta template category and delivery accounting, API limits and spend caps. |
+| **T80 — Real-farmer multilingual pilot and adoption study** | P0 | 10 | 5 | M | Pilot across literacy levels and crop types; test the “80% WhatsApp” assumption, onboarding rate, task success, native-language comprehension, false actions, report usefulness, cost/farmer and opt-outs. |
+
+### WhatsApp release milestones and dependencies
+
+1. **WA-M0 — Safe channel:** T61–T65, T76, T78–T79. Test webhook signatures, account linking, language menus, consent and STOP with sandbox/test number.
+2. **WA-M1 — First useful farmer pilot:** T66–T69 + T80. Data read from actual field/weather/satellite services; confirmation-based activity writes, report and photo issues. Depends on T02/T03/T05/T07 for accurate field findings.
+3. **WA-M2 — Accessible scale-out:** T70–T74, T77. Voice, scheduled reports, interactive forms, maps and human support under real Meta message fees/template approval.
+4. **WA-M3 — Advanced agronomic assistant:** T75 only when T09, T17, T22, T28–T35 and evidence/ground-truth requirements support reliable crop-specific guidance.
+
+**WhatsApp platform constraint:** Meta's 24-hour response window and approved templates outside that window, explicit opt-in/opt-out, regional template approvals, human escalation and official rate cards are mandatory. Do not price this product assuming free unlimited WhatsApp messages. The farmer's chat conversation is NOT a separate farming database.
+
+
 ## Suggested release sequence
 
 | Sequence | Milestone / outcome | Work IDs | Gate |
 |---|---|---|---|
+| **0** | WhatsApp-first channel and initial farmer pilot | T61–T69, T76, T78–T80, supported by T02/T03/T07 | Secure identity, consent, local languages, field report and confirmed field activity from chat |
 | **1** | Fix missing usefulness: two-pass radar delta, real report, period clarity | R01, T01, T02, T07 | Show useful output on today's 5–7-pass fields without a false anomaly claim |
 | **2** | Actionable scouting and data quality | T03–T06, T10–T11, T21, T23 | Farmer can find, visit, photograph and close a mapped issue |
 | **3** | Historical intelligence / spatial management zones | T08–T09, T12–T16, T25 | Zones derived with quality filters and repeatability, not made-up yield |
@@ -136,5 +179,8 @@ Reviewed: 2026-10-15. This is the **persistent feature backlog**, ranked for sma
 - xarvio: https://www.xarvio.com/
 - PIX4Dfields: https://www.pix4d.com/product/pix4dfields/
 - Climate FieldView: https://climatefieldview.com/
+- Meta WhatsApp Cloud API: https://www.postman.com/meta/whatsapp-business-platform/overview
+- WhatsApp messaging policy: https://business.whatsapp.com/policy
+- WhatsApp pricing: https://business.whatsapp.com/products/platform-pricing
 
 **Maintenance rule:** When a task is merged, check the box, link its PR, revise the inventory, record any accuracy or deployment limitations, and re-rank unfinished tasks using field experience.

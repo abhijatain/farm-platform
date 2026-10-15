@@ -84,3 +84,13 @@ PR: https://github.com/abhijatain/farm-platform/pull/10
 8. The Report tab is empty on main, despite having enough separate data modules to start a useful report.
 
 See the prioritized engineering list in [TODO.md](../TODO.md).
+
+## E. Planned primary interaction channel (NOT built)
+
+| ID | Feature | Status | I/10 | F/5 | Farmer benefit / gap |
+|---|---|---|---:|---:|---|
+| M01 | WhatsApp field registration, multilingual assistance, farm data collection and reporting | **Not implemented** | 10 | 4 | Farmers can use existing backend through chat without learning the web UI; requires Meta Cloud API, onboarding and privacy/security |
+| M02 | Punjabi/Hindi/English simplified reports, SMS-like numbered menus and regional voice notes | **Not implemented** | 10 | 3 | Accessible local-language interactions; script and speech recognition accuracy need field testing |
+| M03 | WhatsApp opt-in updates, image reports and human support | **Not implemented** | 10 | 4 | User-controlled proactive weather/satellite updates, readable reports and genuine staff handoff |
+
+These are core product priorities, not an already deployed chatbot. Full requirements, architecture and rollout are in [WhatsApp-first plan](WHATSAPP_FIRST_PRODUCT.md) and TODO tasks T61–T80. The assumption that ~80% of farmers will use WhatsApp is a **hypothesis for pilot measurement**, not a verified market share.
