@@ -1,6 +1,6 @@
 """Register field activity endpoints and authorize data access.
 
-Satellite comparisons are delegated to app.services.activity_satellite.
+Satellite comparisons are delegated to app.domains.activities.satellite.
 """
 
 from uuid import UUID
@@ -15,7 +15,7 @@ from app.models.season import Season
 from app.schemas.activity import ActivityCreate, ActivityResponse
 from app.schemas.activity_satellite import ActivitySatelliteContextResponse
 from app.schemas.timeline import TimelineItem
-from app.services.activity_satellite import (
+from app.domains.activities.satellite import (
     _build_comparison,
     _build_satellite_match,
     _build_spatial_comparison,

@@ -7,7 +7,7 @@ from uuid import UUID
 from app.models.crop_cycle import CropCycle
 from app.models.crop_stage_observation import CropStageObservation
 from app.schemas.crop_growth import CropGrowthResponse, StageDefinition
-from app.services.crop_phenology import (
+from app.domains.crops.phenology import (
     growing_degree_days,
     provisional_stage,
     resolve_profile,

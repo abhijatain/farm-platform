@@ -15,7 +15,7 @@ from app.schemas.crop_growth import (
     StageObservationResponse,
 )
 from app.services.crop_growth import make_crop_growth_response
-from app.services.crop_phenology import resolve_profile
+from app.domains.crops.phenology import resolve_profile
 from app.services.ownership import get_owned_crop_cycle
 from app.services.weather import _today
 

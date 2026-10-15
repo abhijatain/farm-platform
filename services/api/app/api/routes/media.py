@@ -27,7 +27,7 @@ from app.schemas.media import (
     MediaUploadCreate,
     MediaUploadTarget,
 )
-from app.services.media_processing import (
+from app.domains.media.processing import (
     process_media_asset,
 )
 from app.services.ownership import (
@@ -50,7 +50,7 @@ router = APIRouter(
 
 
 # Media format policy, signed URLs, and response mapping live in services.
-from app.services.media_uploads import (
+from app.domains.media.uploads import (
     _normalized_content_type,
     _media_type_info,
     _validate_size,
