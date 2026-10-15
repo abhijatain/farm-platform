@@ -281,8 +281,25 @@ function valueRange(
         0.1,
       );
 
-    minimum -= padding;
-    maximum += padding;
+    if (
+      fixedMin == null
+    ) {
+      minimum -= padding;
+    }
+
+    if (
+      fixedMax == null
+    ) {
+      maximum += padding;
+    }
+
+    if (
+      minimum === maximum
+    ) {
+      maximum =
+        minimum
+        + padding;
+    }
   }
 
   const padding =
@@ -882,6 +899,9 @@ function pointsForMetric(
     ) =>
       number
       | null,
+  minimumCoverage:
+    number
+    | null = 80,
 ) {
   return trends.points
     .filter(
@@ -889,7 +909,15 @@ function pointsForMetric(
         point,
       ) =>
         point.metric_type
-        === metricType,
+        === metricType
+        && (
+          minimumCoverage
+          == null
+          || point.valid_pixel_percent
+          == null
+          || point.valid_pixel_percent
+          >= minimumCoverage
+        ),
     )
     .map(
       (
@@ -1238,6 +1266,7 @@ export default function SatelliteTrendCharts({
                 ) =>
                   point
                     .valid_pixel_percent,
+                null,
               ),
           },
         ];
