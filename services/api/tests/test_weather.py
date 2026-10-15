@@ -206,3 +206,58 @@ def test_incomplete_hourly_humidity_is_not_treated_as_full_day():
     }
     item = _parse_daily(response, "recent_model", today=TODAY)[0]
     assert item.relative_humidity_mean_percent is None
+
+
+
+def test_provider_uses_supported_forecast_humidity_parameters():
+    import json
+    from unittest.mock import MagicMock
+    from urllib.parse import parse_qs, urlparse
+
+    from app.services.weather import _request_provider
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *unused):
+            return None
+
+        def read(self, limit):
+            return json.dumps(_payload([TODAY])).encode("utf-8")
+
+    with patch("app.services.weather._has_api_key", return_value=False), patch(
+        "app.services.weather.urlopen", return_value=FakeResponse()
+    ) as open_url:
+        data = _request_provider(
+            provider="forecast",
+            params={"latitude": 15.12345, "longitude": 70.56789, "past_days": 7, "forecast_days": 7},
+        )
+
+    assert "daily" in data
+    requested = open_url.call_args.args[0]
+    query = parse_qs(urlparse(requested.full_url).query)
+    assert "relative_humidity_2m_mean" not in query["daily"][0]
+    assert "relative_humidity_2m" in query["hourly"][0]
+
+
+def test_open_meteo_400_error_exposes_status_without_request_url():
+    import io
+    from urllib.error import HTTPError
+
+    from app.services.weather import _request_provider
+
+    invalid = HTTPError(
+        "https://api.open-meteo.com/?apikey=SECRET_DO_NOT_PRINT",
+        400, "bad request", {}, io.BytesIO(b'{"error":true,"reason":"Invalid daily variable"}'),
+    )
+    with patch("app.services.weather._has_api_key", return_value=False), patch(
+        "app.services.weather.urlopen", side_effect=invalid
+    ):
+        with pytest.raises(WeatherProviderError, match="HTTP 400") as raised:
+            _request_provider(
+                provider="forecast",
+                params={"latitude": 15.124, "longitude": 70.568, "past_days": 7},
+            )
+    assert "Invalid daily variable" in str(raised.value)
+    assert "SECRET_DO_NOT_PRINT" not in str(raised.value)
