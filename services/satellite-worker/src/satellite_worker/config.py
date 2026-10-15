@@ -1,3 +1,4 @@
+"""Validate satellite worker connections and processing thresholds."""
 
 from pathlib import Path
 

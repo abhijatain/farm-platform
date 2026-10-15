@@ -1,3 +1,5 @@
+"""Extract radar backscatter and RVI while preserving orbit geometry."""
+
 from __future__ import annotations
 
 import argparse

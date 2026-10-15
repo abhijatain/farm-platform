@@ -1,3 +1,4 @@
+"""Process Sentinel-2 scenes, masked index rasters and anomaly zones."""
 
 from __future__ import annotations
 

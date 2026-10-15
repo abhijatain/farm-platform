@@ -1,3 +1,5 @@
+"""Poll the durable job queue and run optical/radar/thermal processors."""
+
 from __future__ import annotations
 
 import argparse

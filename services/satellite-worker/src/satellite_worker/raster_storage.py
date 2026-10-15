@@ -1,3 +1,5 @@
+"""Publish canonical metric COG files and return permanent GCS URIs."""
+
 from __future__ import annotations
 
 import tempfile

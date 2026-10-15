@@ -1,3 +1,4 @@
+"""Create authenticated Google Cloud Storage clients for the worker."""
 
 from __future__ import annotations
 

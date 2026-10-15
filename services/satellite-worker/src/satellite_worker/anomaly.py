@@ -1,3 +1,5 @@
+"""Find field-relative anomaly polygons from quality-screened raster metrics."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

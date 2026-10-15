@@ -1,3 +1,5 @@
+"""Extract Landsat temperature metrics with cloud and QA screening."""
+
 from __future__ import annotations
 
 import argparse

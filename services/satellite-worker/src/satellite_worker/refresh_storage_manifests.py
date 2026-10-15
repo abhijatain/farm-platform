@@ -1,3 +1,4 @@
+"""Rebuild cloud recovery metadata for stored satellite observations."""
 
 from __future__ import annotations
 

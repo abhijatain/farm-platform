@@ -1,3 +1,5 @@
+"""Apply satellite processing over a batch of stored field IDs."""
+
 from __future__ import annotations
 
 import argparse

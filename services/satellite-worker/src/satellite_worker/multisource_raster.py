@@ -1,3 +1,5 @@
+"""Share aligned metric raster processing across radar and thermal sensors."""
+
 from __future__ import annotations
 
 import json

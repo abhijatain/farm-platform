@@ -1,3 +1,5 @@
+"""Define index-specific spatial anomaly limits and allowed modes."""
+
 from dataclasses import dataclass
 from typing import Literal
 

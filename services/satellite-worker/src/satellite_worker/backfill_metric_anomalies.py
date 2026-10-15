@@ -1,3 +1,4 @@
+"""Backfill older metric anomaly geometry without re-ingesting scenes."""
 
 from __future__ import annotations
 
