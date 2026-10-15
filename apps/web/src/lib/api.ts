@@ -17,6 +17,7 @@ import type {
   FieldSatelliteTimeline,
   FieldSatelliteChange,
   SatelliteChangeMode,
+  FieldSatelliteTrends,
 } from "../types/api";
 
 /* AUTH */
@@ -278,6 +279,46 @@ export function getSatelliteTimeline(
 
   return apiRequest<FieldSatelliteTimeline>(
     `/fields/${fieldId}/satellite-timeline?${params.toString()}`,
+  );
+}
+
+
+export function getSatelliteTrends(
+  fieldId: string,
+  options?: {
+    cropCycleId?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+  },
+) {
+  const params = new URLSearchParams();
+
+  if (options?.cropCycleId) {
+    params.set(
+      "crop_cycle_id",
+      options.cropCycleId,
+    );
+  }
+
+  if (options?.startDate) {
+    params.set(
+      "start_date",
+      options.startDate,
+    );
+  }
+
+  if (options?.endDate) {
+    params.set(
+      "end_date",
+      options.endDate,
+    );
+  }
+
+  const query =
+    params.toString();
+
+  return apiRequest<FieldSatelliteTrends>(
+    `/fields/${fieldId}/satellite-trends${query ? `?${query}` : ""}`,
   );
 }
 

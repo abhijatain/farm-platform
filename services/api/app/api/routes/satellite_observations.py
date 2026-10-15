@@ -30,6 +30,9 @@ from app.schemas.satellite_observation import (
 from app.schemas.satellite_timeline import (
     FieldSatelliteTimelineResponse,
 )
+from app.schemas.satellite_trends import (
+    FieldSatelliteTrendsResponse,
+)
 from app.services.ownership import (
     get_owned_crop_cycle,
     get_owned_field,
@@ -39,6 +42,9 @@ from app.services.satellite_change import (
 )
 from app.services.satellite_timeline import (
     get_field_satellite_timeline,
+)
+from app.services.satellite_trends import (
+    get_field_satellite_trends,
 )
 
 
@@ -142,6 +148,72 @@ def get_satellite_timeline(
             event_limit
         ),
     )
+
+
+@router.get(
+    "/fields/{field_id}/satellite-trends",
+    response_model=FieldSatelliteTrendsResponse,
+)
+def get_satellite_trends(
+    field_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+    crop_cycle_id: UUID | None = Query(
+        default=None,
+    ),
+    start_date: date | None = Query(
+        default=None,
+    ),
+    end_date: date | None = Query(
+        default=None,
+    ),
+) -> FieldSatelliteTrendsResponse:
+    get_owned_field(
+        db=db,
+        user_id=current_user.id,
+        field_id=field_id,
+    )
+
+    crop_cycle = None
+
+    if crop_cycle_id is not None:
+        crop_cycle = get_owned_crop_cycle(
+            db=db,
+            user_id=current_user.id,
+            crop_cycle_id=crop_cycle_id,
+        )
+
+        if (
+            crop_cycle.field_id
+            != field_id
+        ):
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY
+                ),
+                detail=(
+                    "Crop cycle does not belong to this field."
+                ),
+            )
+
+    try:
+        return get_field_satellite_trends(
+            db=db,
+            field_id=field_id,
+            crop_cycle=crop_cycle,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail=str(
+                error
+            ),
+        ) from error
 
 
 @router.get(

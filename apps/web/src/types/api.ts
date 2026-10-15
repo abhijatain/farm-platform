@@ -417,6 +417,44 @@ export type SatellitePixelChangeSummary = {
   stable_area_acres: number;
 };
 
+export type SatelliteTrendPoint = {
+  observation_id: string;
+  observed_on: string;
+
+  source: string;
+  metric_type: SatelliteMetricType;
+
+  mean: number | null;
+  median: number | null;
+  valid_pixel_percent: number | null;
+
+  anomaly_zone_count: number;
+  anomaly_area_acres: number;
+};
+
+export type SatelliteTrendActivity = {
+  id: string;
+  occurred_at: string;
+
+  activity_type: string;
+  notes: string | null;
+
+  crop_cycle_id: string | null;
+};
+
+export type FieldSatelliteTrends = {
+  field_id: string;
+  crop_cycle_id: string | null;
+
+  start_date: string;
+  end_date: string;
+
+  metric_types: SatelliteMetricType[];
+
+  points: SatelliteTrendPoint[];
+  activities: SatelliteTrendActivity[];
+};
+
 export type SatelliteIngestionJobStatus =
   | "pending"
   | "running"
