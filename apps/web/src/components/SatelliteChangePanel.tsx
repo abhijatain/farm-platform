@@ -152,6 +152,84 @@ function sourceLabel(
 }
 
 
+function isRadarMetric(
+  metricType:
+    SatelliteMetricType,
+) {
+  return metricType.startsWith(
+    "sar_",
+  );
+}
+
+
+function radarGeometryLabel(
+  observation:
+    FieldSatelliteChange[
+      "before"
+    ],
+) {
+  if (
+    !observation
+    || !observation
+      .source
+      .startsWith(
+        "sentinel-1",
+      )
+  ) {
+    return null;
+  }
+
+  const parts = [];
+
+  if (
+    observation
+      .orbit_state
+  ) {
+    parts.push(
+      observation
+        .orbit_state
+        .charAt(
+          0,
+        )
+        .toUpperCase()
+      + observation
+        .orbit_state
+        .slice(
+          1,
+        )
+        .toLowerCase(),
+    );
+  }
+
+  if (
+    observation
+      .relative_orbit
+    != null
+  ) {
+    parts.push(
+      `relative orbit ${observation.relative_orbit}`,
+    );
+  }
+
+  if (
+    observation
+      .platform
+  ) {
+    parts.push(
+      observation
+        .platform,
+    );
+  }
+
+  return (
+    parts.join(
+      " · ",
+    )
+    || null
+  );
+}
+
+
 function buildChangeSummaryUrl(
   change: FieldSatelliteChange,
 ) {
@@ -725,6 +803,16 @@ export default function SatelliteChangePanel({
                 )}
               </small>
 
+              {radarGeometryLabel(
+                change.before,
+              ) && (
+                <small className="satellite-change-radar-geometry">
+                  {radarGeometryLabel(
+                    change.before,
+                  )}
+                </small>
+              )}
+
               <b>
                 {formatMetricValue(
                   change.before
@@ -759,6 +847,16 @@ export default function SatelliteChangePanel({
                     .source,
                 )}
               </small>
+
+              {radarGeometryLabel(
+                change.after,
+              ) && (
+                <small className="satellite-change-radar-geometry">
+                  {radarGeometryLabel(
+                    change.after,
+                  )}
+                </small>
+              )}
 
               <b>
                 {formatMetricValue(
@@ -931,49 +1029,61 @@ export default function SatelliteChangePanel({
             </div>
           </div>
 
-          <div className="satellite-change-anomalies">
-            <div>
-              <span>
-                Persistent anomaly
-              </span>
+          {isRadarMetric(
+            metricType,
+          )
+            ? (
+              <div className="satellite-change-radar-note">
+                Radar anomaly classification is intentionally not enabled yet.
+                The comparison above uses the same Sentinel-1 orbit geometry
+                and reports numerical pixel change only.
+              </div>
+            )
+            : (
+              <div className="satellite-change-anomalies">
+                <div>
+                  <span>
+                    Persistent anomaly
+                  </span>
 
-              <strong>
-                {change.anomalies
-                  .persistent_area_acres
-                  != null
-                  ? `${change.anomalies.persistent_area_acres.toFixed(2)} ac`
-                  : "—"}
-              </strong>
-            </div>
+                  <strong>
+                    {change.anomalies
+                      .persistent_area_acres
+                      != null
+                      ? `${change.anomalies.persistent_area_acres.toFixed(2)} ac`
+                      : "—"}
+                  </strong>
+                </div>
 
-            <div>
-              <span>
-                Resolved anomaly
-              </span>
+                <div>
+                  <span>
+                    Resolved anomaly
+                  </span>
 
-              <strong>
-                {change.anomalies
-                  .resolved_area_acres
-                  != null
-                  ? `${change.anomalies.resolved_area_acres.toFixed(2)} ac`
-                  : "—"}
-              </strong>
-            </div>
+                  <strong>
+                    {change.anomalies
+                      .resolved_area_acres
+                      != null
+                      ? `${change.anomalies.resolved_area_acres.toFixed(2)} ac`
+                      : "—"}
+                  </strong>
+                </div>
 
-            <div>
-              <span>
-                New anomaly
-              </span>
+                <div>
+                  <span>
+                    New anomaly
+                  </span>
 
-              <strong>
-                {change.anomalies
-                  .new_area_acres
-                  != null
-                  ? `${change.anomalies.new_area_acres.toFixed(2)} ac`
-                  : "—"}
-              </strong>
-            </div>
-          </div>
+                  <strong>
+                    {change.anomalies
+                      .new_area_acres
+                      != null
+                      ? `${change.anomalies.new_area_acres.toFixed(2)} ac`
+                      : "—"}
+                  </strong>
+                </div>
+              </div>
+            )}
 
           <p className="satellite-change-note">
             Increased/decreased describe numeric raster change only. They are

@@ -226,6 +226,90 @@ def _add_metric(
     )
 
 
+def _add_radar_pass(
+    db,
+    *,
+    field_id,
+    observed_on: date,
+    orbit_state: str,
+    relative_orbit: int,
+    platform: str,
+):
+    observation = SatelliteObservation(
+        field_id=field_id,
+        observed_on=observed_on,
+        source="sentinel-1-rtc",
+        scene_id=(
+            "radar-"
+            f"{observed_on.isoformat()}-"
+            f"{uuid4()}"
+        ),
+        cloud_cover_percent=None,
+        metadata_json={
+            "processing_status":
+                "metrics_processed",
+            "orbit_state":
+                orbit_state,
+            "relative_orbit":
+                relative_orbit,
+            "platform":
+                platform,
+        },
+    )
+
+    db.add(
+        observation
+    )
+    db.flush()
+
+    values = {
+        "sar_vv_db":
+            -8.5,
+        "sar_vh_db":
+            -13.2,
+        "sar_vv_vh_ratio":
+            2.95,
+        "sar_rvi":
+            0.91,
+    }
+
+    for (
+        metric_type,
+        median,
+    ) in values.items():
+        db.add(
+            SatelliteMetric(
+                satellite_observation_id=(
+                    observation.id
+                ),
+                metric_type=(
+                    metric_type
+                ),
+                raster_uri=(
+                    "gs://ci-farm-platform/"
+                    "users/u/farms/f/fields/x/"
+                    f"dates/{observed_on.isoformat()}/"
+                    f"{metric_type}.tif"
+                ),
+                mean=median,
+                median=median,
+                min=median - 0.1,
+                max=median + 0.1,
+                std=0.03,
+                native_resolution_m=10.0,
+                output_resolution_m=10.0,
+                pixel_count=100,
+                valid_pixel_count=100,
+                valid_pixel_percent=100.0,
+                metadata_json={},
+            )
+        )
+
+    db.flush()
+
+    return observation
+
+
 def _add_anomaly(
     db,
     *,
@@ -587,3 +671,108 @@ def test_explicit_window_overrides_crop_cycle_window() -> None:
     finally:
         db.rollback()
         db.close()
+
+
+
+def test_radar_trends_expose_all_metrics_and_orbit_geometry() -> None:
+    db = SessionLocal()
+
+    try:
+        (
+            field,
+            crop_cycle,
+        ) = _build_context(
+            db
+        )
+
+        radar = _add_radar_pass(
+            db,
+            field_id=field.id,
+            observed_on=date(
+                2026,
+                7,
+                20,
+            ),
+            orbit_state="descending",
+            relative_orbit=63,
+            platform="sentinel-1a",
+        )
+
+        result = (
+            get_field_satellite_trends(
+                db=db,
+                field_id=field.id,
+                crop_cycle=(
+                    crop_cycle
+                ),
+                start_date=None,
+                end_date=None,
+            )
+        )
+
+        radar_points = [
+            point
+            for point
+            in result.points
+            if point.observation_id
+            == radar.id
+        ]
+
+        assert {
+            point.metric_type
+            for point
+            in radar_points
+        } == {
+            "sar_vv_db",
+            "sar_vh_db",
+            "sar_vv_vh_ratio",
+            "sar_rvi",
+        }
+
+        assert all(
+            point.orbit_state
+            == "descending"
+            for point
+            in radar_points
+        )
+
+        assert all(
+            point.relative_orbit
+            == 63
+            for point
+            in radar_points
+        )
+
+        assert all(
+            point.platform
+            == "sentinel-1a"
+            for point
+            in radar_points
+        )
+
+        assert all(
+            point.radar_orbit_key
+            == "descending:63"
+            for point
+            in radar_points
+        )
+
+    finally:
+        db.rollback()
+        db.close()
+
+
+def test_partial_radar_geometry_does_not_create_comparison_group() -> None:
+    from app.services.satellite_trends import _radar_metadata
+
+    for metadata in (
+        {"orbit_state": "descending"},
+        {"relative_orbit": 63},
+        {},
+    ):
+        _, _, _, orbit_key = _radar_metadata(
+            source="sentinel-1-rtc",
+            metadata_json=metadata,
+        )
+
+        assert orbit_key is None

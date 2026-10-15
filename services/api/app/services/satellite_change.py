@@ -76,6 +76,90 @@ DEFAULT_PIXEL_CHANGE_THRESHOLDS = {
 }
 
 
+def _radar_geometry(
+    observation: SatelliteObservation,
+) -> tuple[
+    str | None,
+    int | None,
+    str | None,
+]:
+    if not observation.source.startswith(
+        "sentinel-1"
+    ):
+        return (
+            None,
+            None,
+            None,
+        )
+
+    metadata = (
+        observation.metadata_json
+        or {}
+    )
+
+    orbit_state_raw = (
+        metadata.get(
+            "orbit_state"
+        )
+    )
+
+    orbit_state = (
+        str(
+            orbit_state_raw
+        )
+        .strip()
+        .lower()
+        if orbit_state_raw
+        is not None
+        else None
+    )
+
+    relative_orbit_raw = (
+        metadata.get(
+            "relative_orbit"
+        )
+    )
+
+    relative_orbit = None
+
+    if (
+        relative_orbit_raw
+        is not None
+    ):
+        try:
+            relative_orbit = int(
+                relative_orbit_raw
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            relative_orbit = None
+
+    platform_raw = (
+        metadata.get(
+            "platform"
+        )
+    )
+
+    platform = (
+        str(
+            platform_raw
+        )
+        .strip()
+        if platform_raw
+        is not None
+        else None
+    )
+
+    return (
+        orbit_state,
+        relative_orbit,
+        platform,
+    )
+
+
 def default_pixel_change_threshold(
     metric_type: str,
 ) -> float:
@@ -103,8 +187,10 @@ def _metric_statement(
     field_id: UUID,
     metric_type: str,
     minimum_valid_percent: float,
+    orbit_state: str | None = None,
+    relative_orbit: int | None = None,
 ):
-    return (
+    statement = (
         select(
             SatelliteObservation,
             SatelliteMetric,
@@ -131,6 +217,32 @@ def _metric_statement(
             ),
         )
     )
+
+    if orbit_state is not None:
+        statement = statement.where(
+            func.lower(
+                SatelliteObservation
+                .metadata_json[
+                    "orbit_state"
+                ]
+                .astext
+            )
+            == orbit_state
+        )
+
+    if relative_orbit is not None:
+        statement = statement.where(
+            SatelliteObservation
+            .metadata_json[
+                "relative_orbit"
+            ]
+            .astext
+            == str(
+                relative_orbit
+            )
+        )
+
+    return statement
 
 
 def _latest_metric(
@@ -177,6 +289,8 @@ def _previous_metric(
     metric_type: str,
     minimum_valid_percent: float,
     before_date: date,
+    orbit_state: str | None = None,
+    relative_orbit: int | None = None,
 ) -> tuple[
     SatelliteObservation,
     SatelliteMetric,
@@ -187,6 +301,12 @@ def _previous_metric(
             metric_type=metric_type,
             minimum_valid_percent=(
                 minimum_valid_percent
+            ),
+            orbit_state=(
+                orbit_state
+            ),
+            relative_orbit=(
+                relative_orbit
             ),
         )
         .where(
@@ -213,6 +333,8 @@ def _nearest_metric_to_date(
     target_date: date,
     tolerance_days: int,
     before_date: date,
+    orbit_state: str | None = None,
+    relative_orbit: int | None = None,
 ) -> tuple[
     SatelliteObservation,
     SatelliteMetric,
@@ -250,6 +372,12 @@ def _nearest_metric_to_date(
             minimum_valid_percent=(
                 minimum_valid_percent
             ),
+            orbit_state=(
+                orbit_state
+            ),
+            relative_orbit=(
+                relative_orbit
+            ),
         )
         .where(
             SatelliteObservation.observed_on
@@ -280,11 +408,22 @@ def _to_observation(
 
     observation, metric = row
 
+    (
+        orbit_state,
+        relative_orbit,
+        platform,
+    ) = _radar_geometry(
+        observation
+    )
+
     return SatelliteChangeObservation(
         observation_id=observation.id,
         observed_on=observation.observed_on,
         source=observation.source,
         scene_id=observation.scene_id,
+        orbit_state=orbit_state,
+        relative_orbit=relative_orbit,
+        platform=platform,
         metric_type=metric.metric_type,
         valid_pixel_percent=(
             metric.valid_pixel_percent
@@ -520,6 +659,28 @@ def _anomaly_spatial_summary(
     before: SatelliteChangeObservation | None,
     after: SatelliteChangeObservation | None,
 ) -> SatelliteChangeAnomalySummary:
+    if metric_type.startswith(
+        "sar_"
+    ):
+        return SatelliteChangeAnomalySummary(
+            persistence_basis=(
+                "radar_anomaly_rules_not_enabled"
+            ),
+            before_anomaly_area_sqm=None,
+            before_anomaly_area_acres=None,
+            after_anomaly_area_sqm=None,
+            after_anomaly_area_acres=None,
+            persistent_area_sqm=None,
+            persistent_area_acres=None,
+            resolved_area_sqm=None,
+            resolved_area_acres=None,
+            new_area_sqm=None,
+            new_area_acres=None,
+            persistent_geometry=None,
+            resolved_geometry=None,
+            new_geometry=None,
+        )
+
     before_area = (
         _anomaly_area(
             db=db,
@@ -956,7 +1117,39 @@ def build_field_satellite_change(
 
     before_row = None
 
-    if after is not None:
+    radar_orbit_state = None
+    radar_relative_orbit = None
+
+    if (
+        current_row is not None
+        and metric_type.startswith(
+            "sar_"
+        )
+    ):
+        (
+            radar_orbit_state,
+            radar_relative_orbit,
+            _,
+        ) = _radar_geometry(
+            current_row[
+                0
+            ]
+        )
+
+    # Radar baseline comparisons need a complete, comparable geometry.
+    # Without both fields, comparing to an arbitrary pass is misleading.
+    radar_geometry_complete = (
+        bool(radar_orbit_state)
+        and radar_relative_orbit is not None
+    )
+
+    if (
+        after is not None
+        and (
+            not metric_type.startswith("sar_")
+            or radar_geometry_complete
+        )
+    ):
         if mode == "previous":
             before_row = (
                 _previous_metric(
@@ -968,6 +1161,12 @@ def build_field_satellite_change(
                     ),
                     before_date=(
                         after.observed_on
+                    ),
+                    orbit_state=(
+                        radar_orbit_state
+                    ),
+                    relative_orbit=(
+                        radar_relative_orbit
                     ),
                 )
             )
@@ -1024,6 +1223,12 @@ def build_field_satellite_change(
                         ),
                         before_date=(
                             after.observed_on
+                        ),
+                        orbit_state=(
+                            radar_orbit_state
+                        ),
+                        relative_orbit=(
+                            radar_relative_orbit
                         ),
                     )
                 )
