@@ -1,3 +1,5 @@
+"""Regression tests for indices, protecting established satellite behavior."""
+
 import numpy as np
 import pytest
 

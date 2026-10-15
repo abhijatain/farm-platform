@@ -1,3 +1,5 @@
+"""Regression tests for ingestion policy, protecting established satellite behavior."""
+
 from satellite_worker.db import (
     automatic_scene_state_is_complete,
 )

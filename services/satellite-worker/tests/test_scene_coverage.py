@@ -1,3 +1,5 @@
+"""Regression tests for scene coverage, protecting established satellite behavior."""
+
 import numpy as np
 
 from satellite_worker.sentinel2.processor import (

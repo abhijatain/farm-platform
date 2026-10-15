@@ -1,3 +1,5 @@
+"""Initialize the API models package and its stable imports."""
+
 from app.models.activity import Activity
 from app.models.crop_cycle import CropCycle
 from app.models.crop_stage_observation import CropStageObservation
