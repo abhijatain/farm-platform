@@ -5,7 +5,7 @@ The React/Vite frontend for mapping, farm records and field analysis.
 ## Test WhatsApp linking locally
 
 First run the FastAPI backend on port 8000 with a development PostGIS
-database migrated through PR #15, and configure the Meta webhook secrets and
+database migrated through PR #16, and configure the Meta webhook secrets and
 `WHATSAPP_PHONE_NUMBER_ID` in `services/api/.env`.
 
 Start the web app:
@@ -15,6 +15,14 @@ cd apps/web
 pnpm install --frozen-lockfile
 pnpm dev
 ```
+
+For a **real mobile number**, set `VITE_FIREBASE_TEST_PHONE_AUTH=false`
+in `apps/web/.env`; enable Firebase Phone sign-in, allow your country's SMS
+region and an authorized HTTPS web domain in Firebase Console. Your old
+fictional/seeded account is a distinct Firebase user with separate farms.
+Sign out and verify your own phone through actual SMS before starting linking.
+If real SMS login fails on localhost, follow Firebase's supported authorized
+HTTPS-domain setup (see `services/api/README_WHATSAPP.md`).
 
 Sign in with **Firebase phone authentication**, then click the **chat-bubble
 WhatsApp icon** near the bottom of the left navigation rail. In the dialog:
@@ -38,9 +46,14 @@ ownership of your real phone and cannot generally complete live Firebase
 account linking. You can still test the web UI, obtain a pending code, refresh,
 cancel and unlink. The backend CI integration tests cover full signed linking.
 
-The interface does not yet send WhatsApp replies or expose farm details
-through WhatsApp. Avoid uploading secrets, access tokens, or one-time linking
-codes in screenshots.
+**Read-only WhatsApp menus:** PR #16 adds WhatsApp interactive lists with
+"My farms", "My seasons" and "My fields", after a real signed inbound LINK
+event. It queues replies and sends them only through an explicitly enabled
+Meta Graph API outbox worker. See `services/api/README_WHATSAPP.md`.
+A Meta account marked **Account closed** cannot be used to verify live
+delivery until its restriction is resolved.
+
+Avoid uploading secrets, access tokens, or one-time linking codes in screenshots.
 
 ---
 

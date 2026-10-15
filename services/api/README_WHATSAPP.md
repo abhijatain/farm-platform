@@ -99,9 +99,11 @@ user ID, maskedable WhatsApp sender identifier, consent timestamp, preferred
 language, one-time hashed challenge and revocation state. Existing farms,
 fields, crop cycles, activities and media stay in their canonical tables.
 
-This deliberately stops short of responding to farmer requests. Do not
-promote this to a farmer-facing service until the durable outbox, session
-rules, and language menus are implemented and tested.
+This responds only to explicitly linked farmers asking for read-only
+farm/season/field menus, and only within Meta's service conversation window.
+Do not promote it to production until the Meta account restriction has been
+resolved and end-to-end delivery, retries, consent and privacy have been
+validated using a legitimate business phone number.
 
 ## Sign in using your real mobile number
 

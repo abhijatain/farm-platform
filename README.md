@@ -319,4 +319,4 @@ These are example coordinates. The CLI prints HTTP errors and transport
 failures without displaying API keys. No database migration is required
 for this weather-provider correction.
 
-**Channel status:** WhatsApp is a high-priority planned farmer interface, not yet implemented. Roadmap items T61–T80 cover Meta Cloud API, verified farm linking, consent, native-language onboarding, activity and media capture, reports, voice and templates. The existing web remains the advanced mapping/analysis interface.
+**Channel status:** Signed WhatsApp webhooks and Firebase farmer linking are implemented; PR #16 adds opt-in session-message dispatch and multilingual interactive farm/season/field menus. Real delivery remains gated by Meta WABA account authorization, so no farmer pilot is live yet. Roadmap T61–T80 includes future reports, activity capture, scouting and voice. The web remains the advanced mapping/analysis interface.
