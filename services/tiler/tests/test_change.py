@@ -109,7 +109,7 @@ def test_change_summary_ignores_invalid_pixels() -> None:
             [
                 True,
                 False,
-            ]
+            ],
         ],
         dtype=bool,
     )
@@ -160,7 +160,7 @@ def test_change_preview_is_transparent_png() -> None:
                     True,
                     False,
                     True,
-                ]
+                ],
             ],
             dtype=bool,
         ),
