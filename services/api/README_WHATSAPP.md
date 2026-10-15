@@ -66,8 +66,13 @@ is stored. Unknown/status-only callbacks are acknowledged without an action.
    consent and binding. If the verified Firebase phone number changes,
    linked access and pending codes are revoked automatically.
 
-The authenticated API is presently the onboarding control; **there is no
-frontend linking screen** in this PR. This is still a backend milestone.
+The signed-in Farm Platform web dashboard now includes a **WhatsApp linking
+screen**. Click the **WhatsApp chat icon** near the bottom of the left rail,
+choose a language, consent, generate a code and copy the LINK command. It
+uses Firebase authentication via the existing API client; codes exist only
+in transient React state and are not persisted in the browser. Status can
+be refreshed manually or automatically during the pending phase. The full
+procedure is documented in `apps/web/README.md`.
 
 **Important limitation:** Meta reports that an unpublished app can receive
 test webhooks from the dashboard, but not necessarily live incoming farmer
