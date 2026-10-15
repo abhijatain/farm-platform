@@ -21,10 +21,16 @@ def incoming_envelopes(payload: object) -> list[InboundEnvelope]:
     if not isinstance(payload, dict) or payload.get("object") != "whatsapp_business_account":
         return []
     envelopes: list[InboundEnvelope] = []
-    for entry in payload.get("entry", []):
+    entries = payload.get("entry")
+    if not isinstance(entries, list):
+        return []
+    for entry in entries:
         if not isinstance(entry, dict):
             continue
-        for change in entry.get("changes", []):
+        changes = entry.get("changes")
+        if not isinstance(changes, list):
+            continue
+        for change in changes:
             if not isinstance(change, dict) or change.get("field") != "messages":
                 continue
             value = change.get("value")
@@ -34,7 +40,10 @@ def incoming_envelopes(payload: object) -> list[InboundEnvelope]:
             number_id = metadata.get("phone_number_id") if isinstance(metadata, dict) else None
             if not isinstance(number_id, str) or not number_id.isdigit() or len(number_id) > 40:
                 continue
-            for item in value.get("messages", []):
+            messages = value.get("messages")
+            if not isinstance(messages, list):
+                continue
+            for item in messages:
                 if not isinstance(item, dict):
                     continue
                 mid, sender, kind = item.get("id"), item.get("from"), item.get("type")
