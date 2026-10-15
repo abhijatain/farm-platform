@@ -306,6 +306,10 @@ export type SatelliteChangeObservation = {
   source: string;
   scene_id: string;
 
+  orbit_state: string | null;
+  relative_orbit: number | null;
+  platform: string | null;
+
   metric_type: SatelliteMetricType;
 
   valid_pixel_percent: number | null;
@@ -427,6 +431,11 @@ export type SatelliteTrendPoint = {
   mean: number | null;
   median: number | null;
   valid_pixel_percent: number | null;
+
+  orbit_state: string | null;
+  relative_orbit: number | null;
+  platform: string | null;
+  radar_orbit_key: string | null;
 
   anomaly_zone_count: number;
   anomaly_area_acres: number;
