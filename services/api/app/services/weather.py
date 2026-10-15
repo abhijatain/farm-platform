@@ -51,8 +51,15 @@ def _today() -> date:
     return datetime.now(timezone.utc).date()
 
 
+def _has_api_key() -> bool:
+    return bool(
+        settings.weather_api_key
+        and settings.weather_api_key.get_secret_value()
+    )
+
+
 def _endpoint(*, archive: bool) -> str:
-    commercial = bool(settings.weather_api_key)
+    commercial = _has_api_key()
     if archive:
         host = (
             "customer-archive-api.open-meteo.com"
@@ -68,16 +75,16 @@ def _endpoint(*, archive: bool) -> str:
 
 def _fetch_weather(*, archive: bool, params: dict) -> dict:
     """Fixed provider hosts; key never exposed to browsers or logs."""
-    if settings.environment.lower() in ("production", "prod") and not settings.weather_api_key:
+    if settings.environment.lower() in ("production", "prod") and not _has_api_key():
         raise WeatherProviderError(
             "Configure WEATHER_API_KEY for commercial production use."
         )
     params = {**params, "daily": ",".join(DAILY_VARIABLES), "timezone": "auto"}
-    if settings.weather_api_key:
+    if _has_api_key():
         params["apikey"] = settings.weather_api_key.get_secret_value()
     key = (archive, tuple(sorted(
         (k, str(v)) for k, v in params.items() if k != "apikey"
-    )), bool(settings.weather_api_key))
+    )), _has_api_key())
     now = time.monotonic()
     with _CACHE_LOCK:
         cached = _CACHE.get(key)
