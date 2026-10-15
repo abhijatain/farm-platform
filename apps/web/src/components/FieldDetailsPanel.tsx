@@ -1239,6 +1239,25 @@ function MetricImageryStrip({
         <span>{METRIC_CONFIG[metric.metricType].label}</span>
       </div>
 
+      {metric.metricType === "sar_rvi" && (
+        <div className="radar-imagery-scale-note">
+          <span>Lower Radar RVI</span>
+
+          <div
+            style={{
+              background:
+                METRIC_CONFIG.sar_rvi.gradient,
+            }}
+          />
+
+          <span>Higher Radar RVI</span>
+
+          <small>
+            Spatial radar signal only · not a bad/good health scale
+          </small>
+        </div>
+      )}
+
       {available.length === 0 ? (
         <div className="metric-imagery-empty">
           No reliable {METRIC_CONFIG[metric.metricType].label} imagery is
