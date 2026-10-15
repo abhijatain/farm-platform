@@ -28,8 +28,8 @@ def verify_meta_subscription(
 @router.post("")
 async def receive_meta_webhook(
     request: Request,
-    x_hub_signature_256: str | None = Header(None, alias="X-Hub-Signature-256"),
     db: DBSession,
+    x_hub_signature_256: str | None = Header(None, alias="X-Hub-Signature-256"),
 ) -> dict[str, str]:
     body = await request.body()
     # Meta signs the precise payload bytes, including whitespace and ordering.
