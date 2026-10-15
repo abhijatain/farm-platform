@@ -4,7 +4,7 @@ import json
 from datetime import date, timedelta
 from uuid import UUID
 
-from sqlalchemy import or_, select, text
+from sqlalchemy import func, or_, select, text
 
 from app.api.deps import DBSession
 from app.models.satellite_metric import SatelliteMetric
@@ -31,6 +31,28 @@ PERCENT_CHANGE_UNSUITABLE_METRICS = {
 SPATIAL_PERSISTENCE_BASIS = (
     "same_anomaly_type_overlap"
 )
+
+DEFAULT_PIXEL_CHANGE_DISPLAY_MAX = {
+    "ndvi": 0.30,
+    "ndre": 0.25,
+    "ndmi": 0.30,
+    "gndvi": 0.30,
+    "evi2": 0.35,
+    "ndwi": 0.35,
+    "savi": 0.35,
+    "msavi": 0.35,
+    "bsi": 0.30,
+    "ndti": 0.25,
+    "ccci": 0.50,
+    "reci": 1.00,
+    "mcari": 0.20,
+    "sar_vv_db": 5.0,
+    "sar_vh_db": 5.0,
+    "sar_vv_vh_ratio": 5.0,
+    "sar_rvi": 0.50,
+    "lst_c": 8.0,
+}
+
 
 DEFAULT_PIXEL_CHANGE_THRESHOLDS = {
     "ndvi": 0.03,
@@ -61,6 +83,17 @@ def default_pixel_change_threshold(
         DEFAULT_PIXEL_CHANGE_THRESHOLDS.get(
             metric_type,
             0.03,
+        )
+    )
+
+
+def default_pixel_change_display_max(
+    metric_type: str,
+) -> float:
+    return float(
+        DEFAULT_PIXEL_CHANGE_DISPLAY_MAX.get(
+            metric_type,
+            0.30,
         )
     )
 
@@ -205,7 +238,7 @@ def _nearest_metric_to_date(
     if upper < lower:
         return None
 
-    distance = (
+    distance = func.abs(
         SatelliteObservation.observed_on
         - target_date
     )
@@ -225,9 +258,7 @@ def _nearest_metric_to_date(
             <= upper,
         )
         .order_by(
-            abs(
-                distance
-            ),
+            distance,
             SatelliteObservation.observed_on.desc(),
             SatelliteMetric.valid_pixel_percent.desc().nullslast(),
         )
@@ -1043,6 +1074,11 @@ def build_field_satellite_change(
         ),
         pixel_change_threshold=(
             resolved_threshold
+        ),
+        pixel_change_display_max=(
+            default_pixel_change_display_max(
+                metric_type
+            )
         ),
         before=before,
         after=after,
