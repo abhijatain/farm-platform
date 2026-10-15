@@ -123,16 +123,6 @@ def _radar_metadata(
             f"{relative_orbit}"
         )
 
-    elif relative_orbit is not None:
-        radar_orbit_key = (
-            f"orbit:{relative_orbit}"
-        )
-
-    elif orbit_state:
-        radar_orbit_key = (
-            orbit_state
-        )
-
     return (
         orbit_state,
         relative_orbit,
