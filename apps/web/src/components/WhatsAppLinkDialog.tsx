@@ -223,8 +223,8 @@ export default function WhatsAppLinkDialog({ onClose }: Props) {
             <div className="whatsapp-result" role="status">
               <CheckCircle2 className="whatsapp-success-icon" size={29} />
               <h3>WhatsApp is linked</h3>
-              <p>Connected WhatsApp number ending in <strong>{link.wa_id_last4}</strong>.</p>
-              <p>Language: <strong>{LANGUAGE_LABELS[link.preferred_language ?? "en"]}</strong></p>
+              <p>Connected WhatsApp number ending in <strong>{link?.wa_id_last4}</strong>.</p>
+              <p>Language: <strong>{LANGUAGE_LABELS[link?.preferred_language ?? "en"]}</strong></p>
               <p className="whatsapp-muted">Service messages only. You can disconnect at any time.</p>
               <button className="whatsapp-danger-button" disabled={busy !== null} onClick={() => void unlink()}>
                 {busy === "disconnect" ? "Disconnecting…" : "Disconnect WhatsApp"}
