@@ -1,6 +1,7 @@
 
 from pathlib import Path
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -59,6 +60,9 @@ class Settings(BaseSettings):
     # -------------------------------------------------
 
     satellite_initial_backfill_days: int = 90
+
+    # Commercial installations must supply a licensed Open-Meteo key.
+    weather_api_key: SecretStr | None = None
 
     ffmpeg_binary: str = "ffmpeg"
 
