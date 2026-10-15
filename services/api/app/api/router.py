@@ -14,6 +14,7 @@ from app.api.routes import (
     satellite_observations,
     radar_screening,
     whatsapp_webhook,
+    whatsapp_link,
     seasons,
 )
 
@@ -42,3 +43,4 @@ api_router.include_router(radar_screening.router)
 
 # Meta webhooks use their own signature, never Firebase bearer authentication.
 api_router.include_router(whatsapp_webhook.router)
+api_router.include_router(whatsapp_link.router)
