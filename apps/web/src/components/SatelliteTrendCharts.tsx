@@ -6,7 +6,10 @@ import {
 
 import {
   getSatelliteTrends,
+  getFieldWeather,
 } from "../lib/api";
+
+import WeatherContextPanel from "./WeatherContextPanel";
 
 import {
   METRIC_CONFIG,
@@ -15,6 +18,7 @@ import {
 import type {
   CropCycle,
   FieldSatelliteTrends,
+  FieldWeather,
   SatelliteMetricType,
   SatelliteTrendActivity,
   SatelliteTrendPoint,
@@ -1096,8 +1100,10 @@ function radarPointTooltip(
 
 function RadarTrendPanel({
   trends,
+  weather,
 }: {
   trends: FieldSatelliteTrends;
+  weather: FieldWeather | null;
 }) {
   const radarPoints =
     useMemo(
@@ -1435,6 +1441,25 @@ function RadarTrendPanel({
       ],
     );
 
+  const comparableRvi = selectedPoints
+    .filter((point) => point.metric_type === "sar_rvi" && point.median != null)
+    .sort((a, b) => a.observed_on.localeCompare(b.observed_on));
+  const currentRvi = comparableRvi[comparableRvi.length - 1];
+  const previousRvi = comparableRvi[comparableRvi.length - 2];
+  const rviDelta = currentRvi?.median != null && previousRvi?.median != null
+    ? currentRvi.median - previousRvi.median
+    : null;
+  const rainNearCurrent = currentRvi && weather
+    ? weather.days.filter((day) => (
+        day.date <= currentRvi.observed_on &&
+        dateMs(day.date) >= dateMs(currentRvi.observed_on) - 2 * 86_400_000 &&
+        day.precipitation_mm != null
+      ))
+    : [];
+  const rainThreeDayTotal = rainNearCurrent.length === 3
+    ? rainNearCurrent.reduce((total, day) => total + (day.precipitation_mm ?? 0), 0)
+    : null;
+
   if (
     orbitGroups.length
     === 0
@@ -1609,7 +1634,28 @@ function RadarTrendPanel({
         </p>
       )}
 
-      <div className="radar-metric-chart-grid">
+      <div className="radar-change-summary">
+        <div>
+          <span>Latest comparable RVI change</span>
+          <strong>
+            {rviDelta == null ? "Not enough passes" : (rviDelta >= 0 ? "+" : "") + rviDelta.toFixed(3)}
+          </strong>
+          <small>
+            {currentRvi && previousRvi
+              ? formatShortDate(previousRvi.observed_on) + " → " + formatShortDate(currentRvi.observed_on)
+              : "Same-orbit acquisitions required"}
+          </small>
+        </div>
+        <div>
+          <span>Rain before latest radar pass</span>
+          <strong>{rainThreeDayTotal == null ? "—" : rainThreeDayTotal.toFixed(1) + " mm"}</strong>
+          <small>{currentRvi
+            ? "3-day modeled total ending " + formatShortDate(currentRvi.observed_on)
+            : "Weather data may be unavailable"}</small>
+        </div>
+        <p>RVI change is a radar signal, not a crop-health verdict. Rain is context, not a proven explanation.</p>
+      </div>
+      <div className="radar-primary-chart">
         <TrendChart
           title="Radar RVI"
           subtitle="Relative dual-polarization canopy/structure signal for the selected orbit geometry."
@@ -1634,7 +1680,11 @@ function RadarTrendPanel({
           }
           emptyMessage="No reliable RVI observations exist for this orbit."
         />
+      </div>
 
+      <details className="radar-technical-details">
+        <summary>Technical radar signals: VV, VH and VV/VH ratio · view acquisition table</summary>
+        <div className="radar-metric-chart-grid">
         <TrendChart
           title="VV backscatter"
           subtitle="Co-polarized gamma-nought backscatter. Changes can reflect moisture, roughness and structure."
@@ -1796,6 +1846,8 @@ function RadarTrendPanel({
         </div>
       )}
 
+      </details>
+
       <p className="radar-interpretation-note">
         Do not interpret higher/lower radar values as automatically
         healthier/unhealthier. Soil moisture, standing water, canopy
@@ -1837,6 +1889,10 @@ export default function SatelliteTrendCharts({
   >(
     null,
   );
+
+  const [weather, setWeather] = useState<FieldWeather | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
 
   const [
     anomalyMetric,
@@ -1935,6 +1991,40 @@ export default function SatelliteTrendCharts({
     ],
   );
 
+
+  useEffect(() => {
+    if (!trends) {
+      setWeather(null);
+      setWeatherLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setWeatherLoading(true);
+    setWeatherError(null);
+    const requestedStart = new Date(
+      Math.max(dateMs(trends.start_date), dateMs(trends.end_date) - 365 * 86_400_000),
+    ).toISOString().slice(0, 10);
+    void getFieldWeather(fieldId, {
+      startDate: requestedStart,
+      endDate: trends.end_date,
+      includeForecast: cropCycle?.status !== "completed",
+    })
+      .then((result) => {
+        if (!cancelled) setWeather(result);
+      })
+      .catch((requestError: unknown) => {
+        if (!cancelled) {
+          setWeather(null);
+          setWeatherError(
+            requestError instanceof Error ? requestError.message : "Weather service unavailable",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setWeatherLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [fieldId, trends, cropCycle?.status]);
 
   const opticalSeries =
     useMemo(
@@ -2171,9 +2261,16 @@ export default function SatelliteTrendCharts({
           />
 
           <RadarTrendPanel
-            trends={
-              trends
-            }
+            trends={trends}
+            weather={weather}
+          />
+          <WeatherContextPanel
+            weather={weather}
+            loading={weatherLoading}
+            error={weatherError}
+            activities={trends.activities}
+            startDate={trends.start_date}
+            endDate={trends.end_date}
           />
 
           <TrendChart

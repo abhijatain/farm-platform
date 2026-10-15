@@ -1,6 +1,7 @@
 import { apiRequest } from "./api-client";
 
 import type {
+  FieldWeather,
   Activity,
   CropCycle,
   CurrentUser,
@@ -404,5 +405,24 @@ export function listSatelliteAnomalies(
 
   return apiRequest<SatelliteAnomalyFeatureCollection>(
     `/satellite-observations/${observationId}/anomalies?${params.toString()}`,
+  );
+}
+
+
+/** Fetch weather using the field's server-side polygon centroid. */
+export function getFieldWeather(
+  fieldId: string,
+  options?: {
+    startDate?: string | null;
+    endDate?: string | null;
+    includeForecast?: boolean;
+  },
+) {
+  const params = new URLSearchParams();
+  if (options?.startDate) params.set("start_date", options.startDate);
+  if (options?.endDate) params.set("end_date", options.endDate);
+  params.set("include_forecast", String(options?.includeForecast ?? true));
+  return apiRequest<FieldWeather>(
+    "/fields/" + fieldId + "/weather?" + params.toString(),
   );
 }

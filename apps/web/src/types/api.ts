@@ -654,3 +654,30 @@ export type ActivitySatelliteContext = {
   comparison: ActivitySatelliteComparison;
   spatial_comparison: ActivitySatelliteSpatialComparison;
 };
+
+
+/* Modeled weather is field-level context, not a satellite observation. */
+export type FieldWeatherDay = {
+  date: string;
+  source: "historical" | "recent_model" | "forecast";
+  precipitation_mm: number | null;
+  temperature_max_c: number | null;
+  temperature_min_c: number | null;
+  relative_humidity_mean_percent: number | null;
+  wind_speed_max_kmh: number | null;
+  reference_et0_mm: number | null;
+  weather_code: number | null;
+};
+
+export type FieldWeather = {
+  field_id: string;
+  provider: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
+  start_date: string;
+  end_date: string;
+  forecast_end_date: string | null;
+  days: FieldWeatherDay[];
+  warnings: string[];
+};
