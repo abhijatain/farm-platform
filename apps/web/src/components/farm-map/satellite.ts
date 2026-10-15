@@ -228,12 +228,12 @@ export const METRIC_CONFIG: Record<
     label: "Radar RVI",
     group: "Radar / all-weather",
     description:
-      "Dual-polarization radar vegetation index from Sentinel-1 VV and VH; cloud-independent canopy structure signal.",
+      "Dual-polarization Sentinel-1 radar signal from VV and VH. Lower/higher values are not automatically bad/good; compare like-for-like orbit geometry.",
     displayMin: 0,
     displayMax: 2,
-    colormap: "rdylgn",
+    colormap: "viridis",
     gradient:
-      "linear-gradient(90deg, #d73027 0%, #fee08b 50%, #1a9850 100%)",
+      "linear-gradient(90deg, #440154 0%, #31688e 35%, #35b779 70%, #fde725 100%)",
   },
   lst_c: {
     label: "LST °C",
