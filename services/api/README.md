@@ -14,6 +14,9 @@ crop-growth and ownership services. No old domain forwarding files remain.
 For the full backend dependency rules, see
 [`docs/BACKEND_ARCHITECTURE.md`](../../docs/BACKEND_ARCHITECTURE.md).
 
+See [WhatsApp Cloud API Phase 0 setup](README_WHATSAPP.md) for optional,
+disabled-by-default webhook verification and metadata-only ingestion.
+
 ## Setup
 
 ```bash
