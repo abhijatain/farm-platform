@@ -189,6 +189,107 @@ export type SatelliteObservation = {
   updated_at: string;
 };
 
+export type SatelliteSourceKind =
+  | "optical"
+  | "radar"
+  | "thermal"
+  | "other";
+
+export type SatelliteTimelineStatus =
+  | "usable"
+  | "cloud_skipped"
+  | "unusable"
+  | "skipped"
+  | "unavailable";
+
+export type SatelliteTimelineMetricSummary = {
+  metric_type: SatelliteMetricType;
+
+  mean: number | null;
+  median: number | null;
+
+  valid_pixel_percent: number | null;
+
+  raster_uri: string;
+};
+
+export type SatelliteTimelineEvent = {
+  observation_id: string;
+
+  observed_on: string;
+
+  source: string;
+  source_kind: SatelliteSourceKind;
+
+  scene_id: string;
+
+  status: SatelliteTimelineStatus;
+  processing_status: string | null;
+
+  cloud_cover_percent: number | null;
+  field_cloud_cover_percent: number | null;
+
+  cloud_independent: boolean;
+
+  metric_types: SatelliteMetricType[];
+
+  representative_metric:
+    SatelliteTimelineMetricSummary | null;
+};
+
+export type SatelliteTimelineSelectionMatch = {
+  observation_id: string;
+
+  observed_on: string;
+  days_from_target: number;
+
+  source: string;
+  source_kind: SatelliteSourceKind;
+
+  metric_type: SatelliteMetricType;
+
+  median: number | null;
+  mean: number | null;
+
+  valid_pixel_percent: number | null;
+
+  raster_uri: string;
+};
+
+export type SatelliteTimelineSelection = {
+  target_date: string;
+
+  preferred_metric_type: SatelliteMetricType;
+  minimum_valid_percent: number;
+  search_window_days: number;
+
+  optical_unavailable_on_target: boolean;
+
+  preferred_metric:
+    SatelliteTimelineSelectionMatch | null;
+
+  radar_fallback:
+    SatelliteTimelineSelectionMatch | null;
+
+  recommended_kind:
+    | "preferred_metric"
+    | "radar_fallback"
+    | "none";
+
+  recommended:
+    SatelliteTimelineSelectionMatch | null;
+
+  recommendation_reason: string | null;
+};
+
+export type FieldSatelliteTimeline = {
+  field_id: string;
+
+  events: SatelliteTimelineEvent[];
+
+  selection: SatelliteTimelineSelection;
+};
+
 export type SatelliteIngestionJobStatus =
   | "pending"
   | "running"

@@ -1,5 +1,6 @@
 
 import json
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,7 +22,13 @@ from app.schemas.satellite_observation import (
     SatelliteIngestionJobResponse,
     SatelliteObservationResponse,
 )
+from app.schemas.satellite_timeline import (
+    FieldSatelliteTimelineResponse,
+)
 from app.services.ownership import get_owned_field
+from app.services.satellite_timeline import (
+    get_field_satellite_timeline,
+)
 
 
 router = APIRouter(
@@ -64,6 +71,65 @@ def list_satellite_observations(
 
     return list(
         observations
+    )
+
+
+@router.get(
+    "/fields/{field_id}/satellite-timeline",
+    response_model=FieldSatelliteTimelineResponse,
+)
+def get_satellite_timeline(
+    field_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+    preferred_metric_type: str = Query(
+        default="ndvi",
+        min_length=1,
+        max_length=32,
+    ),
+    target_date: date | None = Query(
+        default=None,
+    ),
+    window_days: int = Query(
+        default=14,
+        ge=1,
+        le=60,
+    ),
+    minimum_valid_percent: float = Query(
+        default=80.0,
+        ge=0.0,
+        le=100.0,
+    ),
+    event_limit: int = Query(
+        default=60,
+        ge=1,
+        le=200,
+    ),
+) -> FieldSatelliteTimelineResponse:
+    get_owned_field(
+        db=db,
+        user_id=current_user.id,
+        field_id=field_id,
+    )
+
+    return get_field_satellite_timeline(
+        db=db,
+        field_id=field_id,
+        preferred_metric_type=(
+            preferred_metric_type
+            .strip()
+            .lower()
+        ),
+        target_date=target_date,
+        minimum_valid_percent=(
+            minimum_valid_percent
+        ),
+        window_days=(
+            window_days
+        ),
+        event_limit=(
+            event_limit
+        ),
     )
 
 

@@ -9,6 +9,7 @@ import {
   getActivitySatelliteContext,
   getFieldTimeline,
   getSatelliteIngestionStatus,
+  getSatelliteTimeline,
   harvestCropCycle,
   listSatelliteObservations,
 } from "../lib/api";
@@ -21,6 +22,7 @@ import type {
   CropCycle,
   Farm,
   Field,
+  FieldSatelliteTimeline,
   SatelliteIngestionJob,
   SatelliteMetric,
   SatelliteMetricType,
@@ -276,6 +278,9 @@ export default function FieldDetailsPanel({
   const [satelliteIngestion, setSatelliteIngestion] =
     useState<SatelliteIngestionJob | null>(null);
 
+  const [satelliteTimeline, setSatelliteTimeline] =
+    useState<FieldSatelliteTimeline | null>(null);
+
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(
     null,
   );
@@ -322,6 +327,35 @@ export default function FieldDetailsPanel({
         ingestion,
       );
 
+      try {
+        const unifiedTimeline =
+          await getSatelliteTimeline(
+            field.id,
+            "ndvi",
+            {
+              windowDays: 14,
+              minimumValidPercent: 80,
+              eventLimit: 60,
+            },
+          );
+
+        setSatelliteTimeline(
+          unifiedTimeline,
+        );
+
+      } catch (
+        timelineRequestError
+      ) {
+        setSatelliteTimeline(
+          null,
+        );
+
+        console.error(
+          "Unable to load unified satellite timeline:",
+          timelineRequestError,
+        );
+      }
+
     } catch (requestError) {
       if (!silent) {
         setSatelliteObservations([]);
@@ -365,6 +399,7 @@ export default function FieldDetailsPanel({
     setActiveTab("satellite");
     setSelectedActivityId(null);
     setSatelliteIngestion(null);
+    setSatelliteTimeline(null);
 
     void loadTimeline();
     void loadSatelliteObservations();
@@ -581,6 +616,7 @@ export default function FieldDetailsPanel({
             loading={satelliteLoading}
             error={satelliteError}
             ingestion={satelliteIngestion}
+            timeline={satelliteTimeline}
           />
         )}
 
@@ -651,12 +687,14 @@ function SatelliteTab({
   loading,
   error,
   ingestion,
+  timeline,
 }: {
   field: Field;
   observations: SatelliteObservation[];
   loading: boolean;
   error: string | null;
   ingestion: SatelliteIngestionJob | null;
+  timeline: FieldSatelliteTimeline | null;
 }) {
   const sorted = useMemo(
     () =>
@@ -710,6 +748,12 @@ function SatelliteTab({
           Sentinel-2 · Sentinel-1 · Landsat
         </div>
       </div>
+
+      {!loading && !error && timeline && timeline.events.length > 0 && (
+        <CrossSatelliteTimeline
+          timeline={timeline}
+        />
+      )}
 
       {loading && (
         <div className="workspace-empty-card">
@@ -793,6 +837,204 @@ function SatelliteTab({
     </div>
   );
 }
+
+function CrossSatelliteTimeline({
+  timeline,
+}: {
+  timeline: FieldSatelliteTimeline;
+}) {
+  const events =
+    timeline.events
+      .slice(
+        0,
+        10,
+      )
+      .reverse();
+
+  const selection =
+    timeline.selection;
+
+  const recommended =
+    selection.recommended;
+
+  return (
+    <section className="cross-satellite-timeline">
+      <div className="cross-satellite-timeline-heading">
+        <div>
+          <span className="workspace-eyebrow">
+            UNIFIED TIMELINE
+          </span>
+
+          <h3>
+            Optical, radar and thermal
+          </h3>
+
+          <p>
+            Each acquisition stays separate. Radar is shown as
+            all-weather context when optical imagery is unavailable.
+          </p>
+        </div>
+
+        {recommended && (
+          <div
+            className={
+              selection.recommended_kind === "radar_fallback"
+                ? "satellite-recommendation radar"
+                : "satellite-recommendation"
+            }
+          >
+            <span>
+              {selection.recommended_kind === "radar_fallback"
+                ? "All-weather fallback"
+                : "Nearest usable NDVI"}
+            </span>
+
+            <strong>
+              {formatObservationSource(
+                recommended.source,
+              )}
+              {" · "}
+              {formatDate(
+                recommended.observed_on,
+              )}
+            </strong>
+
+            <small>
+              {METRIC_CONFIG[
+                recommended.metric_type
+              ].label}
+              {" "}
+              {formatMetricValue(
+                recommended.median,
+                recommended.metric_type === "lst_c"
+                  ? 1
+                  : 3,
+              )}
+              {recommended.days_from_target === 0
+                ? " · same date"
+                : ` · ${Math.abs(
+                    recommended.days_from_target,
+                  )}d ${
+                    recommended.days_from_target < 0
+                      ? "before"
+                      : "after"
+                  }`}
+            </small>
+          </div>
+        )}
+      </div>
+
+      <div className="cross-satellite-events">
+        {events.map((event, index) => {
+          const metric =
+            event.representative_metric;
+
+          const unavailable =
+            event.status !== "usable";
+
+          return (
+            <div
+              key={event.observation_id}
+              className="cross-satellite-event-wrap"
+            >
+              {index > 0 && (
+                <span className="cross-satellite-arrow">
+                  →
+                </span>
+              )}
+
+              <article
+                className={[
+                  "cross-satellite-event",
+                  event.source_kind,
+                  unavailable
+                    ? "unavailable"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <div className="cross-satellite-event-top">
+                  <strong>
+                    {formatDate(
+                      event.observed_on,
+                    )}
+                  </strong>
+
+                  {event.cloud_independent && (
+                    <span>
+                      All-weather
+                    </span>
+                  )}
+                </div>
+
+                <p>
+                  {formatObservationSource(
+                    event.source,
+                  )}
+                </p>
+
+                {event.status === "cloud_skipped" && (
+                  <small>
+                    Cloud covered
+                    {event.field_cloud_cover_percent != null
+                      ? ` · ${event.field_cloud_cover_percent.toFixed(0)}%`
+                      : event.cloud_cover_percent != null
+                        ? ` · ${event.cloud_cover_percent.toFixed(0)}%`
+                        : ""}
+                  </small>
+                )}
+
+                {event.status === "unusable" && (
+                  <small>
+                    No usable field pixels
+                  </small>
+                )}
+
+                {event.status === "skipped" && (
+                  <small>
+                    Scene unavailable
+                  </small>
+                )}
+
+                {event.status === "unavailable" && (
+                  <small>
+                    No processed metric
+                  </small>
+                )}
+
+                {event.status === "usable" && metric && (
+                  <small>
+                    {METRIC_CONFIG[
+                      metric.metric_type
+                    ].label}
+                    {" "}
+                    {formatMetricValue(
+                      metric.median,
+                      metric.metric_type === "lst_c"
+                        ? 1
+                        : 3,
+                    )}
+                    {metric.valid_pixel_percent != null
+                      ? ` · ${metric.valid_pixel_percent.toFixed(0)}% valid`
+                      : ""}
+                  </small>
+                )}
+              </article>
+            </div>
+          );
+        })}
+      </div>
+
+      {selection.recommendation_reason && (
+        <p className="cross-satellite-note">
+          {selection.recommendation_reason}
+        </p>
+      )}
+    </section>
+  );
+}
+
 
 function SatelliteIngestionEmptyState({
   ingestion,
