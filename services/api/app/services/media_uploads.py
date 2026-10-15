@@ -100,7 +100,7 @@ def _media_type_info(
     if info is None:
         raise HTTPException(
             status_code=(
-                status.HTTP_422_UNPROCESSABLE_ENTITY
+                status.HTTP_422_UNPROCESSABLE_CONTENT
             ),
             detail=(
                 "Unsupported media type. "
@@ -139,7 +139,7 @@ def _validate_size(
 
         raise HTTPException(
             status_code=(
-                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                status.HTTP_413_CONTENT_TOO_LARGE
             ),
             detail=(
                 f"{media_type.capitalize()} is too large. "
