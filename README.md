@@ -205,3 +205,41 @@ cd apps/web
 pnpm build
 pnpm lint
 ```
+
+
+## Field weather context and radar presentation
+
+The Satellite workspace now shows a **primary same-orbit Radar RVI trend**,
+with VV, VH, VV/VH and the radar pass table under an expandable technical
+section. Radar increases/decreases are *not* interpreted as crop health.
+
+Weather is fetched on demand through the authenticated field endpoint:
+
+    GET /api/v1/fields/{field_id}/weather?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&include_forecast=true
+
+- Server derives coordinates from the owned field polygon centroid (PostGIS);
+  clients cannot use this endpoint to query arbitrary coordinates.
+- Provider is [Open-Meteo](https://open-meteo.com/). Up to 367 days per
+  request, with past historical reanalysis (through eight days ago), recent
+  modeled weather (last seven days), and the next six forecast days.
+- Daily values: precipitation (mm), minimum/maximum 2-m air temperature (°C),
+  mean relative humidity (%), max wind speed at 10 m (km/h), reference ET₀
+  (mm), and WMO weather code. Dates follow the field's model timezone.
+- Missing readings remain null, never false zero precipitation.
+- Weather errors are isolated from satellite-trend loading.
+- Independent bounded in-process cache: 6 h for archive, 15 min for
+  recent/forecast; multiple API instances each maintain their own cache.
+- No weather data is written to PostgreSQL and **no migration is needed**
+  for this phase. Later persistent weather/alerts can use a normalized
+  model with provider/source and run-time provenance.
+
+**Licensing**: Open-Meteo's no-key public service is for non-commercial
+development use. For deployment in commercial production, configure the
+server-side WEATHER_API_KEY with a valid commercial subscription; the API
+deliberately refuses unauthenticated free-tier access in
+ENVIRONMENT=production. The key must **never** be exposed via a VITE_
+environment variable.
+
+Weather reanalysis and recent forecasts are modeled grid-cell estimates,
+not sensor readings at the farm. Rain near a radar pass is context only, and
+crop-stage-aware SAR anomaly detection remains disabled.
