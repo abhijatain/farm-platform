@@ -88,7 +88,8 @@ const FARMER_METRICS: FarmerMetric[] = [
   {
     metricType: "sar_rvi",
     label: "All-weather radar",
-    subtitle: "Sentinel-1 RVI · cloud-independent canopy structure signal",
+    subtitle:
+      "Sentinel-1 RVI · cloud-independent radar signal; lower/higher is not automatically bad/good",
   },
   {
     metricType: "lst_c",
@@ -147,6 +148,77 @@ function formatObservationSource(value: string) {
     default:
       return "Sentinel-2 optical";
   }
+}
+
+function formatRadarGeometry(
+  observation: SatelliteObservation,
+) {
+  if (
+    observation.source
+    !== "sentinel-1-rtc"
+  ) {
+    return null;
+  }
+
+  const metadata =
+    observation.metadata_json
+    ?? {};
+
+  const orbitState =
+    typeof metadata.orbit_state
+      === "string"
+      ? metadata.orbit_state
+      : null;
+
+  const relativeOrbit =
+    typeof metadata.relative_orbit
+      === "number"
+      || typeof metadata.relative_orbit
+        === "string"
+      ? String(
+          metadata.relative_orbit,
+        )
+      : null;
+
+  const platform =
+    typeof metadata.platform
+      === "string"
+      ? metadata.platform
+      : null;
+
+  const parts = [];
+
+  if (orbitState) {
+    parts.push(
+      orbitState.charAt(
+        0,
+      ).toUpperCase()
+      + orbitState
+        .slice(
+          1,
+        )
+        .toLowerCase(),
+    );
+  }
+
+  if (relativeOrbit) {
+    parts.push(
+      `orbit ${relativeOrbit}`,
+    );
+  }
+
+  if (platform) {
+    parts.push(
+      platform,
+    );
+  }
+
+  return (
+    parts.join(
+      " · ",
+    )
+    || null
+  );
 }
 
 function formatSignedMetricValue(value: number | null | undefined, digits = 3) {
@@ -1250,6 +1322,16 @@ function MetricPreviewCard({
               ? `${metric.valid_pixel_percent.toFixed(0)}% valid`
               : "Coverage —"}
           </span>
+
+          {formatRadarGeometry(
+            observation,
+          ) && (
+            <span className="metric-preview-radar-geometry">
+              {formatRadarGeometry(
+                observation,
+              )}
+            </span>
+          )}
         </div>
 
         <div className="metric-preview-value">
