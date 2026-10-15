@@ -1,3 +1,5 @@
+"""Manage planted crop cycles and measured harvest outcomes."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status

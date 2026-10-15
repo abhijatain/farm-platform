@@ -1,3 +1,4 @@
+"""Handle authorized media uploads, retrieval and deletion."""
 
 from __future__ import annotations
 

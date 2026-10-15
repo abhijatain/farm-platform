@@ -1,3 +1,5 @@
+"""Validate field polygons, area and ownership."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status

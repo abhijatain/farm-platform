@@ -1,3 +1,4 @@
+"""Expose satellite scenes, trends, change and anomaly areas."""
 
 import json
 from datetime import date

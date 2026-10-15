@@ -1,3 +1,5 @@
+"""Create and retrieve owner-scoped farms."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status

@@ -1,3 +1,5 @@
+"""Accept farmer activities and expose activity-linked satellite evidence."""
+
 import json
 from datetime import date, timedelta
 from typing import Literal
