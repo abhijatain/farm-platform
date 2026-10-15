@@ -285,3 +285,25 @@ Run the **new Alembic migration** before deploying the updated API:
 
 Crop growth stages are context for later radar/crop-specific anomalies;
 SAR anomaly classification remains intentionally disabled.
+
+
+### Weather provider troubleshooting
+
+In development, a 503 from the field-weather API means no source returned
+usable data; it does not mean the crop has no rainfall. The server now logs
+sanitized provider diagnostics (source + HTTP status/reason or network failure)
+without logging API keys. Source labels:
+- "historical": Open-Meteo reanalysis (preferred).
+- "historical_forecast": archived model-run fallback from 2022 onward.
+- "recent_model": recent weather-model estimates.
+- "forecast": future weather-model estimates (never an observation).
+
+The forecast API uses supported daily variables and computes mean relative
+humidity from hourly data, rather than requesting a nonportable daily
+humidity field. Run the local diagnostic CLI from services/api:
+
+    uv run python scripts/check_weather_provider.py --latitude 30.7 --longitude 76.7 --start 2026-06-18 --end 2026-10-08
+
+These are example coordinates. The CLI prints HTTP errors and transport
+failures without displaying API keys. No database migration is required
+for this weather-provider correction.

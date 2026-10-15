@@ -659,7 +659,7 @@ export type ActivitySatelliteContext = {
 /* Modeled weather is field-level context, not a satellite observation. */
 export type FieldWeatherDay = {
   date: string;
-  source: "historical" | "recent_model" | "forecast";
+  source: "historical" | "historical_forecast" | "recent_model" | "forecast";
   precipitation_mm: number | null;
   temperature_max_c: number | null;
   temperature_min_c: number | null;

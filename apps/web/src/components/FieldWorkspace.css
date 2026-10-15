@@ -3257,3 +3257,7 @@
 .satellite-trend-legend-item.confirmed-stage i {
   background: #327349;
 }
+
+/* Historical forecast fallback is distinct from reanalysis. */
+.weather-bar.historical-forecast { fill: #bdacda; }
+.weather-key.historical-forecast { background: #bdacda; }
