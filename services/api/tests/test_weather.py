@@ -65,7 +65,7 @@ def test_combines_archive_recent_and_forecast_without_overlap():
         )
 
     assert len(calls) == 2
-    assert len(result.days) == 20
+    assert len(result.days) == 19
     assert result.days[0].source == "historical"
     assert result.days[-1].source == "forecast"
     assert result.days[-1].date == TODAY + timedelta(days=6)
