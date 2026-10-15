@@ -22,9 +22,123 @@ TREND_METRIC_TYPES = (
     "ndvi",
     "ndre",
     "ndmi",
+    "sar_vv_db",
+    "sar_vh_db",
+    "sar_vv_vh_ratio",
     "sar_rvi",
     "lst_c",
 )
+
+
+def _radar_metadata(
+    *,
+    source: str,
+    metadata_json: dict | None,
+) -> tuple[
+    str | None,
+    int | None,
+    str | None,
+    str | None,
+]:
+    if not source.startswith(
+        "sentinel-1"
+    ):
+        return (
+            None,
+            None,
+            None,
+            None,
+        )
+
+    metadata = (
+        metadata_json
+        or {}
+    )
+
+    orbit_state_raw = (
+        metadata.get(
+            "orbit_state"
+        )
+    )
+
+    orbit_state = (
+        str(
+            orbit_state_raw
+        )
+        .strip()
+        .lower()
+        if orbit_state_raw
+        is not None
+        else None
+    )
+
+    relative_orbit_raw = (
+        metadata.get(
+            "relative_orbit"
+        )
+    )
+
+    relative_orbit = None
+
+    if (
+        relative_orbit_raw
+        is not None
+    ):
+        try:
+            relative_orbit = int(
+                relative_orbit_raw
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            relative_orbit = None
+
+    platform_raw = (
+        metadata.get(
+            "platform"
+        )
+    )
+
+    platform = (
+        str(
+            platform_raw
+        )
+        .strip()
+        if platform_raw
+        is not None
+        else None
+    )
+
+    radar_orbit_key = None
+
+    if (
+        orbit_state
+        and relative_orbit
+        is not None
+    ):
+        radar_orbit_key = (
+            f"{orbit_state}:"
+            f"{relative_orbit}"
+        )
+
+    elif relative_orbit is not None:
+        radar_orbit_key = (
+            f"orbit:{relative_orbit}"
+        )
+
+    elif orbit_state:
+        radar_orbit_key = (
+            orbit_state
+        )
+
+    return (
+        orbit_state,
+        relative_orbit,
+        platform,
+        radar_orbit_key,
+    )
 
 
 def _resolve_window(
@@ -135,6 +249,8 @@ def get_field_satellite_trends(
             SatelliteObservation
             .observed_on,
             SatelliteObservation.source,
+            SatelliteObservation
+            .metadata_json,
             SatelliteMetric
             .metric_type,
             SatelliteMetric.mean,
@@ -198,44 +314,70 @@ def get_field_satellite_trends(
         )
     ).all()
 
-    points = [
-        SatelliteTrendPoint(
-            observation_id=row[
-                0
-            ],
-            observed_on=row[
-                1
-            ],
+    points = []
+
+    for row in rows:
+        (
+            orbit_state,
+            relative_orbit,
+            platform,
+            radar_orbit_key,
+        ) = _radar_metadata(
             source=row[
                 2
             ],
-            metric_type=row[
+            metadata_json=row[
                 3
             ],
-            mean=row[
-                4
-            ],
-            median=row[
-                5
-            ],
-            valid_pixel_percent=row[
-                6
-            ],
-            anomaly_zone_count=int(
-                row[
-                    7
-                ]
-                or 0
-            ),
-            anomaly_area_acres=float(
-                row[
-                    8
-                ]
-                or 0.0
-            ),
         )
-        for row in rows
-    ]
+
+        points.append(
+            SatelliteTrendPoint(
+                observation_id=row[
+                    0
+                ],
+                observed_on=row[
+                    1
+                ],
+                source=row[
+                    2
+                ],
+                metric_type=row[
+                    4
+                ],
+                mean=row[
+                    5
+                ],
+                median=row[
+                    6
+                ],
+                valid_pixel_percent=row[
+                    7
+                ],
+                orbit_state=(
+                    orbit_state
+                ),
+                relative_orbit=(
+                    relative_orbit
+                ),
+                platform=platform,
+                radar_orbit_key=(
+                    radar_orbit_key
+                ),
+                anomaly_zone_count=int(
+                    row[
+                        8
+                    ]
+                    or 0
+                ),
+                anomaly_area_acres=float(
+                    row[
+                        9
+                    ]
+                    or 0.0
+                ),
+            )
+        )
 
     activities = db.scalars(
         select(
