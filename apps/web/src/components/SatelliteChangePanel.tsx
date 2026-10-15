@@ -401,9 +401,9 @@ export default function SatelliteChangePanel({
                 );
               }
 
-              const summary =
+              const summary = (
                 await response.json()
-                as SatellitePixelChangeSummary;
+              ) as SatellitePixelChangeSummary;
 
               if (!cancelled) {
                 setPixels(
@@ -540,15 +540,11 @@ export default function SatelliteChangePanel({
             value={
               metricType
             }
-            onChange={(
-              event,
-            ) =>
+            onChange={(event) => {
               setMetricType(
-                event.currentTarget
-                  .value
-                as SatelliteMetricType,
-              )
-            }
+                event.currentTarget.value as SatelliteMetricType,
+              );
+            }}
           >
             {METRIC_OPTIONS.map(
               (
@@ -578,15 +574,11 @@ export default function SatelliteChangePanel({
             value={
               mode
             }
-            onChange={(
-              event,
-            ) =>
+            onChange={(event) => {
               setMode(
-                event.currentTarget
-                  .value
-                as SatelliteChangeMode,
-              )
-            }
+                event.currentTarget.value as SatelliteChangeMode,
+              );
+            }}
           >
             {MODE_OPTIONS.map(
               (
