@@ -258,8 +258,8 @@ export default function WhatsAppLinkDialog({ onClose }: Props) {
                 </p>
               )}
               <p className="whatsapp-expiry">
-                {challenge || link.code_expires_at
-                  ? `Expires at ${formatExpiry(challenge?.expires_at ?? link.code_expires_at!)}`
+                {challenge || link?.code_expires_at
+                  ? `Expires at ${formatExpiry(challenge?.expires_at ?? link?.code_expires_at ?? "")}`
                   : "Code expires ten minutes after issue."}
               </p>
               <p className="whatsapp-muted">
