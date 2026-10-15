@@ -1,3 +1,4 @@
+"""Validate field media uploads and response locations."""
 
 from __future__ import annotations
 

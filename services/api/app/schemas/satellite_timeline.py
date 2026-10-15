@@ -1,3 +1,5 @@
+"""Represent source-aware selection of optical, radar and thermal passes."""
+
 from __future__ import annotations
 
 from datetime import date

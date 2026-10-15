@@ -1,3 +1,4 @@
+"""Persist acquisition identity, sensor and source-level scene metadata."""
 
 from __future__ import annotations
 

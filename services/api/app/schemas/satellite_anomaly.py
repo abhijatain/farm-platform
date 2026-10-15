@@ -1,3 +1,5 @@
+"""Represent field-relative anomaly polygon geometry and statistics."""
+
 from __future__ import annotations
 
 from typing import Literal

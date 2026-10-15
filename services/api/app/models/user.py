@@ -1,3 +1,5 @@
+"""Store authenticated user identity and profile preferences."""
+
 from __future__ import annotations
 
 from sqlalchemy import String

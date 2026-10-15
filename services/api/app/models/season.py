@@ -1,3 +1,5 @@
+"""Represent farm growing seasons and crop-cycle relationships."""
+
 from __future__ import annotations
 
 from datetime import date

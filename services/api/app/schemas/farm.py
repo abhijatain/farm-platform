@@ -1,3 +1,5 @@
+"""Define farm creation and response contracts."""
+
 from datetime import datetime
 from uuid import UUID
 

@@ -1,3 +1,4 @@
+"""Describe ingested satellite observations and job status."""
 
 from datetime import date, datetime
 from uuid import UUID
