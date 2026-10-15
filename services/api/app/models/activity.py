@@ -1,3 +1,5 @@
+"""Persist field operations with timestamps and input details."""
+
 from __future__ import annotations
 
 from datetime import datetime

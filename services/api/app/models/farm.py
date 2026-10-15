@@ -1,3 +1,4 @@
+"""Represent owner-scoped farms and their related fields."""
 
 from __future__ import annotations
 

@@ -1,3 +1,5 @@
+"""Track durable ingestion-job state, leasing and retries."""
+
 from __future__ import annotations
 
 from datetime import date, datetime

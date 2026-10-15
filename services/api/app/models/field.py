@@ -1,3 +1,4 @@
+"""Store PostGIS field geometry and farm relationships."""
 
 from __future__ import annotations
 

@@ -1,3 +1,5 @@
+"""Track crop lifecycle, farmer observations and measured harvests."""
+
 from __future__ import annotations
 
 from datetime import date

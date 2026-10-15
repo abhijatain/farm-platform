@@ -1,3 +1,5 @@
+"""Define reusable UUID and timestamp SQLAlchemy mixins."""
+
 from datetime import datetime
 from uuid import UUID, uuid4
 

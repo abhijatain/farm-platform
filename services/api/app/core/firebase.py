@@ -1,3 +1,5 @@
+"""Initialize Firebase token verification for HTTP authentication."""
+
 from pathlib import Path
 
 import firebase_admin

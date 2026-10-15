@@ -1,3 +1,4 @@
+"""Persist satellite index values, coverage and canonical COG URIs."""
 
 from __future__ import annotations
 
