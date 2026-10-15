@@ -18,7 +18,7 @@ from app.schemas.satellite_observation import (
     SatelliteMetricResponse,
     SatelliteObservationResponse,
 )
-from app.services.satellite_ingestion import (
+from app.domains.satellite.ingestion import (
     enqueue_initial_satellite_backfill,
 )
 

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from satellite_worker.sentinel2.indices import (
+from satellite_worker.sources.sentinel2.indices import (
     METRIC_DEFINITIONS,
     calculate_metric,
 )

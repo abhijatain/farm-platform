@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.db.session import SessionLocal
 from app.models.media_asset import MediaAsset
-from app.services.media_processing import process_media_asset
+from app.domains.media.processing import process_media_asset
 
 
 def parse_args():

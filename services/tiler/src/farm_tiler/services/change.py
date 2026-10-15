@@ -11,7 +11,7 @@ from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
 from rasterio.vrt import WarpedVRT
 
-from farm_tiler.gcs_path import (
+from farm_tiler.storage.gcs_path import (
     signed_gcs_get_url,
 )
 

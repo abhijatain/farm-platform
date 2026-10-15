@@ -3,11 +3,11 @@
 import pytest
 from fastapi import HTTPException
 
-from app.services.activity_satellite import (
+from app.domains.activities.satellite import (
     _comparison_status,
     _percent_change,
 )
-from app.services.media_uploads import (
+from app.domains.media.uploads import (
     _media_type_info,
     _normalized_content_type,
     _validate_size,
@@ -27,7 +27,7 @@ def test_unsupported_upload_is_rejected():
 
 
 def test_image_size_over_limit_is_rejected(monkeypatch):
-    from app.services.media_uploads import settings
+    from app.domains.media.uploads import settings
 
     monkeypatch.setattr(settings, "media_max_image_bytes", 1000)
     _validate_size(media_type="image", size_bytes=1000)

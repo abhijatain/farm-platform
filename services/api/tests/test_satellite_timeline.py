@@ -9,7 +9,7 @@ from app.models.satellite_metric import (
 from app.models.satellite_observation import (
     SatelliteObservation,
 )
-from app.services.satellite_timeline import (
+from app.domains.satellite.timeline import (
     build_satellite_timeline,
     source_kind,
     timeline_status,

@@ -9,7 +9,7 @@ from app.schemas.satellite_trends import (
     SatelliteTrendPoint,
 )
 from app.schemas.weather import WeatherDay
-from app.services.radar_screening import (
+from app.domains.satellite.radar_screening import (
     _weather_context,
     build_radar_screening,
     stage_at,

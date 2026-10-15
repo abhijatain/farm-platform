@@ -2,7 +2,8 @@
 
 The repository contains three deployable backend services with deliberately
 different responsibilities. All frontend code remains untouched by this
-refactor, and the service interfaces remain backward compatible.
+refactor, and preserve their HTTP and database contracts. Obsolete Python import paths
+and module command entry points have intentionally been retired.
 
 ## Repository layout
 
@@ -20,7 +21,7 @@ services/
         satellite/           # Optical/radar analysis, timelines, ingestion
       models/                # SQLAlchemy ORM and canonical PostGIS tables
       schemas/               # Pydantic HTTP request and response contracts
-      services/              # Stable compatibility paths + weather, crop growth
+      services/              # Active weather, crop growth and ownership
       core/                  # Runtime configuration and Firebase integration
       db/                    # Engine, sessions, model registration
       storage/               # Private GCS objects, paths and recovery manifests
@@ -53,15 +54,12 @@ services/
         manifests.py         # Recovery information
       cli/                   # Batch/backfill/manifest maintenance commands
       config.py
-      *.py                   # Small import + CLI compatibility modules
     tests/
   tiler/
     src/farm_tiler/
       main.py                # HTTP app and raster endpoints
       services/change.py     # Pixel difference raster operations
       storage/gcs_path.py    # Validated private GCS inputs
-      change.py              # Compatibility import
-      gcs_path.py            # Compatibility import
       config.py
     tests/
 tools/
@@ -101,26 +99,39 @@ docs/
   not interpret NDVI, NDMI, SAR or ET0 as automatic disease, yield or
   root-zone moisture diagnoses.
 
-## Legacy compatibility strategy
+## One canonical implementation per component
 
-Existing imports such as `app.services.satellite_change`,
-`satellite_worker.process_sentinel1_field`,
-`satellite_worker.sentinel2.indices` and `farm_tiler.change` still work.
+Old forwarding modules are **removed**. Code and tests import the implementation
+from its domain, sensor, storage or persistence package directly.
 
-The actual implementations now live in organized packages. Legacy module
-paths are deliberately small forwarding modules, **not second copies** of
-algorithms. They remain temporarily because external scripts, tests and
-established worker command lines use them. New code should use canonical
-packages. Delete compatibility paths only as part of a separately versioned
-breaking-change release with an import audit.
+| Component | Supported module |
+|---|---|
+| API satellite analysis | `app.domains.satellite.change`, `.timeline`, `.trends`, `.radar_screening` |
+| API activity, crop and media | `app.domains.activities.satellite`, `app.domains.crops.phenology`, `app.domains.media.*` |
+| Sensor pipelines | `satellite_worker.sources.sentinel1.pipeline`, `.sentinel2.pipeline`, `.landsat.pipeline` |
+| Shared processing | `satellite_worker.processing.*` |
+| Worker persistence | `satellite_worker.persistence.*` |
+| Worker object storage | `satellite_worker.storage.*` |
+| Job runner and manual operations | `satellite_worker.ingestion.worker`, `satellite_worker.cli.*` |
+| Tiler | `farm_tiler.services.change`, `farm_tiler.storage.gcs_path` |
 
-Existing CLI usage remains valid:
+The installed `satellite-ingestion-worker` console command is supported: it
+directly calls `satellite_worker.ingestion.worker:main`, not a forwarding file.
+
 ```bash
 uv run satellite-ingestion-worker --once
-uv run python -m satellite_worker.process_field --help
-uv run python -m satellite_worker.process_sentinel1_field --help
-uv run python -m satellite_worker.process_landsat_field --help
+uv run python -m satellite_worker.sources.sentinel2.pipeline --help
+uv run python -m satellite_worker.sources.sentinel1.pipeline --help
+uv run python -m satellite_worker.sources.landsat.pipeline --help
+uv run python -m satellite_worker.cli.process_all_fields --help
+uv run python -m satellite_worker.cli.backfill_metric_anomalies --help
+uv run python -m satellite_worker.cli.refresh_storage_manifests --help
 ```
+
+**External deployment change:** update any crontab, Cloud Run Job, Docker
+command or standalone script that used a former top-level satellite worker
+module. This is a deliberate Python-import/CLI path breaking change, **not**
+a change to the HTTP API, stored data, or GCS object paths.
 
 ## Operational safeguards and conventions
 
@@ -137,14 +148,15 @@ uv run python -m satellite_worker.process_landsat_field --help
 - Comment style: every Python module has a concise purpose docstring. Add
   comments for **why** rules, failure-handling and temporal assumptions
   matter, not a comment on every assignment.
-- Tests: protect public route behavior, CLI entrypoints and old imports when
-  relocating code. Run lint/build before merging.
+- Tests: protect public route behavior, canonical CLI commands and
+  forbidden legacy dependencies. Run lint/build before merging.
 
 ## Verification
 
 From the repository root:
 ```bash
 python tools/check_backend_docs.py
+python tools/check_backend_architecture.py
 ```
 
 API:
@@ -173,11 +185,9 @@ uv run --with pytest pytest -q tests
 CI additionally tests migrations on **fresh PostGIS**, application imports
 and the unchanged web build. Refactoring does not require a DB migration.
 
-### Why some files are still top-level
+### Still-valid top-level services
 
-A few API services (`crop_growth`, `weather`, `ownership`) intentionally
-retain their established module identities, including test monkeypatch
-targets. Route modules, models and schemas also remain at their stable,
-professional public boundaries. Moving them purely for symmetry would
-increase risk without reducing real coupling. Similarly the worker's
-top-level compatibility shims are expected to be small, not deleted.
+`app.services.crop_growth`, `app.services.weather`, and
+`app.services.ownership` are the actual implementations—not compatibility
+wrappers. Public HTTP routers, Pydantic schemas and SQLAlchemy models also
+remain in their appropriate stable packages.

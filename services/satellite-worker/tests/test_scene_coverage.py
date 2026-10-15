@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from satellite_worker.sentinel2.processor import (
+from satellite_worker.sources.sentinel2.processor import (
     summarize_scene_coverage,
 )
 
