@@ -12,7 +12,7 @@ from app.models.field import Field
 from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
 from app.models.user import User
-from app.services.satellite_change import (
+from app.domains.satellite.change import (
     build_field_satellite_change,
     default_pixel_change_threshold,
 )

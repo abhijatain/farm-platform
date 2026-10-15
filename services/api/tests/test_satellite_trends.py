@@ -16,7 +16,7 @@ from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
 from app.models.season import Season
 from app.models.user import User
-from app.services.satellite_trends import (
+from app.domains.satellite.trends import (
     TREND_METRIC_TYPES,
     get_field_satellite_trends,
 )
@@ -765,7 +765,7 @@ def test_radar_trends_expose_all_metrics_and_orbit_geometry() -> None:
 
 
 def test_partial_radar_geometry_does_not_create_comparison_group() -> None:
-    from app.services.satellite_trends import _radar_metadata
+    from app.domains.satellite.trends import _radar_metadata
 
     for metadata in (
         {"orbit_state": "descending"},

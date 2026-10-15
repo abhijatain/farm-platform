@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from app.schemas.crop_growth import StageObservationInput
 from app.schemas.weather import WeatherDay
-from app.services.crop_phenology import (
+from app.domains.crops.phenology import (
     growing_degree_days,
     provisional_stage,
     resolve_profile,
