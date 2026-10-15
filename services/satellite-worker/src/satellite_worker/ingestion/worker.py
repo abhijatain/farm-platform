@@ -155,7 +155,7 @@ def _process_job(
             [
                 sys.executable,
                 "-m",
-                "satellite_worker.process_field",
+                "satellite_worker.sources.sentinel2.pipeline",
                 *shared_args,
                 "--max-scene-cloud",
                 str(
@@ -169,7 +169,7 @@ def _process_job(
             [
                 sys.executable,
                 "-m",
-                "satellite_worker.process_sentinel1_field",
+                "satellite_worker.sources.sentinel1.pipeline",
                 *shared_args,
             ],
         ),
@@ -178,7 +178,7 @@ def _process_job(
             [
                 sys.executable,
                 "-m",
-                "satellite_worker.process_landsat_field",
+                "satellite_worker.sources.landsat.pipeline",
                 *shared_args,
                 "--max-scene-cloud",
                 str(

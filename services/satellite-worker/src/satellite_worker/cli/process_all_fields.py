@@ -91,7 +91,7 @@ def main() -> None:
         command = [
             sys.executable,
             "-m",
-            "satellite_worker.process_field",
+            "satellite_worker.sources.sentinel2.pipeline",
             "--field-id",
             field_id,
             "--start",
