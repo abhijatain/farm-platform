@@ -12,6 +12,7 @@ import {
 
 import WeatherContextPanel from "./WeatherContextPanel";
 import CropGrowthStagePanel from "./CropGrowthStagePanel";
+import RadarScreeningPanel from "./RadarScreeningPanel";
 
 import {
   METRIC_CONFIG,
@@ -2340,6 +2341,16 @@ export default function SatelliteTrendCharts({
             weather={weather}
             stageMarkers={growth?.observations ?? []}
           />
+          {cropCycle && !growthLoading && (
+            <RadarScreeningPanel
+              cropCycleId={cropCycle.id}
+              stagesFingerprint={
+                growth?.observations.map((item) => (
+                  item.stage_code + ":" + item.observed_on + ":" + item.updated_at
+                )).join("|") ?? ""
+              }
+            />
+          )}
           <WeatherContextPanel
             weather={weather}
             loading={weatherLoading}
