@@ -31,6 +31,7 @@ type ChartPoint = {
   date: string;
   value: number;
   source: string;
+  tooltip?: string;
 };
 
 
@@ -68,11 +69,30 @@ const OPTICAL_METRICS: SatelliteMetricType[] = [
 ];
 
 
+const RADAR_METRICS: SatelliteMetricType[] = [
+  "sar_rvi",
+  "sar_vv_db",
+  "sar_vh_db",
+  "sar_vv_vh_ratio",
+];
+
+
+const ANOMALY_METRICS: SatelliteMetricType[] = [
+  "ndvi",
+  "ndre",
+  "ndmi",
+  "lst_c",
+];
+
+
 const CONTEXT_METRICS: SatelliteMetricType[] = [
   "ndvi",
   "ndre",
   "ndmi",
   "sar_rvi",
+  "sar_vv_db",
+  "sar_vh_db",
+  "sar_vv_vh_ratio",
   "lst_c",
 ];
 
@@ -818,24 +838,27 @@ function TrendChart({
                             r="4"
                           >
                             <title>
-                              {item.label}
-                              {" · "}
-                              {formatLongDate(
-                                point.date,
-                              )}
-                              {" · "}
-                              {point.value.toFixed(
-                                Math.abs(
-                                  point.value,
-                                )
-                                  >= 10
-                                  ? 1
-                                  : 3,
-                              )}
-                              {" · "}
-                              {sourceLabel(
-                                point.source,
-                              )}
+                              {point.tooltip
+                                ?? (
+                                  item.label
+                                  + " · "
+                                  + formatLongDate(
+                                    point.date,
+                                  )
+                                  + " · "
+                                  + point.value.toFixed(
+                                    Math.abs(
+                                      point.value,
+                                    )
+                                      >= 10
+                                      ? 1
+                                      : 3,
+                                  )
+                                  + " · "
+                                  + sourceLabel(
+                                    point.source,
+                                  )
+                                )}
                             </title>
                           </circle>
                         ),
