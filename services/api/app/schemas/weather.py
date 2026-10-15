@@ -7,7 +7,12 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-WeatherSource = Literal["historical", "recent_model", "forecast"]
+WeatherSource = Literal[
+    "historical",
+    "historical_forecast",
+    "recent_model",
+    "forecast",
+]
 
 
 class WeatherDay(BaseModel):
