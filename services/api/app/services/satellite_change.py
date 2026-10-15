@@ -1136,7 +1136,20 @@ def build_field_satellite_change(
             ]
         )
 
-    if after is not None:
+    # Radar baseline comparisons need a complete, comparable geometry.
+    # Without both fields, comparing to an arbitrary pass is misleading.
+    radar_geometry_complete = (
+        bool(radar_orbit_state)
+        and radar_relative_orbit is not None
+    )
+
+    if (
+        after is not None
+        and (
+            not metric_type.startswith("sar_")
+            or radar_geometry_complete
+        )
+    ):
         if mode == "previous":
             before_row = (
                 _previous_metric(
