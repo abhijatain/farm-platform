@@ -220,11 +220,13 @@ def _metric_statement(
 
     if orbit_state is not None:
         statement = statement.where(
-            SatelliteObservation
-            .metadata_json[
-                "orbit_state"
-            ]
-            .astext
+            func.lower(
+                SatelliteObservation
+                .metadata_json[
+                    "orbit_state"
+                ]
+                .astext
+            )
             == orbit_state
         )
 
@@ -657,6 +659,28 @@ def _anomaly_spatial_summary(
     before: SatelliteChangeObservation | None,
     after: SatelliteChangeObservation | None,
 ) -> SatelliteChangeAnomalySummary:
+    if metric_type.startswith(
+        "sar_"
+    ):
+        return SatelliteChangeAnomalySummary(
+            persistence_basis=(
+                "radar_anomaly_rules_not_enabled"
+            ),
+            before_anomaly_area_sqm=None,
+            before_anomaly_area_acres=None,
+            after_anomaly_area_sqm=None,
+            after_anomaly_area_acres=None,
+            persistent_area_sqm=None,
+            persistent_area_acres=None,
+            resolved_area_sqm=None,
+            resolved_area_acres=None,
+            new_area_sqm=None,
+            new_area_acres=None,
+            persistent_geometry=None,
+            resolved_geometry=None,
+            new_geometry=None,
+        )
+
     before_area = (
         _anomaly_area(
             db=db,
