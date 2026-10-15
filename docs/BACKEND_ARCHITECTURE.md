@@ -1,72 +1,183 @@
-# Backend architecture
+# Backend architecture and contribution guide
 
-**Scope:** FastAPI API, satellite ingestion worker, TiTiler. The React frontend is intentionally unchanged by this refactor.
+The repository contains three deployable backend services with deliberately
+different responsibilities. All frontend code remains untouched by this
+refactor, and the service interfaces remain backward compatible.
 
-## Directory ownership
+## Repository layout
 
-| Directory | Responsibility | Avoid |
+```text
+services/
+  api/
+    app/
+      api/
+        deps.py              # Authenticated user + request-scoped DB session
+        routes/              # FastAPI HTTP adapter, authorization and validation
+      domains/
+        activities/          # Observation comparisons around farmer activities
+        crops/               # Crop phenology rules
+        media/               # Upload validation, derivatives, signed retrieval
+        satellite/           # Optical/radar analysis, timelines, ingestion
+      models/                # SQLAlchemy ORM and canonical PostGIS tables
+      schemas/               # Pydantic HTTP request and response contracts
+      services/              # Stable compatibility paths + weather, crop growth
+      core/                  # Runtime configuration and Firebase integration
+      db/                    # Engine, sessions, model registration
+      storage/               # Private GCS objects, paths and recovery manifests
+      utils/
+    alembic/                 # Existing immutable migration history
+    scripts/                 # Administrative CLI and diagnostics
+    tests/
+  satellite-worker/
+    src/satellite_worker/
+      sources/
+        sentinel1/pipeline.py
+        sentinel2/           # Bands, grid, indices, reflectance, pipeline
+        landsat/pipeline.py
+        stac.py              # Satellite catalog queries
+      processing/
+        anomaly.py           # Field-relative spatial anomalies
+        anomaly_rules.py
+        raster.py            # Shared cross-sensor COG/raster utilities
+      ingestion/
+        worker.py            # Durable job loop and processor invocation
+      persistence/
+        connection.py        # Shared SQLAlchemy engine
+        scenes.py            # Scene and metric data
+        jobs.py              # Queued, retryable ingestion jobs
+      storage/
+        gcs.py               # Private GCS access
+        rasters.py           # Upload, publish, materialize
+        context.py           # Farm and field storage context
+        layout.py            # Versioned canonical object keys
+        manifests.py         # Recovery information
+      cli/                   # Batch/backfill/manifest maintenance commands
+      config.py
+      *.py                   # Small import + CLI compatibility modules
+    tests/
+  tiler/
+    src/farm_tiler/
+      main.py                # HTTP app and raster endpoints
+      services/change.py     # Pixel difference raster operations
+      storage/gcs_path.py    # Validated private GCS inputs
+      change.py              # Compatibility import
+      gcs_path.py            # Compatibility import
+      config.py
+    tests/
+tools/
+  check_backend_docs.py      # AST-enforced module docstrings
+docs/
+  BACKEND_ARCHITECTURE.md
+```
+
+## Where to add backend code
+
+| Responsibility | Place it | Do not place it |
 |---|---|---|
-| services/api/app/api/routes | HTTP request/response validation, authorization, status codes | Long geospatial calculations and upload policy |
-| services/api/app/services | Reusable use cases, metric comparisons, weather, crop growth | Importing FastAPI routes or mutable browser state |
-| services/api/app/models | SQLAlchemy persistence models and relations | API presentation logic |
-| services/api/app/schemas | Pydantic contracts and validation | Network or database I/O |
-| services/api/app/core + db | Runtime configuration, Firebase identity and pooled sessions | Crop-health interpretation |
-| services/api/app/storage | Private GCS access, stable cloud layouts, manifests | Unrestricted public storage URLs |
-| services/api/alembic/versions | Ordered immutable schema migration history | Editing revisions already applied in production |
-| services/api/scripts | Explicit maintenance and diagnostics commands | Destructive work at import time |
-| services/satellite-worker/src/satellite_worker/persistence/scenes.py | Field geometry and scene/metric/anomaly reads and writes | Job queue policy |
-| services/satellite-worker/src/satellite_worker/persistence/jobs.py | Satellite ingestion queue, retry/claim/recovery | Raster processing |
-| services/satellite-worker/src/satellite_worker/persistence/connection.py | One shared SQLAlchemy engine | Duplicated connection pools |
-| services/satellite-worker/src/satellite_worker/sentinel2 | Spectral-band metadata, reflectance, masks, index calculations | API route response schemas |
-| services/satellite-worker/src/satellite_worker/process_* | Source-specific scene orchestration and cloud publishing | Other sensors' index formulas |
-| services/tiler/src/farm_tiler | Controlled private COG rendering and change raster previews | Arbitrary unrestricted cloud reads |
+| HTTP status, request validation, per-user ownership | API api/routes | Worker/tiler/domain algebra |
+| Crop growth or agronomic calculations | API domains/crops or standalone tested growth services | HTTP route handlers |
+| Satellite field reports and comparisons | API domains/satellite | Generic ORM models |
+| Ingestion rate limits, retries, job lifecycle | Worker ingestion and persistence/jobs | Individual spectral formulas |
+| Sentinel-1 or Landsat algorithms | Worker sources/sentinel1 or sources/landsat | Sentinel-2 helpers |
+| Optical bands, masks and index formulae | Worker sources/sentinel2 | Geospatial REST layer |
+| Raster statistics, anomaly geometry and raster alignment | Worker processing | Farm ownership routes |
+| Private cloud paths and manifests | Each backend service's storage package | Frontend-visible secrets |
+| Raster tiles and map change previews | Tiler service | PostgreSQL query adapters |
+| DB revisions | services/api/alembic | Worker code |
 
-## What was decoupled
+## Dependency rules
 
-- The field activity route delegates its metric selection, scalar before/after comparison and spatial anomaly overlap queries to app.services.activity_satellite.
-- The media routes use app.services.media_uploads for permitted content types, size limits, signed link/response construction, and storage-manifest helpers.
-- The satellite worker now separates scenes and ingestion jobs into persistence repositories. The satellite_worker.db module reexports functions for backwards compatibility; new code should import directly from persistence.scenes and persistence.jobs.
+- API request adapters depend on domain services, ORM models and validated
+  schemas. Domain services should not import API route modules or FastAPI
+  request dependency aliases.
+- Satellite pipelines depend on shared processing, persistence, and storage;
+  none of those lower layers may depend on sensor pipeline modules.
+- Storage keys are **not renamed** in this refactor. GCS recovery manifests
+  remain stable and are not a replacement for PostgreSQL canonical records.
+- All external identifiers are verified for scope/ownership at the API
+  boundary. Reusable utilities do not authorize themselves by trusting a
+  field ID sent over the network.
+- Keep sensor provenance, native resolution and pixel-quality metadata; do
+  not interpret NDVI, NDMI, SAR or ET0 as automatic disease, yield or
+  root-zone moisture diagnoses.
 
-## Invariants worth documenting
+## Legacy compatibility strategy
 
-- **One system of record:** field/crop/activity data lives in PostgreSQL/PostGIS. GCS stores durable rasters/media and recovery manifests.
-- **Quality-aware satellites:** never mix mismatched radar orbit geometry or optical cloud-skipped images with valid crop measurements.
-- **No unsupported diagnosis:** NDVI/NDMI/SAR/ET0 are signals or modeled context, not direct disease/yield/soil-water diagnoses.
-- **Scoped ownership:** authenticate at routes and validate access before retrieving private fields, media or crop cycles.
-- **Idempotent processing:** ingestion retries must preserve completed observations and historical NDVI-only records.
-- **Contract stability:** preserve public route paths, Pydantic responses, migration heads and canonical GCS paths unless separately planned.
-- **Graceful failures:** weather provider errors may remove context, but cannot overwrite canonical field records; GCS recovery manifest refresh must not invalidate committed data.
+Existing imports such as `app.services.satellite_change`,
+`satellite_worker.process_sentinel1_field`,
+`satellite_worker.sentinel2.indices` and `farm_tiler.change` still work.
 
-## Documentation convention
+The actual implementations now live in organized packages. Legacy module
+paths are deliberately small forwarding modules, **not second copies** of
+algorithms. They remain temporarily because external scripts, tests and
+established worker command lines use them. New code should use canonical
+packages. Delete compatibility paths only as part of a separately versioned
+breaking-change release with an import audit.
 
-Every Python module begins with an informative module docstring naming its responsibility. Use comments for *why* constraints exist, especially time windows, fallback provenance, orbit comparability and transaction boundaries. Avoid line-by-line comments that restate what each assignment does. Put business logic under services or repositories; keep FastAPI route functions short where practical.
+Existing CLI usage remains valid:
+```bash
+uv run satellite-ingestion-worker --once
+uv run python -m satellite_worker.process_field --help
+uv run python -m satellite_worker.process_sentinel1_field --help
+uv run python -m satellite_worker.process_landsat_field --help
+```
+
+## Operational safeguards and conventions
+
+- Database: SQLAlchemy/PostGIS is the canonical farm data store. Do not alter
+  existing SQLAlchemy models, Alembic heads or SQL query semantics merely
+  because files move.
+- Sensors: radar comparison must honor ascending/descending and relative
+  orbit. Optical trends must respect field pixel quality and cloud masking.
+- Weather: distinguish historical reanalysis, archived model fallback,
+  recent models and forecasts; missing days are not zero rainfall.
+- Tasks: ingestion retry/deduplication and partial-source success are
+  historical behavior and must remain stable.
+- Privacy: never log raw bearer tokens, signed media URLs or farm secrets.
+- Comment style: every Python module has a concise purpose docstring. Add
+  comments for **why** rules, failure-handling and temporal assumptions
+  matter, not a comment on every assignment.
+- Tests: protect public route behavior, CLI entrypoints and old imports when
+  relocating code. Run lint/build before merging.
 
 ## Verification
 
-Run from repository root:
+From the repository root:
+```bash
+python tools/check_backend_docs.py
+```
 
-    python tools/check_backend_docs.py
+API:
+```bash
+cd services/api
+uv sync --frozen
+uv run alembic current --check-heads
+uv run --with pytest python -m pytest -q tests
+uv run python -m compileall -q app scripts
+```
 
-API checks:
+Worker:
+```bash
+cd services/satellite-worker
+uv sync --frozen
+uv run --with pytest pytest -q tests
+```
 
-    cd services/api
-    uv sync --frozen
-    uv run alembic current --check-heads
-    uv run --with pytest python -m pytest -q tests
-    uv run python -m compileall -q app scripts
+Tiler:
+```bash
+cd services/tiler
+uv sync --frozen
+uv run --with pytest pytest -q tests
+```
 
-Worker checks:
+CI additionally tests migrations on **fresh PostGIS**, application imports
+and the unchanged web build. Refactoring does not require a DB migration.
 
-    cd services/satellite-worker
-    uv sync --frozen
-    uv run --with pytest pytest -q tests
+### Why some files are still top-level
 
-Tiler checks:
-
-    cd services/tiler
-    uv sync --frozen
-    uv run --with pytest pytest -q tests
-
-GitHub Actions checks fresh PostGIS migrations, API imports/tests, worker, tiler and unchanged frontend build/lint. No database migration is needed for this refactor.
-
-**Future work:** Very large existing spatial-change and media-processing modules should be split further only around tested cohesive responsibilities, not mechanically by line count.
+A few API services (`crop_growth`, `weather`, `ownership`) intentionally
+retain their established module identities, including test monkeypatch
+targets. Route modules, models and schemas also remain at their stable,
+professional public boundaries. Moving them purely for symmetry would
+increase risk without reducing real coupling. Similarly the worker's
+top-level compatibility shims are expected to be small, not deleted.

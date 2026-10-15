@@ -3,6 +3,17 @@
 FastAPI service for authentication, farms, fields, seasons, crop cycles,
 activities, satellite metadata, anomaly queries, and farmer media.
 
+## Domain-driven service layout
+
+HTTP endpoints stay in `app/api/routes/`. Domain implementations now live
+in `app/domains/{activities,crops,media,satellite}/`, with persistent data
+models in `app/models/` and response contracts in `app/schemas/`. The old
+`app/services` imports are kept where integrations require compatibility;
+weather, crop-growth and ownership services retain their stable identities.
+
+For the full backend dependency rules, see
+[`docs/BACKEND_ARCHITECTURE.md`](../../docs/BACKEND_ARCHITECTURE.md).
+
 ## Setup
 
 ```bash

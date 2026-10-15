@@ -3,6 +3,15 @@
 TiTiler-based raster service used by the web application to render canonical
 private GCS COGs.
 
+## Source organization
+
+`main.py` contains the FastAPI/TiTiler endpoint registration.
+Pixel-wise change calculations live in `services/change.py`, and validated
+private GCS dataset paths in `storage/gcs_path.py`. The former `change.py`
+and `gcs_path.py` paths remain compatible imports.
+
+See [backend architecture](../../docs/BACKEND_ARCHITECTURE.md).
+
 ## Setup
 
 ```bash

@@ -15,6 +15,26 @@ The worker writes temporary COGs, publishes canonical objects to private GCS,
 stores metric rows in PostgreSQL, and calculates metric-aware relative anomaly
 zones where a scientifically appropriate anomaly rule exists.
 
+## Source layout
+
+- `sources/sentinel2/`: optical bands, reflectance, cloud masks, indices
+  and optical processing pipeline.
+- `sources/sentinel1/`: RTC radar processing and relative-orbit metadata.
+- `sources/landsat/`: Landsat Level-2 thermal processing.
+- `sources/stac.py`: remote satellite imagery discovery.
+- `processing/`: cross-sensor raster tools and anomaly algorithms.
+- `ingestion/`: worker event loop and processor scheduling.
+- `persistence/`: database connection, scenes/metrics and ingestion jobs.
+- `storage/`: GCS access, canonical keys, COGs and manifests.
+- `cli/`: explicitly invoked backfill, maintenance and batch commands.
+
+The older top-level Python files remain small import/command compatibility
+shims. They do **not** duplicate processing logic. New code should import
+canonical package modules. Existing `satellite-ingestion-worker` and
+`python -m satellite_worker.process_*` commands remain valid.
+
+See [backend architecture](../../docs/BACKEND_ARCHITECTURE.md).
+
 ## Setup
 
 ```bash
