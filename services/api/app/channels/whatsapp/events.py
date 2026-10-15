@@ -19,6 +19,7 @@ class InboundEnvelope:
     link_code: str | None = field(default=None, repr=False)
     opt_out: bool = False
     command: str | None = field(default=None, repr=False)
+    timestamp: int | None = None
 
 
 def incoming_envelopes(payload: object) -> list[InboundEnvelope]:
@@ -76,5 +77,16 @@ def incoming_envelopes(payload: object) -> list[InboundEnvelope]:
                         command = body.strip()
                     else:
                         command = None
-                    envelopes.append(InboundEnvelope(mid, sender, number_id, kind, code, stop, command))
+                    timestamp_raw = item.get("timestamp")
+                    timestamp = (
+                        int(timestamp_raw)
+                        if isinstance(timestamp_raw, str)
+                        and timestamp_raw.isascii()
+                        and timestamp_raw.isdigit()
+                        and 9 <= len(timestamp_raw) <= 12
+                        else None
+                    )
+                    envelopes.append(InboundEnvelope(
+                        mid, sender, number_id, kind, code, stop, command, timestamp,
+                    ))
     return envelopes
