@@ -63,6 +63,10 @@ def test_legacy_sentinel2_helpers_are_still_available():
     "satellite_worker.process_all_fields",
     "satellite_worker.backfill_metric_anomalies",
     "satellite_worker.refresh_storage_manifests",
+    # The queue now invokes the canonical commands; check their CLI contracts too.
+    "satellite_worker.sources.sentinel2.pipeline",
+    "satellite_worker.sources.sentinel1.pipeline",
+    "satellite_worker.sources.landsat.pipeline",
 ])
 def test_existing_cli_entrypoint_help(entrypoint):
     result = subprocess.run(
