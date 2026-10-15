@@ -1,3 +1,4 @@
+"""Resolve private GCS raster paths without exposing unrestricted object keys."""
 
 from __future__ import annotations
 

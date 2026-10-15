@@ -1,3 +1,4 @@
+"""Create FastAPI/TiTiler routes for controlled field raster visualization."""
 
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import (

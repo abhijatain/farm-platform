@@ -1,3 +1,5 @@
+"""Build server-side pixel-change previews from comparable Cloud Optimized GeoTIFFs."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,3 +1,5 @@
+"""Check date-to-date satellite scalar and spatial comparisons."""
+
 from datetime import date
 from uuid import uuid4
 

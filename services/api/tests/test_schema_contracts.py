@@ -1,3 +1,5 @@
+"""Protect historical schema compatibility and core API invariants."""
+
 from datetime import datetime, timezone
 from uuid import uuid4
 
