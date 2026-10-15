@@ -43,7 +43,7 @@ def _client() -> storage.Client:
     )
 
 
-def _signed_gcs_get_url(
+def signed_gcs_get_url(
     gs_uri: str,
 ) -> str:
     parsed = urlparse(
@@ -135,6 +135,6 @@ def DatasetPathParams(
         ),
     ),
 ) -> str:
-    return _signed_gcs_get_url(
+    return signed_gcs_get_url(
         url
     )

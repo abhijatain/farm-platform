@@ -132,6 +132,10 @@ jobs:
         working-directory: services/tiler
         run: uv run python -c "from farm_tiler.main import app; assert app.routes"
 
+      - name: Run tiler tests
+        working-directory: services/tiler
+        run: uv run --with pytest pytest -q tests
+
   web:
     name: Web build + lint
     runs-on: ubuntu-latest

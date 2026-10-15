@@ -15,6 +15,8 @@ import type {
   SatelliteMetricType,
   ActivitySatelliteContext,
   FieldSatelliteTimeline,
+  FieldSatelliteChange,
+  SatelliteChangeMode,
 } from "../types/api";
 
 /* AUTH */
@@ -276,6 +278,71 @@ export function getSatelliteTimeline(
 
   return apiRequest<FieldSatelliteTimeline>(
     `/fields/${fieldId}/satellite-timeline?${params.toString()}`,
+  );
+}
+
+
+export function getSatelliteChange(
+  fieldId: string,
+  metricType: SatelliteMetricType,
+  mode: SatelliteChangeMode,
+  options?: {
+    toDate?: string | null;
+    fromDate?: string | null;
+    cropCycleId?: string | null;
+    minimumValidPercent?: number;
+    dateToleranceDays?: number;
+    pixelChangeThreshold?: number | null;
+  },
+) {
+  const params = new URLSearchParams({
+    metric_type: metricType,
+    mode,
+    minimum_valid_percent: String(
+      options?.minimumValidPercent
+      ?? 80,
+    ),
+    date_tolerance_days: String(
+      options?.dateToleranceDays
+      ?? 7,
+    ),
+  });
+
+  if (options?.toDate) {
+    params.set(
+      "to_date",
+      options.toDate,
+    );
+  }
+
+  if (options?.fromDate) {
+    params.set(
+      "from_date",
+      options.fromDate,
+    );
+  }
+
+  if (options?.cropCycleId) {
+    params.set(
+      "crop_cycle_id",
+      options.cropCycleId,
+    );
+  }
+
+  if (
+    options?.pixelChangeThreshold
+    != null
+  ) {
+    params.set(
+      "pixel_change_threshold",
+      String(
+        options.pixelChangeThreshold,
+      ),
+    );
+  }
+
+  return apiRequest<FieldSatelliteChange>(
+    `/fields/${fieldId}/satellite-change?${params.toString()}`,
   );
 }
 

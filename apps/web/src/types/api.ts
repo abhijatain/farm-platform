@@ -290,6 +290,133 @@ export type FieldSatelliteTimeline = {
   selection: SatelliteTimelineSelection;
 };
 
+export type SatelliteChangeMode =
+  | "previous"
+  | "crop_start"
+  | "days_7"
+  | "days_14"
+  | "days_30"
+  | "custom";
+
+export type SatelliteChangeObservation = {
+  observation_id: string;
+
+  observed_on: string;
+
+  source: string;
+  scene_id: string;
+
+  metric_type: SatelliteMetricType;
+
+  valid_pixel_percent: number | null;
+
+  mean: number | null;
+  median: number | null;
+
+  minimum: number | null;
+  maximum: number | null;
+  std: number | null;
+
+  raster_uri: string;
+
+  native_resolution_m: number | null;
+  output_resolution_m: number | null;
+};
+
+export type SatelliteChangeScalarSummary = {
+  days_between: number | null;
+
+  mean_change: number | null;
+  mean_percent_change: number | null;
+
+  median_change: number | null;
+  median_percent_change: number | null;
+};
+
+export type SatelliteChangeAnomalySummary = {
+  persistence_basis: string;
+
+  before_anomaly_area_sqm: number | null;
+  before_anomaly_area_acres: number | null;
+
+  after_anomaly_area_sqm: number | null;
+  after_anomaly_area_acres: number | null;
+
+  persistent_area_sqm: number | null;
+  persistent_area_acres: number | null;
+
+  resolved_area_sqm: number | null;
+  resolved_area_acres: number | null;
+
+  new_area_sqm: number | null;
+  new_area_acres: number | null;
+
+  persistent_geometry: SatelliteAnomalyGeometry | null;
+  resolved_geometry: SatelliteAnomalyGeometry | null;
+  new_geometry: SatelliteAnomalyGeometry | null;
+};
+
+export type FieldSatelliteChange = {
+  field_id: string;
+
+  metric_type: SatelliteMetricType;
+  mode: SatelliteChangeMode;
+  status:
+    | "complete"
+    | "missing_current"
+    | "missing_baseline";
+
+  requested_to_date: string | null;
+  requested_from_date: string | null;
+
+  baseline_target_date: string | null;
+
+  crop_cycle_id: string | null;
+  crop_reference_date: string | null;
+
+  minimum_valid_percent: number;
+  date_tolerance_days: number;
+
+  pixel_change_threshold: number;
+  pixel_change_display_max: number;
+
+  before: SatelliteChangeObservation | null;
+  after: SatelliteChangeObservation | null;
+
+  scalar: SatelliteChangeScalarSummary;
+  anomalies: SatelliteChangeAnomalySummary;
+};
+
+export type SatellitePixelChangeSummary = {
+  threshold: number;
+
+  valid_pixel_count: number;
+
+  mean_change: number;
+  median_change: number;
+
+  minimum_change: number;
+  maximum_change: number;
+
+  valid_area_sqm: number;
+  valid_area_acres: number;
+
+  increased_pixel_count: number;
+  increased_percent: number;
+  increased_area_sqm: number;
+  increased_area_acres: number;
+
+  decreased_pixel_count: number;
+  decreased_percent: number;
+  decreased_area_sqm: number;
+  decreased_area_acres: number;
+
+  stable_pixel_count: number;
+  stable_percent: number;
+  stable_area_sqm: number;
+  stable_area_acres: number;
+};
+
 export type SatelliteIngestionJobStatus =
   | "pending"
   | "running"
