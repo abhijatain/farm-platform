@@ -31,6 +31,10 @@ class SatelliteChangeObservation(BaseModel):
     source: str
     scene_id: str
 
+    orbit_state: str | None
+    relative_orbit: int | None
+    platform: str | None
+
     metric_type: str
 
     valid_pixel_percent: float | None
