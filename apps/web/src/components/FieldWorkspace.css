@@ -2683,3 +2683,71 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.radar-imagery-scale-note {
+  display: grid;
+
+  grid-template-columns:
+    auto
+    minmax(
+      120px,
+      260px
+    )
+    auto
+    minmax(
+      180px,
+      1fr
+    );
+
+  align-items: center;
+
+  gap: 8px;
+
+  margin: -4px 0 12px;
+
+  padding: 8px 10px;
+
+  border-radius: 8px;
+
+  background: #f3f6f8;
+
+  color: #5f6b74;
+
+  font-size: 8px;
+}
+
+.radar-imagery-scale-note > div {
+  height: 7px;
+
+  border-radius: 999px;
+}
+
+.radar-imagery-scale-note small {
+  color: #74808a;
+
+  font-size: 8px;
+
+  text-align: right;
+}
+
+@media (max-width: 680px) {
+  .radar-imagery-scale-note {
+    grid-template-columns:
+      auto
+      minmax(
+        80px,
+        1fr
+      )
+      auto;
+  }
+
+  .radar-imagery-scale-note small {
+    grid-column:
+      1
+      /
+      -1;
+
+    text-align: left;
+  }
+}
