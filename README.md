@@ -3,6 +3,15 @@
 Digital field intelligence and agricultural record system for farms, fields,
 crop cycles, activities, media, yield, and multi-source satellite analysis.
 
+## Product plan and current capabilities
+
+- [Feature inventory: already implemented, foundations, and open PRs](docs/FEATURE_INVENTORY.md)
+- [Prioritized non-drone TODO and detailed rollout sequence](TODO.md)
+- [WhatsApp-first farmer interface: multilingual chat, voice, reports, onboarding and secure Meta integration](docs/WHATSAPP_FIRST_PRODUCT.md)
+
+Feature importance/feasibility scores in these documents are planning judgments,
+not scientific accuracy guarantees. Drone-dependent features are deferred.
+
 ## Stack
 
 - Web: React 19 + Vite + TypeScript
@@ -308,41 +317,4 @@ These are example coordinates. The CLI prints HTTP errors and transport
 failures without displaying API keys. No database migration is required
 for this weather-provider correction.
 
-
-## Crop- and stage-aware radar variation screening (experimental)
-
-The Satellite workspace now includes a **read-only screening report** for
-each selected crop cycle, using the endpoint:
-
-    GET /api/v1/crop-cycles/{crop_cycle_id}/radar-screening
-
-This is a conservative *field-median* screening layer, not automatic
-crop-health monitoring. It does not create anomaly polygons, persisted
-alerts or disease/water-stress/nutrient diagnoses.
-
-- Requires at least 80% valid coverage, complete matching ascending/
-  descending state and relative orbit, and three **earlier distinct-day**
-  radar passes from the same farmer-confirmed crop stage, within 120 days.
-- A provisional stage is shown for context but NEVER used to trigger a
-  screening variation. An uncalibrated/unknown crop profile also cannot trigger
-  a variation, even when its generic manual stage is confirmed. Farmer-recorded transition dates govern the stage
-  **at each acquisition**, avoiding future-stage leakage.
-- Compares VH (dB), VV (dB) and RVI with a same-stage median. Threshold =
-  max(conservative metric absolute floor, 3×1.4826×MAD), expanded by a
-  crop and stage multiplier. All thresholds are initial engineering
-  heuristics that require crop/variety/region validation, NOT calibrated
-  agronomic limits.
-- Shows precipitation for the 3-day acquisition window *only if all three
-  days are present*, nearby valid NDVI/NDMI (up to 10 days older) and farm
-  activity context (past 5 days). Weather outages cannot block the report.
-- A missing stage, orbit geometry, quality, baseline or weather signal is
-  explicitly reported as missing; none is replaced with a manufactured
-  health judgment.
-- The UI displays each viewing geometry separately and labels its acquisition
-  date. This is not an alert about today's condition if the last pass is old.
-
-No database migration is required for this screening release. Before
-treating radar variations as operational crop alerts, validate thresholds
-against ground-truth plots, climate, crop varieties, stage observations and
-field-level false-positive rates. Spatial SAR anomaly polygons, calibration
-and persistence checking remain future work.
+**Channel status:** WhatsApp is a high-priority planned farmer interface, not yet implemented. Roadmap items T61–T80 cover Meta Cloud API, verified farm linking, consent, native-language onboarding, activity and media capture, reports, voice and templates. The existing web remains the advanced mapping/analysis interface.
