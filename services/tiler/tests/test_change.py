@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from farm_tiler.change import (
+from farm_tiler.services.change import (
     ChangeRaster,
     render_change_png,
     summarize_change,
