@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import io
 import hmac
 import json
 from datetime import date, datetime, timedelta, timezone
@@ -21,8 +22,8 @@ from app.api.routes.whatsapp_webhook import receive_meta_webhook
 from app.channels.whatsapp.events import incoming_envelopes
 from app.channels.whatsapp.handler import schedule_session_reply
 from app.channels.whatsapp.menus import list_message, main_menu, menu_reply
-from app.channels.whatsapp.outbox import _valid_consent, dispatch_one
-from app.channels.whatsapp.linking import complete_link, request_link
+from app.channels.whatsapp.outbox import _valid_consent, dispatch_one, _send_graph_message
+from app.channels.whatsapp.linking import complete_link, request_link, stop_messaging
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.farm import Farm
@@ -32,6 +33,7 @@ from app.models.user import User
 from app.models.whatsapp_inbound_event import WhatsAppInboundEvent
 from app.models.whatsapp_link import WhatsAppLink
 from app.models.whatsapp_outbox import WhatsAppOutbox
+from app.channels.whatsapp import outbox as outbox_module
 from app.schemas.whatsapp_link import StartWhatsAppLinkRequest
 
 
@@ -261,3 +263,79 @@ def test_interactive_parser_extracts_reply_id_not_untrusted_title():
     assert envelope.command == "menu:farms"
     assert envelope.timestamp == 1790000000
     assert "Untrusted label" not in repr(envelope)
+
+
+def test_graph_api_interactive_list_payload_uses_official_schema(meta_config, monkeypatch):
+    """Verify the real JSON body without contacting Meta or printing a token."""
+    job = WhatsAppOutbox(
+        inbound_message_id="wamid.payload-" + uuid4().hex,
+        user_id=uuid4(), recipient_wa_id="919000000001",
+        phone_number_id="1234567890",
+        payload=main_menu("hi"), reply_before=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+
+    def intercept(req, timeout):
+        assert timeout <= 15
+        assert req.full_url == "https://graph.facebook.com/v26.0/1234567890/messages"
+        assert req.get_header("Authorization") == "Bearer not-a-real-access-token"
+        data = json.loads(req.data)
+        assert data["to"] == "919000000001"
+        assert data["type"] == "interactive"
+        assert data["interactive"]["type"] == "list"
+        assert data["messaging_product"] == "whatsapp"
+        return io.BytesIO(b'{"messages":[{"id":"wamid.fake123"}]}')
+
+    monkeypatch.setattr(outbox_module.urllib.request, "urlopen", intercept)
+    assert _send_graph_message(job) == "wamid.fake123"
+
+
+def test_dispatcher_sends_only_after_linked_consent(farmers, monkeypatch):
+    db, ids = farmers
+    owner = db.get(User, ids[0][0])
+    code = request_link(
+        db, owner, StartWhatsAppLinkRequest(consent=True, preferred_language="en"),
+    ).link_code
+    assert complete_link(
+        db, code=code, sender_wa_id=owner.phone_e164[1:],
+        phone_number_id="1234567890",
+    )
+    db.commit()
+    monkeypatch.setattr(settings, "whatsapp_outbound_enabled", True)
+    inbound_id = "wamid.dispatch-" + uuid4().hex
+    from app.channels.whatsapp.events import InboundEnvelope
+
+    assert schedule_session_reply(db, InboundEnvelope(
+        message_id=inbound_id, sender_wa_id=owner.phone_e164[1:],
+        phone_number_id="1234567890", message_type="text",
+        command="MENU", timestamp=int(datetime.now(timezone.utc).timestamp()),
+    ))
+    db.commit()
+    outgoing = []
+    def mock_send(job):
+        outgoing.append(job.inbound_message_id)
+        return "wamid.mock-outbound"
+    monkeypatch.setattr(outbox_module, "_send_graph_message", mock_send)
+    assert dispatch_one() == "sent"
+    db.expire_all()
+    item = db.scalar(select(WhatsAppOutbox).where(
+        WhatsAppOutbox.inbound_message_id == inbound_id,
+    ))
+    assert item.status == "sent"
+    assert item.meta_message_id == "wamid.mock-outbound"
+    assert outgoing == [inbound_id]
+
+    # A still-queued message must not be sent after revoking WhatsApp consent.
+    revoked_id = "wamid.revoked-" + uuid4().hex
+    assert schedule_session_reply(db, InboundEnvelope(
+        message_id=revoked_id, sender_wa_id=owner.phone_e164[1:],
+        phone_number_id="1234567890", message_type="text",
+        command="1", timestamp=int(datetime.now(timezone.utc).timestamp()),
+    ))
+    db.commit()
+    assert stop_messaging(
+        db, sender_wa_id=owner.phone_e164[1:],
+        phone_number_id="1234567890",
+    )
+    db.commit()
+    assert dispatch_one() == "cancelled"
+    assert outgoing == [inbound_id]
