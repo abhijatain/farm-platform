@@ -10,6 +10,7 @@ from app.api.routes import (
     weather,
     media,
     satellite_observations,
+    radar_screening,
     seasons,
 )
 
@@ -33,3 +34,5 @@ api_router.include_router(activities.router)
 api_router.include_router(media.router)
 
 api_router.include_router(satellite_observations.router)
+
+api_router.include_router(radar_screening.router)

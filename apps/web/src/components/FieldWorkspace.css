@@ -3261,3 +3261,143 @@
 /* Historical forecast fallback is distinct from reanalysis. */
 .weather-bar.historical-forecast { fill: #bdacda; }
 .weather-key.historical-forecast { background: #bdacda; }
+
+
+/* Non-diagnostic radar review. No red/green health interpretations. */
+.radar-screen-panel {
+  min-width: 0;
+  border: 1px solid #dce2e9;
+  border-radius: 12px;
+  background: #f7f9fb;
+  padding: 17px;
+}
+.radar-screen-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+.radar-screen-heading h4 {
+  margin: 5px 0 6px;
+  font-size: 16px;
+  color: #324253;
+}
+.radar-screen-heading p {
+  max-width: 790px;
+  margin: 0;
+  line-height: 1.5;
+  color: #667789;
+  font-size: 11px;
+}
+.radar-screen-heading button {
+  flex-shrink: 0;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid #cfd9e1;
+  border-radius: 8px;
+  color: #426079;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.radar-screen-heading button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.radar-screen-selector-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 10px;
+  font-size: 11px;
+  color: #5f7385;
+}
+.radar-screen-selector-row select {
+  min-width: 220px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d5dee7;
+  border-radius: 8px;
+  background: #fff;
+  color: #334657;
+  font-size: 11px;
+}
+.radar-screen-orbit-report {
+  border: 1px solid #e1e7ed;
+  border-radius: 10px;
+  background: #fff;
+  padding: 12px;
+}
+.radar-screen-orbit-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.radar-screen-orbit-facts > div {
+  border: 1px solid #e2e9ee;
+  border-radius: 9px;
+  padding: 11px;
+  min-width: 0;
+}
+.radar-screen-orbit-facts span,
+.radar-screen-orbit-facts strong,
+.radar-screen-orbit-facts small {
+  display: block;
+}
+.radar-screen-orbit-facts span {
+  font-size: 10px;
+  color: #687e90;
+}
+.radar-screen-orbit-facts strong {
+  margin: 5px 0;
+  font-size: 15px;
+  color: #314b5e;
+}
+.radar-screen-orbit-facts small {
+  line-height: 1.4;
+  font-size: 9px;
+  color: #738799;
+}
+.radar-screen-orbit-facts strong.radar-screen-review {
+  color: #8c6a28;
+}
+.radar-screen-table-scroll { overflow-x: auto; }
+.radar-screen-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.radar-screen-table th,
+.radar-screen-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e8edf1;
+}
+.radar-screen-table th {
+  white-space: nowrap;
+  color: #5e7487;
+  background: #f6f9fa;
+  font-weight: 600;
+}
+.radar-screen-table td { color: #384e5e; }
+.radar-screen-context p,
+.radar-screen-message,
+.radar-screen-warning,
+.radar-screen-disclaimer {
+  line-height: 1.6;
+  margin: 10px 0 0;
+  font-size: 10px;
+  color: #667889;
+}
+.radar-screen-warning { color: #957340; }
+.radar-screen-message.error { color: #a34b4b; }
+.radar-screen-disclaimer { border-top: 1px solid #e3eaf0; padding-top: 10px; }
+@media(max-width: 900px) {
+  .radar-screen-orbit-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media(max-width: 620px) {
+  .radar-screen-heading { flex-direction: column; }
+  .radar-screen-orbit-facts { grid-template-columns: 1fr; }
+}
