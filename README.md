@@ -243,3 +243,45 @@ environment variable.
 Weather reanalysis and recent forecasts are modeled grid-cell estimates,
 not sensor readings at the farm. Rain near a radar pass is context only, and
 crop-stage-aware SAR anomaly detection remains disabled.
+
+
+## Crop development and growth-stage tracking
+
+An active crop cycle now includes a crop-development diary above the
+satellite graphs. Each farmer-confirmed stage transition is saved in the
+crop_stage_observations table, scoped to the authenticated crop-cycle owner.
+Markers are overlaid on optical and same-orbit Radar RVI charts.
+
+The API offers:
+
+    GET    /api/v1/crop-cycles/{id}/growth-stages
+    PUT    /api/v1/crop-cycles/{id}/growth-stages
+    DELETE /api/v1/crop-cycles/{id}/growth-stages/{stage_code}
+
+PUT accepts stage_code, observed_on (YYYY-MM-DD) and optional notes.
+Each stage can be corrected without adding duplicate records; dates are
+checked against crop planting/start, today, harvest and chronological
+stage order. Generic manual-only stages are available for crops without
+a supported model.
+
+Wheat, rice and maize have **broad provisional day-after-planting milestone
+templates**, version 2026-10-v1. They are explanatory estimates only, not
+region/variety-calibrated recommendations. No automatic stage is generated
+when the planting date is missing, and generic/unrecognized crops receive
+no speculative growth predictions.
+
+Accumulated growing-degree days (GDD) are displayed independently of
+milestone prediction. GDD uses daily model/reanalysis temperatures from
+Open-Meteo at the field centroid, and is suppressed if *any* planting-to-date
+temperature day is missing. Available crop base temperatures: wheat 0 °C,
+rice 10 °C, maize 10 °C. These simplify development context, do not
+account for thermal upper limits, photoperiod, cultivar, vernalization or
+local management, and should not drive agronomic alerts without validation.
+
+Run the **new Alembic migration** before deploying the updated API:
+
+    cd services/api
+    uv run alembic upgrade head
+
+Crop growth stages are context for later radar/crop-specific anomalies;
+SAR anomaly classification remains intentionally disabled.

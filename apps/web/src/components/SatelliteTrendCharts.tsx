@@ -580,6 +580,13 @@ function TrendChart({
           ),
         )}
 
+        {stageMarkers.length > 0 && (
+          <span className="satellite-trend-legend-item confirmed-stage">
+            <i />
+            Farmer-confirmed crop stage
+          </span>
+        )}
+
         {activities.length > 0 && (
           <span className="satellite-trend-legend-item activity">
             <i />

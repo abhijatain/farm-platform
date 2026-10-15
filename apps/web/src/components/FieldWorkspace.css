@@ -3253,3 +3253,7 @@
   .crop-growth-form { grid-template-columns: 1fr; }
   .crop-growth-notes { grid-column: auto; }
 }
+
+.satellite-trend-legend-item.confirmed-stage i {
+  background: #327349;
+}
