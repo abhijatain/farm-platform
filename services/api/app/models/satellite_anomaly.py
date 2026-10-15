@@ -1,3 +1,4 @@
+"""Persist spatially delineated field-relative anomaly zones."""
 
 from __future__ import annotations
 

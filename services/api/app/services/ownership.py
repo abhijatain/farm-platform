@@ -1,3 +1,5 @@
+"""Apply reusable ownership checks before reading or writing farm records."""
+
 from uuid import UUID
 
 from fastapi import HTTPException, status

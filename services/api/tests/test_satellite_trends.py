@@ -1,3 +1,5 @@
+"""Check radar orbit segmentation and optical trend generation."""
+
 from datetime import date, datetime, timezone
 from uuid import uuid4
 

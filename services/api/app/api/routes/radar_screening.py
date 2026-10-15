@@ -10,8 +10,8 @@ from app.models.crop_stage_observation import CropStageObservation
 from app.models.field import Field
 from app.schemas.radar_screening import CropRadarScreeningResponse
 from app.services.ownership import get_owned_crop_cycle
-from app.services.radar_screening import build_radar_screening
-from app.services.satellite_trends import get_field_satellite_trends
+from app.domains.satellite.radar_screening import build_radar_screening
+from app.domains.satellite.trends import get_field_satellite_trends
 from app.services.weather import WeatherProviderError, _today, load_field_weather
 
 

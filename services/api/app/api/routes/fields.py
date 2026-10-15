@@ -1,3 +1,5 @@
+"""Validate field polygons, area and ownership."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -19,7 +21,7 @@ from app.services.ownership import (
     get_owned_farm,
     get_owned_field,
 )
-from app.services.satellite_ingestion import (
+from app.domains.satellite.ingestion import (
     enqueue_initial_satellite_backfill,
 )
 

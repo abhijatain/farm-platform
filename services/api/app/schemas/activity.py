@@ -1,3 +1,5 @@
+"""Validate activity creation and serialize field operations."""
+
 from datetime import datetime
 from typing import Any
 from uuid import UUID

@@ -1,3 +1,5 @@
+"""Validate growing season inputs and expose season records."""
+
 from datetime import date, datetime
 from uuid import UUID
 

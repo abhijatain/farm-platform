@@ -1,3 +1,4 @@
+"""Generate stable canonical cloud paths for farms and field assets."""
 
 from __future__ import annotations
 

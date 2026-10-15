@@ -1,3 +1,5 @@
+"""Resolve Firebase identities and database sessions for authenticated requests."""
+
 from collections.abc import Generator
 from typing import Annotated
 

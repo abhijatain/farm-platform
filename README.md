@@ -12,6 +12,8 @@ crop cycles, activities, media, yield, and multi-source satellite analysis.
 Feature importance/feasibility scores in these documents are planning judgments,
 not scientific accuracy guarantees. Drone-dependent features are deferred.
 
+For backend contributors, see [the organized backend package map and compatibility rules](docs/BACKEND_ARCHITECTURE.md).
+
 ## Stack
 
 - Web: React 19 + Vite + TypeScript

@@ -1,3 +1,5 @@
+"""Validate provisional crop calendars and complete GDD coverage."""
+
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4

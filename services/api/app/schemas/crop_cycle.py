@@ -1,3 +1,5 @@
+"""Validate crop planting and measured harvest contracts."""
+
 from datetime import date, datetime
 from uuid import UUID
 

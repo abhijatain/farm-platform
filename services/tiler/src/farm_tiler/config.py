@@ -1,3 +1,4 @@
+"""Validate storage and COG serving configuration for TiTiler."""
 
 from pathlib import Path
 

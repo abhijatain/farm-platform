@@ -1,3 +1,5 @@
+"""Regression tests for sentinel1 metrics, protecting established satellite behavior."""
+
 import numpy as np
 import pytest
 

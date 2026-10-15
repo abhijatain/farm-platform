@@ -1,3 +1,4 @@
+"""Create FastAPI/TiTiler routes for controlled field raster visualization."""
 
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import (
@@ -12,13 +13,13 @@ from titiler.core.factory import (
 )
 from rasterio.errors import RasterioError
 
-from farm_tiler.change import (
+from farm_tiler.services.change import (
     read_change_raster,
     render_change_png,
     summarize_change,
 )
 from farm_tiler.config import settings
-from farm_tiler.gcs_path import (
+from farm_tiler.storage.gcs_path import (
     DatasetPathParams,
 )
 

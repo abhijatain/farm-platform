@@ -1,3 +1,5 @@
+"""Manage farm seasons with ownership checks."""
+
 from uuid import UUID
 
 from fastapi import APIRouter, status

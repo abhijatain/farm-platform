@@ -1,3 +1,5 @@
+"""Describe before/after activity observation and spatial change evidence."""
+
 from __future__ import annotations
 
 from datetime import date, datetime

@@ -1,3 +1,4 @@
+"""Sanitize path labels while retaining stable UUID identity."""
 
 from __future__ import annotations
 

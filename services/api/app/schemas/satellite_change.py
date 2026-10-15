@@ -1,3 +1,5 @@
+"""Represent comparison modes, pixel changes and anomaly-area deltas."""
+
 from __future__ import annotations
 
 from datetime import date

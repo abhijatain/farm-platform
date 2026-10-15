@@ -1,3 +1,5 @@
+"""Validate field polygon GeoJSON and area summaries."""
+
 from datetime import datetime
 from typing import Literal
 from uuid import UUID

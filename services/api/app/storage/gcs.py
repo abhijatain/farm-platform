@@ -1,3 +1,4 @@
+"""Authorize and access private Google Cloud Storage objects."""
 
 from __future__ import annotations
 

@@ -1,3 +1,5 @@
+"""Expose the authenticated farmer identity and profile."""
+
 from fastapi import APIRouter
 
 from app.api.deps import CurrentUser

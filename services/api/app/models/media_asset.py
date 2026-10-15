@@ -1,3 +1,4 @@
+"""Track uploaded photo/video metadata, locations and processing state."""
 
 from __future__ import annotations
 

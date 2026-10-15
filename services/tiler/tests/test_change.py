@@ -1,3 +1,5 @@
+"""Guard pixel-change computations, raster masking and API assumptions."""
+
 import numpy as np
 
 from farm_tiler.change import (

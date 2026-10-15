@@ -1,3 +1,4 @@
+"""Expose satellite scenes, trends, change and anomaly areas."""
 
 import json
 from datetime import date
@@ -37,13 +38,13 @@ from app.services.ownership import (
     get_owned_crop_cycle,
     get_owned_field,
 )
-from app.services.satellite_change import (
+from app.domains.satellite.change import (
     build_field_satellite_change,
 )
-from app.services.satellite_timeline import (
+from app.domains.satellite.timeline import (
     get_field_satellite_timeline,
 )
-from app.services.satellite_trends import (
+from app.domains.satellite.trends import (
     get_field_satellite_trends,
 )
 

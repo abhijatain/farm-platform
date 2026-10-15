@@ -1,3 +1,5 @@
+"""Check source-specific cloudy dates and radar fallback selection."""
+
 from datetime import date, datetime, timezone
 from uuid import uuid4
 

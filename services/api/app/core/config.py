@@ -1,3 +1,4 @@
+"""Configure validated runtime settings and secrets for the API."""
 
 from pathlib import Path
 

@@ -1,3 +1,5 @@
+"""Serialize chronological farm operations and related crop context."""
+
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID

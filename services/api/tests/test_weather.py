@@ -1,3 +1,5 @@
+"""Check modeled weather parsing, coverage, errors and fallback provenance."""
+
 from datetime import date, timedelta
 from unittest.mock import patch
 from uuid import uuid4

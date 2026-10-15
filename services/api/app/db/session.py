@@ -1,3 +1,5 @@
+"""Manage the shared PostgreSQL engine and unit-of-work sessions."""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

@@ -1,3 +1,5 @@
+"""Register ORM metadata used by schema migrations and queries."""
+
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 

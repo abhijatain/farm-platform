@@ -1,3 +1,5 @@
+"""Describe per-date sensor metrics and farm activity timeline markers."""
+
 from __future__ import annotations
 
 from datetime import date, datetime

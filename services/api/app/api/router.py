@@ -1,3 +1,5 @@
+"""Mount FastAPI route groups in one stable versioned router."""
+
 from fastapi import APIRouter
 
 from app.api.routes import (

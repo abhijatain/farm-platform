@@ -1,3 +1,5 @@
+"""Describe authenticated user information returned by the API."""
+
 from datetime import datetime
 from uuid import UUID
 
