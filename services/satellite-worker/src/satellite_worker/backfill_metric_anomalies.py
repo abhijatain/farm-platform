@@ -12,7 +12,7 @@ from satellite_worker.anomaly import (
 from satellite_worker.anomaly_rules import (
     METRIC_ANOMALY_RULES,
 )
-from satellite_worker.db import (
+from satellite_worker.persistence.scenes import (
     get_field_geometry,
     list_satellite_metric_rasters_for_backfill,
     replace_satellite_anomalies,

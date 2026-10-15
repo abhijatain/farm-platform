@@ -12,6 +12,7 @@ from satellite_worker.persistence.scenes import (
     list_satellite_metric_rasters_for_backfill,
     automatic_scene_state_is_complete,
     satellite_scene_is_complete_for_automatic_ingestion,
+    satellite_scene_is_handled_for_metrics,
 )
 from satellite_worker.persistence.jobs import (
     enqueue_missing_initial_satellite_jobs,
@@ -21,7 +22,6 @@ from satellite_worker.persistence.jobs import (
     mark_satellite_ingestion_job_completed,
     mark_satellite_ingestion_job_failed,
     recover_stale_satellite_ingestion_jobs,
-    satellite_scene_is_handled_for_metrics,
 )
 
 __all__ = [

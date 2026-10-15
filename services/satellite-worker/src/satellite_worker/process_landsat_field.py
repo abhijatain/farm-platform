@@ -16,7 +16,7 @@ from satellite_worker.anomaly import (
     detect_metric_anomalies,
 )
 from satellite_worker.config import settings
-from satellite_worker.db import (
+from satellite_worker.persistence.scenes import (
     replace_satellite_anomalies,
     satellite_scene_is_handled_for_metrics,
     save_satellite_metrics,

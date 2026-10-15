@@ -13,7 +13,7 @@ from pystac_client import Client
 from rasterio.enums import Resampling
 
 from satellite_worker.config import settings
-from satellite_worker.db import (
+from satellite_worker.persistence.scenes import (
     satellite_scene_is_handled_for_metrics,
     save_satellite_metrics,
     save_satellite_observation,

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from sqlalchemy import text
 
-from satellite_worker.db import engine
+from satellite_worker.persistence.connection import engine
 from satellite_worker.storage_context import (
     get_field_storage_context,
 )

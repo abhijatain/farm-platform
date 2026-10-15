@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from satellite_worker.config import settings
-from satellite_worker.db import (
+from satellite_worker.persistence.jobs import (
     claim_next_satellite_ingestion_job,
     enqueue_incremental_satellite_jobs,
     enqueue_missing_initial_satellite_jobs,

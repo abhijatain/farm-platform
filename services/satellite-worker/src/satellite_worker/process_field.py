@@ -14,7 +14,7 @@ from satellite_worker.anomaly import (
 from satellite_worker.anomaly_rules import (
     METRIC_ANOMALY_RULES,
 )
-from satellite_worker.db import (
+from satellite_worker.persistence.scenes import (
     replace_satellite_anomalies,
     satellite_scene_is_complete_for_automatic_ingestion,
     save_satellite_metrics,

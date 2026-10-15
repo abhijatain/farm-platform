@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import text
 
-from satellite_worker.db import engine
+from satellite_worker.persistence.connection import engine
 from satellite_worker.gcs_client import gcs_bucket
 from satellite_worker.storage_layout import (
     STORAGE_LAYOUT_VERSION,

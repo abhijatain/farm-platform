@@ -8,7 +8,7 @@ import sys
 
 from sqlalchemy import text
 
-from satellite_worker.db import (
+from satellite_worker.persistence.connection import (
     engine,
 )
 
