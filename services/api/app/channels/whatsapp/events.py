@@ -5,7 +5,9 @@ location and audio are deliberately NOT processed until consent, identity
 linking, durable dispatch and retention policy have been implemented.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from app.channels.whatsapp.linking import parse_link_code
 
 
 @dataclass(frozen=True)
@@ -14,6 +16,8 @@ class InboundEnvelope:
     sender_wa_id: str
     phone_number_id: str
     message_type: str
+    link_code: str | None = field(default=None, repr=False)
+    opt_out: bool = False
 
 
 def incoming_envelopes(payload: object) -> list[InboundEnvelope]:
@@ -52,5 +56,11 @@ def incoming_envelopes(payload: object) -> list[InboundEnvelope]:
                     and isinstance(sender, str) and sender.isdigit() and len(sender) <= 32
                     and isinstance(kind, str) and 1 <= len(kind) <= 30
                 ):
-                    envelopes.append(InboundEnvelope(mid, sender, number_id, kind))
+                    # Parse text in memory only; never store or print message
+                    # bodies. Only LINK codes and STOP are actionable here.
+                    text_data = item.get("text") if kind == "text" else None
+                    body = text_data.get("body") if isinstance(text_data, dict) else None
+                    code = parse_link_code(body)
+                    stop = isinstance(body, str) and body.strip().upper() == "STOP"
+                    envelopes.append(InboundEnvelope(mid, sender, number_id, kind, code, stop))
     return envelopes

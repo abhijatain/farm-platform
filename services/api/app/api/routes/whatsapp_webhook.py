@@ -1,7 +1,7 @@
 """Receive verified Meta WhatsApp webhook events with idempotent DB writes.
 
-This is an ingress foundation, NOT a conversational bot: it never sends
-messages, interprets agriculture questions or links a WhatsApp phone to a farm.
+This is an ingress boundary, not a conversational bot: only explicit LINK
+and STOP commands affect consent or ownership, and no replies are sent.
 """
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -9,6 +9,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.channels.whatsapp.events import incoming_envelopes
+from app.channels.whatsapp.linking import complete_link, stop_messaging
 from app.channels.whatsapp.security import verify_handshake, verify_signature
 from app.api.deps import DBSession
 from app.models.whatsapp_inbound_event import WhatsAppInboundEvent
@@ -52,7 +53,22 @@ async def receive_meta_webhook(
             sender_wa_id=item.sender_wa_id,
             phone_number_id=item.phone_number_id,
             message_type=item.message_type,
-        ).on_conflict_do_nothing(index_elements=["message_id"])
-        db.execute(stmt)
+        ).on_conflict_do_nothing(index_elements=["message_id"]).returning(
+            WhatsAppInboundEvent.id
+        )
+        inserted = db.execute(stmt).scalar_one_or_none()
+        if inserted is None:
+            # Never process a replayed Meta event twice.
+            continue
+        if item.opt_out:
+            stop_messaging(
+                db, sender_wa_id=item.sender_wa_id,
+                phone_number_id=item.phone_number_id,
+            )
+        elif item.link_code:
+            complete_link(
+                db, code=item.link_code, sender_wa_id=item.sender_wa_id,
+                phone_number_id=item.phone_number_id,
+            )
     db.commit()
     return {"status": "received"}

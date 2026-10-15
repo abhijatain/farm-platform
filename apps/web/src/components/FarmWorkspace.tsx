@@ -13,6 +13,9 @@ import {
 import NavRail
   from "./NavRail";
 
+import WhatsAppLinkDialog
+  from "./WhatsAppLinkDialog";
+
 import FieldsSidebar
   from "./FieldsSidebar";
 
@@ -222,6 +225,9 @@ export default function FarmWorkspace() {
   ] = useState<string | null>(
     null,
   );
+
+  // Keep account settings separate from the active map/field editing state.
+  const [whatsAppOpen, setWhatsAppOpen] = useState(false);
 
 
   const selectedFarmIdRef =
@@ -814,7 +820,7 @@ export default function FarmWorkspace() {
   return (
     <div className="app-shell">
 
-      <NavRail />
+      <NavRail onOpenWhatsApp={() => setWhatsAppOpen(true)} />
 
 
       <FieldsSidebar
@@ -1036,6 +1042,11 @@ export default function FarmWorkspace() {
         )}
 
       </main>
+
+
+      {whatsAppOpen && (
+        <WhatsAppLinkDialog onClose={() => setWhatsAppOpen(false)} />
+      )}
 
 
       {createFarmOpen && (

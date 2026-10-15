@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     # Integration remains disabled until Meta app secrets are configured.
     whatsapp_verify_token: SecretStr | None = None
     whatsapp_app_secret: SecretStr | None = None
+    # Numeric receiving WhatsApp business phone ID from Meta API Setup.
+    whatsapp_phone_number_id: str | None = None
 
     ffmpeg_binary: str = "ffmpeg"
 

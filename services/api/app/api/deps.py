@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.channels.whatsapp.linking import invalidate_link_on_phone_change
 from app.core.firebase import get_firebase_app
 from app.db.session import SessionLocal
 from app.models.user import User
@@ -160,6 +161,9 @@ def get_current_user(
         # Firebase remains the source of truth for the
         # verified phone number.
         if user.phone_e164 != phone_number:
+            # Changing the verified Firebase number invalidates all WhatsApp
+            # access and pending codes tied to the previous phone.
+            invalidate_link_on_phone_change(db, user)
             user.phone_e164 = phone_number
 
             try:

@@ -3,6 +3,7 @@ import {
   LayoutGrid,
   LogOut,
   MapPin,
+  MessageCircle,
   NotebookTabs,
   Settings,
   Sprout,
@@ -13,7 +14,9 @@ import {
 } from "../providers/AuthProvider";
 
 
-export default function NavRail() {
+type Props = { onOpenWhatsApp: () => void };
+
+export default function NavRail({ onOpenWhatsApp }: Props) {
 
   const {
     logout,
@@ -50,6 +53,17 @@ export default function NavRail() {
 
 
       <div className="rail-spacer" />
+
+
+      <button
+        type="button"
+        className="rail-button"
+        onClick={onOpenWhatsApp}
+        title="WhatsApp linking"
+        aria-label="Connect WhatsApp account"
+      >
+        <MessageCircle size={23} />
+      </button>
 
 
       <button className="rail-button">
