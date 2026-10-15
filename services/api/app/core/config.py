@@ -65,6 +65,15 @@ class Settings(BaseSettings):
     # Commercial installations must supply a licensed Open-Meteo key.
     weather_api_key: SecretStr | None = None
 
+    # WhatsApp Cloud API. All secrets remain server-side and unset by default.
+    whatsapp_verify_token: SecretStr | None = None
+    whatsapp_app_secret: SecretStr | None = None
+    whatsapp_access_token: SecretStr | None = None
+    whatsapp_phone_number_id: str | None = None
+    whatsapp_graph_version: str = "v26.0"
+    whatsapp_sending_enabled: bool = False
+    whatsapp_max_webhook_bytes: int = 262144
+
     ffmpeg_binary: str = "ffmpeg"
 
     ffprobe_binary: str = "ffprobe"

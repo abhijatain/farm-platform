@@ -13,6 +13,7 @@ from app.api.routes import (
     media,
     satellite_observations,
     radar_screening,
+    whatsapp,
     seasons,
 )
 
@@ -38,3 +39,5 @@ api_router.include_router(media.router)
 api_router.include_router(satellite_observations.router)
 
 api_router.include_router(radar_screening.router)
+
+api_router.include_router(whatsapp.router)

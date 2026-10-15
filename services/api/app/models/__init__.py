@@ -12,9 +12,13 @@ from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
 from app.models.season import Season
 from app.models.user import User
+from app.models.whatsapp import WhatsAppContact, WhatsAppInbound, WhatsAppOutbound
 
 __all__ = [
     "User",
+    "WhatsAppContact",
+    "WhatsAppInbound",
+    "WhatsAppOutbound",
     "Farm",
     "Field",
     "Season",
