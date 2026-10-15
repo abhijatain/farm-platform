@@ -723,7 +723,7 @@ export type CropGrowth = {
 export type RadarScreenMetric = {
   metric_type: "sar_vh_db" | "sar_vv_db" | "sar_rvi";
   unit: string;
-  status: "unusual_variation" | "within_reference_range" | "insufficient_baseline" | "unverified_stage";
+  status: "unusual_variation" | "within_reference_range" | "insufficient_baseline" | "unverified_stage" | "unsupported_crop";
   latest_value: number;
   reference_median: number | null;
   difference: number | null;

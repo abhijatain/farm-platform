@@ -11,7 +11,7 @@ class RadarScreenMetric(BaseModel):
     unit: str
     status: Literal[
         "unusual_variation", "within_reference_range",
-        "insufficient_baseline", "unverified_stage",
+        "insufficient_baseline", "unverified_stage", "unsupported_crop",
     ]
     latest_value: float
     reference_median: float | None = None

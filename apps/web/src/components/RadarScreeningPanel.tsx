@@ -60,6 +60,7 @@ function MetricTable({ metrics }: { metrics: RadarScreenMetric[] }) {
                 {metric.status === "unusual_variation" ? "Unusual variation — inspect" :
                   metric.status === "within_reference_range" ? "Within screening range" :
                   metric.status === "unverified_stage" ? "Stage not confirmed" :
+                  metric.status === "unsupported_crop" ? "Crop not calibrated" :
                   "More comparable passes needed"}
               </td>
             </tr>

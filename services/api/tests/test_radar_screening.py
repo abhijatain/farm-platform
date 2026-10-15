@@ -225,3 +225,16 @@ def test_recent_optical_and_crop_activity_are_context_not_diagnosis():
     assert orbit.optical[0].days_from_radar == 2
     assert orbit.nearby_activities == ["irrigation"]
     assert orbit.status == "review_variation"
+
+
+
+def test_unknown_crop_never_raises_variation_even_with_confirmed_stage():
+    confirmed = [recorded("vegetative", date(2026, 7, 1))]
+    report = screen(
+        readings(),
+        crop_name="guava",
+        confirmed=confirmed,
+    )
+    assert report.profile_key == "other"
+    assert report.orbits[0].status == "insufficient_evidence"
+    assert report.orbits[0].metrics[0].status == "unsupported_crop"

@@ -141,6 +141,8 @@ def _screen_metric(
     )
     if stage_source != "farmer_confirmed":
         return RadarScreenMetric(status="unverified_stage", **args)
+    if crop_key == "other":
+        return RadarScreenMetric(status="unsupported_crop", **args)
     if count < MIN_BASELINE:
         return RadarScreenMetric(status="insufficient_baseline", **args)
 
@@ -266,7 +268,11 @@ def build_radar_screening(
         unusual = any(x.status == "unusual_variation" for x in metrics)
         has_screen = any(x.status in ("unusual_variation", "within_reference_range") for x in metrics)
         explanations: list[str] = []
-        if stage_source != "farmer_confirmed":
+        if stage_source == "farmer_confirmed" and profile.key == "other":
+            explanations.append(
+                "This crop has no supported radar screening profile. Confirmed stages are recorded, but variation flags are withheld until a crop-specific configuration is validated."
+            )
+        elif stage_source != "farmer_confirmed":
             explanations.append(
                 "The acquisition does not have a farmer-confirmed growth stage; only descriptive measurements are available."
             )

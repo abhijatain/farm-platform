@@ -324,7 +324,8 @@ alerts or disease/water-stress/nutrient diagnoses.
   descending state and relative orbit, and three **earlier distinct-day**
   radar passes from the same farmer-confirmed crop stage, within 120 days.
 - A provisional stage is shown for context but NEVER used to trigger a
-  screening variation. Farmer-recorded transition dates govern the stage
+  screening variation. An uncalibrated/unknown crop profile also cannot trigger
+  a variation, even when its generic manual stage is confirmed. Farmer-recorded transition dates govern the stage
   **at each acquisition**, avoiding future-stage leakage.
 - Compares VH (dB), VV (dB) and RVI with a same-stage median. Threshold =
   max(conservative metric absolute floor, 3×1.4826×MAD), expanded by a
