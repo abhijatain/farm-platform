@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DBSession
+from sqlalchemy.orm import Session as DBSession
 from app.models.satellite_metric import (
     SatelliteMetric,
 )

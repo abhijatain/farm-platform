@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import func, or_, select, text
 
-from app.api.deps import DBSession
+from sqlalchemy.orm import Session as DBSession
 from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
 from app.schemas.satellite_change import (

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 
-from app.api.deps import DBSession
+from sqlalchemy.orm import Session as DBSession
 from app.models.activity import Activity
 from app.models.crop_cycle import CropCycle
 from app.models.satellite_anomaly import SatelliteAnomaly
