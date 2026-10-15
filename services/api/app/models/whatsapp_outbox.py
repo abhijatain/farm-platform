@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,7 @@ from app.models.base import UUIDPrimaryKeyMixin
 
 class WhatsAppOutbox(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "whatsapp_outbox"
+    __table_args__ = (Index("ix_whatsapp_outbox_ready", "status", "available_at", "created_at"),)
 
     inbound_message_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     user_id: Mapped[UUID] = mapped_column(
