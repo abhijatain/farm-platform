@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 
 import ActivityMediaSection from "./ActivityMediaSection";
 import SatelliteChangePanel from "./SatelliteChangePanel";
+import SatelliteTrendCharts from "./SatelliteTrendCharts";
 import {
   createActivity,
   createCropCycle,
@@ -760,10 +761,17 @@ function SatelliteTab({
       )}
 
       {!loading && !error && usableObservations.length > 0 && (
-        <SatelliteChangePanel
-          fieldId={field.id}
-          cropCycle={cropCycle}
-        />
+        <>
+          <SatelliteTrendCharts
+            fieldId={field.id}
+            cropCycle={cropCycle}
+          />
+
+          <SatelliteChangePanel
+            fieldId={field.id}
+            cropCycle={cropCycle}
+          />
+        </>
       )}
 
       {loading && (
