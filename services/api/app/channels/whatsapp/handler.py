@@ -35,11 +35,17 @@ def schedule_session_reply(
     if item.timestamp is None:
         return False
     now = _now()
-    sent_at = datetime.fromtimestamp(item.timestamp, tz=timezone.utc)
+    try:
+        sent_at = datetime.fromtimestamp(item.timestamp, tz=timezone.utc)
+    except (ValueError, OverflowError, OSError):
+        return False
     # A small safety margin avoids responses close to service-window expiry.
     expires = sent_at + timedelta(hours=23, minutes=45)
     if sent_at > now + timedelta(minutes=2) or expires <= now:
         return False
+    # SessionLocal has autoflush=False: newly completed links from this same
+    # webhook transaction must be flushed before the read-back query.
+    db.flush()
     linked = db.scalar(
         select(WhatsAppLink).where(
             WhatsAppLink.wa_id == item.sender_wa_id,
