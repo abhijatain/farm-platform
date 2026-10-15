@@ -315,7 +315,8 @@ export default function LoginPage() {
           Your phone number is
           processed by Firebase for
           authentication and abuse
-          prevention.
+          prevention. Use your real mobile number to link WhatsApp; Firebase
+          test numbers cannot prove ownership of a real WhatsApp account.
 
         </p>
 

@@ -18,6 +18,7 @@ class InboundEnvelope:
     message_type: str
     link_code: str | None = field(default=None, repr=False)
     opt_out: bool = False
+    command: str | None = field(default=None, repr=False)
 
 
 def incoming_envelopes(payload: object) -> list[InboundEnvelope]:
@@ -62,5 +63,18 @@ def incoming_envelopes(payload: object) -> list[InboundEnvelope]:
                     body = text_data.get("body") if isinstance(text_data, dict) else None
                     code = parse_link_code(body)
                     stop = isinstance(body, str) and body.strip().upper() == "STOP"
-                    envelopes.append(InboundEnvelope(mid, sender, number_id, kind, code, stop))
+                    # Interactive lists send a stable row id; text fallback
+                    # supports short numeric choices and MENU/HELP only.
+                    interactive = item.get("interactive") if kind == "interactive" else None
+                    selection = None
+                    if isinstance(interactive, dict):
+                        choice = interactive.get("list_reply") or interactive.get("button_reply")
+                        selection = choice.get("id") if isinstance(choice, dict) else None
+                    if isinstance(selection, str) and 1 <= len(selection) <= 120:
+                        command = selection
+                    elif isinstance(body, str) and len(body) <= 80 and not code and not stop:
+                        command = body.strip()
+                    else:
+                        command = None
+                    envelopes.append(InboundEnvelope(mid, sender, number_id, kind, code, stop, command))
     return envelopes

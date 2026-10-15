@@ -14,6 +14,7 @@ from app.models.season import Season
 from app.models.user import User
 from app.models.whatsapp_inbound_event import WhatsAppInboundEvent
 from app.models.whatsapp_link import WhatsAppLink
+from app.models.whatsapp_outbox import WhatsAppOutbox
 
 __all__ = [
     "User",
@@ -30,4 +31,5 @@ __all__ = [
     "MediaAsset",
     "WhatsAppInboundEvent",
     "WhatsAppLink",
+    "WhatsAppOutbox",
 ]
