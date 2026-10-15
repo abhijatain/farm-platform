@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import ActivityMediaSection from "./ActivityMediaSection";
+import SatelliteChangePanel from "./SatelliteChangePanel";
 import {
   createActivity,
   createCropCycle,
@@ -617,6 +618,7 @@ export default function FieldDetailsPanel({
             error={satelliteError}
             ingestion={satelliteIngestion}
             timeline={satelliteTimeline}
+            cropCycle={cropCycle}
           />
         )}
 
@@ -688,6 +690,7 @@ function SatelliteTab({
   error,
   ingestion,
   timeline,
+  cropCycle,
 }: {
   field: Field;
   observations: SatelliteObservation[];
@@ -695,6 +698,7 @@ function SatelliteTab({
   error: string | null;
   ingestion: SatelliteIngestionJob | null;
   timeline: FieldSatelliteTimeline | null;
+  cropCycle: CropCycle | null;
 }) {
   const sorted = useMemo(
     () =>
@@ -752,6 +756,13 @@ function SatelliteTab({
       {!loading && !error && timeline && timeline.events.length > 0 && (
         <CrossSatelliteTimeline
           timeline={timeline}
+        />
+      )}
+
+      {!loading && !error && usableObservations.length > 0 && (
+        <SatelliteChangePanel
+          fieldId={field.id}
+          cropCycle={cropCycle}
         />
       )}
 
