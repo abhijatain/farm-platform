@@ -1,13 +1,13 @@
 """Farmer-confirmed crop stage transitions.
 
 Revision ID: c92531dd067f
-Revises: a693eb822c3c
+Revises: d2b63f18a2c7
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "c92531dd067f"
-down_revision = "a693eb822c3c"
+down_revision = "d2b63f18a2c7"
 branch_labels = None
 depends_on = None
 
