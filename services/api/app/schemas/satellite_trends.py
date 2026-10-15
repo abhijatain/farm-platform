@@ -17,6 +17,11 @@ class SatelliteTrendPoint(BaseModel):
     median: float | None
     valid_pixel_percent: float | None
 
+    orbit_state: str | None
+    relative_orbit: int | None
+    platform: str | None
+    radar_orbit_key: str | None
+
     anomaly_zone_count: int
     anomaly_area_acres: float
 
