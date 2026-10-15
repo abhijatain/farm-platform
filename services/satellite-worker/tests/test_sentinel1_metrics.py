@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-from satellite_worker.multisource_raster import (
+from satellite_worker.processing.raster import (
     RASTERIO_ENV,
 )
-from satellite_worker.process_sentinel1_field import (
+from satellite_worker.sources.sentinel1.pipeline import (
     calculate_sar_metric_arrays,
 )
 

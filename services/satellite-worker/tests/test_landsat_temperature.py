@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from satellite_worker.process_landsat_field import (
+from satellite_worker.sources.landsat.pipeline import (
     landsat_qa_masks,
     landsat_temperature_celsius,
 )

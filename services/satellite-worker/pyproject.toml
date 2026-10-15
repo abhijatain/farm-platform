@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-satellite-ingestion-worker = "satellite_worker.ingestion_worker:main"
+satellite-ingestion-worker = "satellite_worker.ingestion.worker:main"
 
 
 [build-system]
