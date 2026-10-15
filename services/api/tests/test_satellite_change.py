@@ -91,6 +91,9 @@ def _add_metric(
     metric_type: str,
     median: float,
     valid_percent: float = 100.0,
+    orbit_state: str | None = None,
+    relative_orbit: int | None = None,
+    platform: str | None = None,
 ) -> None:
     observation = (
         SatelliteObservation(
@@ -119,6 +122,20 @@ def _add_metric(
             metadata_json={
                 "processing_status":
                     "metrics_processed",
+                **(
+                    {
+                        "orbit_state":
+                            orbit_state,
+                        "relative_orbit":
+                            relative_orbit,
+                        "platform":
+                            platform,
+                    }
+                    if metric_type.startswith(
+                        "sar_"
+                    )
+                    else {}
+                ),
             },
         )
     )
@@ -535,3 +552,131 @@ def test_default_change_thresholds_are_metric_aware() -> None:
         )
         == 1.0
     )
+
+
+
+def test_sar_change_skips_more_recent_mismatched_orbit() -> None:
+    db = SessionLocal()
+
+    try:
+        field = _field(
+            db
+        )
+
+        _add_metric(
+            db,
+            field_id=field.id,
+            observed_on=date(
+                2026,
+                9,
+                20,
+            ),
+            metric_type="sar_rvi",
+            median=0.60,
+            orbit_state="descending",
+            relative_orbit=63,
+            platform="sentinel-1a",
+        )
+
+        _add_metric(
+            db,
+            field_id=field.id,
+            observed_on=date(
+                2026,
+                9,
+                28,
+            ),
+            metric_type="sar_rvi",
+            median=1.05,
+            orbit_state="ascending",
+            relative_orbit=136,
+            platform="sentinel-1a",
+        )
+
+        _add_metric(
+            db,
+            field_id=field.id,
+            observed_on=date(
+                2026,
+                10,
+                5,
+            ),
+            metric_type="sar_rvi",
+            median=0.82,
+            orbit_state="descending",
+            relative_orbit=63,
+            platform="sentinel-1a",
+        )
+
+        result = (
+            build_field_satellite_change(
+                db=db,
+                field_id=field.id,
+                metric_type="sar_rvi",
+                mode="previous",
+                requested_to_date=None,
+                requested_from_date=None,
+                crop_cycle_id=None,
+                crop_reference_date=None,
+                minimum_valid_percent=80.0,
+                date_tolerance_days=14,
+                pixel_change_threshold=None,
+            )
+        )
+
+        assert result.before is not None
+        assert result.after is not None
+
+        assert (
+            result.before.observed_on
+            == date(
+                2026,
+                9,
+                20,
+            )
+        )
+
+        assert (
+            result.after.observed_on
+            == date(
+                2026,
+                10,
+                5,
+            )
+        )
+
+        assert (
+            result.before.orbit_state
+            == "descending"
+        )
+
+        assert (
+            result.after.orbit_state
+            == "descending"
+        )
+
+        assert (
+            result.before.relative_orbit
+            == 63
+        )
+
+        assert (
+            result.after.relative_orbit
+            == 63
+        )
+
+        assert (
+            result.anomalies
+            .persistence_basis
+            == "radar_anomaly_rules_not_enabled"
+        )
+
+        assert (
+            result.anomalies
+            .persistent_area_acres
+            is None
+        )
+
+    finally:
+        db.rollback()
+        db.close()
