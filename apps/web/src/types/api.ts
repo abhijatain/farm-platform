@@ -717,3 +717,56 @@ export type CropGrowth = {
   gdd_days_expected: number;
   warnings: string[];
 };
+
+
+/* Exploratory field-median screening; never a diagnosis or persistent alert. */
+export type RadarScreenMetric = {
+  metric_type: "sar_vh_db" | "sar_vv_db" | "sar_rvi";
+  unit: string;
+  status: "unusual_variation" | "within_reference_range" | "insufficient_baseline" | "unverified_stage";
+  latest_value: number;
+  reference_median: number | null;
+  difference: number | null;
+  screening_threshold: number | null;
+  baseline_passes: number;
+  required_baseline_passes: number;
+};
+export type RadarOrbitScreen = {
+  radar_orbit_key: string;
+  orbit_state: string;
+  relative_orbit: number;
+  platform: string | null;
+  observed_on: string;
+  stage_code: string | null;
+  stage_label: string | null;
+  stage_source: "farmer_confirmed" | "provisional" | "unknown";
+  status: "review_variation" | "within_reference_range" | "insufficient_evidence";
+  metrics: RadarScreenMetric[];
+  weather: {
+    precipitation_3_day_mm: number | null;
+    days_available: number;
+    days_required: number;
+    wet_weather_context: boolean | null;
+  };
+  optical: {
+    metric_type: "ndvi" | "ndmi";
+    observed_on: string;
+    value: number;
+    days_from_radar: number;
+  }[];
+  nearby_activities: string[];
+  explanations: string[];
+};
+export type CropRadarScreening = {
+  crop_cycle_id: string;
+  field_id: string;
+  crop_name: string;
+  profile_key: string;
+  as_of: string;
+  analysis_version: string;
+  minimum_valid_coverage_percent: number;
+  minimum_prior_same_stage_passes: number;
+  orbits: RadarOrbitScreen[];
+  warnings: string[];
+  statement: string;
+};

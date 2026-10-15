@@ -5,6 +5,7 @@ import type {
   Activity,
   CropCycle,
   CropGrowth,
+  CropRadarScreening,
   CropStageObservation,
   CurrentUser,
   Farm,
@@ -451,5 +452,13 @@ export function deleteCropGrowthStage(cropCycleId: string, stageCode: string) {
   return apiRequest<void>(
     `/crop-cycles/${cropCycleId}/growth-stages/${encodeURIComponent(stageCode)}`,
     { method: "DELETE" },
+  );
+}
+
+
+/** Read-only screening of comparable radar passes in a crop cycle. */
+export function getCropRadarScreening(cropCycleId: string) {
+  return apiRequest<CropRadarScreening>(
+    "/crop-cycles/" + encodeURIComponent(cropCycleId) + "/radar-screening",
   );
 }
