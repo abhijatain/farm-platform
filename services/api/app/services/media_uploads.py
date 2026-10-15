@@ -1,54 +1,27 @@
-"""Validate media uploads and build media asset storage responses.
+"""Enforce media upload policy and build secure media object responses.
 
-Reusable upload policies and storage helpers are independent of endpoint
-registration and are shared across authenticated media operations.
+Reusable size/MIME checks, signed access and manifest handling are shared
+across HTTP routes without coupling to FastAPI dependency-injection aliases.
 """
-
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Literal
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    HTTPException,
-    Query,
-    Response,
-    status,
-)
-from fastapi.responses import RedirectResponse
+from fastapi import BackgroundTasks, HTTPException, status
 from sqlalchemy import select
-
 from sqlalchemy.orm import Session
-from app.models.user import User
+
 from app.core.config import settings
-from app.models.activity import Activity
-from app.models.farm import Farm
 from app.models.media_asset import MediaAsset
-from app.schemas.media import (
-    MediaAssetResponse,
-    MediaUploadCreate,
-    MediaUploadTarget,
-)
-from app.services.media_processing import (
-    process_media_asset,
-)
-from app.services.ownership import (
-    get_owned_crop_cycle,
-    get_owned_field,
-)
+from app.models.user import User
+from app.schemas.media import MediaAssetResponse
+from app.services.media_processing import process_media_asset
+from app.services.ownership import get_owned_field
 from app.storage import get_storage
-from app.storage.layout import (
-    media_manifest_key,
-    media_original_key,
-)
-from app.storage.manifests import (
-    write_media_manifests,
-)
+from app.storage.manifests import write_media_manifests
 
 
 ContentTypeInfo = tuple[

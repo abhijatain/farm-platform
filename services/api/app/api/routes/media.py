@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import (
@@ -52,14 +51,10 @@ router = APIRouter(
 
 # Media format policy, signed URLs, and response mapping live in services.
 from app.services.media_uploads import (
-    ContentTypeInfo,
-    ALLOWED_CONTENT_TYPES,
     _normalized_content_type,
     _media_type_info,
-    _maximum_size,
     _validate_size,
     _get_owned_media,
-    _signed_download_url,
     _to_response,
     _queue_derivative_processing,
     _write_manifests_best_effort,
