@@ -85,7 +85,9 @@ def request_link(
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Please retry link setup") from None
+    display_phone = settings.whatsapp_business_display_phone
     return StartWhatsAppLinkResponse(
+        business_phone_e164=display_phone if display_phone and _valid_owner_phone(display_phone) else None,
         link_code=code,
         expires_at=now + LINK_TTL,
         instructions="From your Firebase-verified phone, send LINK followed by this code to our WhatsApp business number within 10 minutes.",

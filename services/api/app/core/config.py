@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     # Graph API send credential is independent of the app/webhook signing secret.
     whatsapp_access_token: SecretStr | None = None
     whatsapp_graph_version: str = "v26.0"
+    # Public display number (+E.164) shown in the linking UI, never an access credential.
+    whatsapp_business_display_phone: str | None = None
     # Opt-in flag: never contact real recipients during local testing by default.
     whatsapp_outbound_enabled: bool = False
 

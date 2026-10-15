@@ -18,6 +18,7 @@ class StartWhatsAppLinkResponse(BaseModel):
     link_code: str = Field(description="One-time secret; display once and never log")
     expires_at: datetime
     instructions: str
+    business_phone_e164: str | None = None
 
 
 class WhatsAppLinkStatus(BaseModel):
