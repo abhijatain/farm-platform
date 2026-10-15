@@ -760,3 +760,19 @@ def test_radar_trends_expose_all_metrics_and_orbit_geometry() -> None:
     finally:
         db.rollback()
         db.close()
+
+
+def test_partial_radar_geometry_does_not_create_comparison_group() -> None:
+    from app.services.satellite_trends import _radar_metadata
+
+    for metadata in (
+        {"orbit_state": "descending"},
+        {"relative_orbit": 63},
+        {},
+    ):
+        _, _, _, orbit_key = _radar_metadata(
+            source="sentinel-1-rtc",
+            metadata_json=metadata,
+        )
+
+        assert orbit_key is None
