@@ -1311,16 +1311,18 @@ function RadarTrendPanel({
             date:
               point.observed_on,
             value:
-              point.median
-              as number,
+              Number(
+                point.median,
+              ),
             source:
               point.source,
             tooltip:
               radarPointTooltip(
                 point,
                 metricType,
-                point.median
-                as number,
+                Number(
+                  point.median,
+                ),
               ),
           }),
         );
