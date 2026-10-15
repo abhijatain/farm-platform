@@ -12,6 +12,7 @@ from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
 from app.models.season import Season
 from app.models.user import User
+from app.models.whatsapp_inbound_event import WhatsAppInboundEvent
 
 __all__ = [
     "User",
@@ -26,4 +27,5 @@ __all__ = [
     "SatelliteAnomaly",
     "SatelliteMetric",
     "MediaAsset",
+    "WhatsAppInboundEvent",
 ]

@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     # Commercial installations must supply a licensed Open-Meteo key.
     weather_api_key: SecretStr | None = None
 
+    # Integration remains disabled until Meta app secrets are configured.
+    whatsapp_verify_token: SecretStr | None = None
+    whatsapp_app_secret: SecretStr | None = None
+
     ffmpeg_binary: str = "ffmpeg"
 
     ffprobe_binary: str = "ffprobe"

@@ -4,15 +4,13 @@ This is an ingress foundation, NOT a conversational bot: it never sends
 messages, interprets agriculture questions or links a WhatsApp phone to a farm.
 """
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.orm import Session
 
 from app.channels.whatsapp.events import incoming_envelopes
 from app.channels.whatsapp.security import verify_handshake, verify_signature
-from app.db.session import get_db
+from app.api.deps import DBSession
 from app.models.whatsapp_inbound_event import WhatsAppInboundEvent
 
 router = APIRouter(prefix="/webhooks/whatsapp", tags=["WhatsApp webhook"])
@@ -31,7 +29,7 @@ def verify_meta_subscription(
 async def receive_meta_webhook(
     request: Request,
     x_hub_signature_256: str | None = Header(None, alias="X-Hub-Signature-256"),
-    db: Session = Depends(get_db),
+    db: DBSession,
 ) -> dict[str, str]:
     body = await request.body()
     # Meta signs the precise payload bytes, including whitespace and ordering.
