@@ -23,7 +23,8 @@ from fastapi import (
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DBSession
+from sqlalchemy.orm import Session
+from app.models.user import User
 from app.core.config import settings
 from app.models.activity import Activity
 from app.models.farm import Farm
@@ -177,8 +178,8 @@ def _validate_size(
 def _get_owned_media(
     *,
     media_id: UUID,
-    db: DBSession,
-    current_user: CurrentUser,
+    db: Session,
+    current_user: User,
 ) -> MediaAsset:
     media = db.scalar(
         select(MediaAsset).where(
@@ -318,9 +319,11 @@ def _queue_derivative_processing(
 
 def _write_manifests_best_effort(
     *,
-    db: DBSession,
+    db: Session,
     media: MediaAsset,
 ) -> None:
+    # Cloud recovery manifests are best-effort; the canonical database commit
+    # must not fail solely because a manifest refresh was unavailable.
     try:
         write_media_manifests(
             db=db,

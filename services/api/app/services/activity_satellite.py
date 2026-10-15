@@ -1,7 +1,7 @@
-"""Build read-only, field-activity satellite comparisons and spatial overlaps.
+"""Compute satellite evidence for farm activities without inferring causation.
 
-The route handles authentication; this module owns metric selection, scalar
-changes and PostGIS overlap queries, not claims of causation.
+Routes authorize the activity; helpers here query quality-filtered scenes and
+spatial intersections, returning stable Pydantic response schemas.
 """
 
 import json
@@ -9,25 +9,17 @@ from datetime import date, timedelta
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select, text
+from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentUser, DBSession
-from app.models.activity import Activity
-from app.models.crop_cycle import CropCycle
 from app.models.satellite_anomaly import SatelliteAnomaly
 from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
-from app.models.season import Season
-from app.schemas.activity import ActivityCreate, ActivityResponse
 from app.schemas.activity_satellite import (
     ActivitySatelliteComparison,
-    ActivitySatelliteContextResponse,
     ActivitySatelliteObservationMatch,
     ActivitySatelliteSpatialComparison,
 )
-from app.schemas.timeline import TimelineItem
-from app.services.ownership import get_owned_crop_cycle, get_owned_field
 
 PERCENT_CHANGE_MINIMUM_BASELINE_ABS = 0.05
 SQUARE_METRES_PER_ACRE = 4046.8564224
@@ -36,7 +28,7 @@ SPATIAL_PERSISTENCE_BASIS = "same_anomaly_type_overlap"
 
 def _find_nearest_metric_observation(
     *,
-    db: DBSession,
+    db: Session,
     field_id: UUID,
     activity_date: date,
     metric_type: str,
@@ -44,6 +36,7 @@ def _find_nearest_metric_observation(
     minimum_valid_percent: float,
     direction: Literal["before", "after"],
 ) -> tuple[SatelliteObservation, SatelliteMetric] | None:
+    # The activity day itself is deliberately excluded from both baselines.
     if direction == "before":
         lower_date = activity_date - timedelta(days=window_days)
 
@@ -100,7 +93,7 @@ def _find_nearest_metric_observation(
 
 def _get_anomaly_summary(
     *,
-    db: DBSession,
+    db: Session,
     observation_id: UUID,
     metric_type: str,
 ) -> tuple[int, float, float]:
@@ -130,7 +123,7 @@ def _get_anomaly_summary(
 
 def _build_satellite_match(
     *,
-    db: DBSession,
+    db: Session,
     activity_date: date,
     metric_type: str,
     observation: SatelliteObservation,
@@ -282,7 +275,7 @@ def _decode_geojson(
 
 def _build_spatial_comparison(
     *,
-    db: DBSession,
+    db: Session,
     metric_type: str,
     before: ActivitySatelliteObservationMatch | None,
     after: ActivitySatelliteObservationMatch | None,

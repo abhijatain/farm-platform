@@ -1,48 +1,29 @@
-"""Accept farmer activities and expose activity-linked satellite evidence."""
+"""Register field activity endpoints and authorize data access.
 
-import json
-from datetime import date, timedelta
-from typing import Literal
+Satellite comparisons are delegated to app.services.activity_satellite.
+"""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import func, select, text
+from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DBSession
 from app.models.activity import Activity
 from app.models.crop_cycle import CropCycle
-from app.models.satellite_anomaly import SatelliteAnomaly
-from app.models.satellite_metric import SatelliteMetric
-from app.models.satellite_observation import SatelliteObservation
 from app.models.season import Season
 from app.schemas.activity import ActivityCreate, ActivityResponse
-from app.schemas.activity_satellite import (
-    ActivitySatelliteComparison,
-    ActivitySatelliteContextResponse,
-    ActivitySatelliteObservationMatch,
-    ActivitySatelliteSpatialComparison,
-)
+from app.schemas.activity_satellite import ActivitySatelliteContextResponse
 from app.schemas.timeline import TimelineItem
+from app.services.activity_satellite import (
+    _build_comparison,
+    _build_satellite_match,
+    _build_spatial_comparison,
+    _find_nearest_metric_observation,
+)
 from app.services.ownership import get_owned_crop_cycle, get_owned_field
 
-router = APIRouter(
-    tags=["activities"],
-)
-
-
-# Extracted metric selection and geospatial comparisons are reusable services.
-from app.services.activity_satellite import (
-    _find_nearest_metric_observation,
-    _get_anomaly_summary,
-    _build_satellite_match,
-    _absolute_change,
-    _percent_change,
-    _comparison_status,
-    _build_comparison,
-    _sqm_to_acres,
-    _decode_geojson,
-    _build_spatial_comparison,
-)
+router = APIRouter(tags=["activities"])
 
 
 @router.post(
