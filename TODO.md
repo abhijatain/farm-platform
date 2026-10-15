@@ -95,7 +95,7 @@ Reviewed: 2026-10-15. This is the **persistent feature backlog**, ranked for sma
 - [ ] **T60 — Site-specific N/P/K variable-rate validation trials** (**I 7 · F 2 · E XL**): agronomist-approved prescriptions backed by soil/harvest ground truth and economic trials; required before automated application guidance.
 
 
-## P0–P2 — WhatsApp-first farmer interface (new strategic channel, NOT implemented)
+## P0–P2 — WhatsApp-first farmer interface (foundation underway)
 
 Treat this as a **primary product interface**, not a push-notification add-on. It reuses the same crop-cycle, field, weather, satellite, activity, media, yield, and future scouting records as the web. The detailed security, architecture, conversation and compliance plan is in [docs/WHATSAPP_FIRST_PRODUCT.md](docs/WHATSAPP_FIRST_PRODUCT.md).
 
