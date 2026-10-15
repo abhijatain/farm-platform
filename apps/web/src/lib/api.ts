@@ -4,6 +4,8 @@ import type {
   FieldWeather,
   Activity,
   CropCycle,
+  CropGrowth,
+  CropStageObservation,
   CurrentUser,
   Farm,
   Field,
@@ -424,5 +426,30 @@ export function getFieldWeather(
   params.set("include_forecast", String(options?.includeForecast ?? true));
   return apiRequest<FieldWeather>(
     "/fields/" + fieldId + "/weather?" + params.toString(),
+  );
+}
+
+/* GROWTH STAGES */
+
+export function getCropGrowthStages(cropCycleId: string) {
+  return apiRequest<CropGrowth>(
+    `/crop-cycles/${cropCycleId}/growth-stages`,
+  );
+}
+
+export function recordCropGrowthStage(
+  cropCycleId: string,
+  data: { stage_code: string; observed_on: string; notes: string | null },
+) {
+  return apiRequest<CropStageObservation>(
+    `/crop-cycles/${cropCycleId}/growth-stages`,
+    { method: "PUT", body: JSON.stringify(data) },
+  );
+}
+
+export function deleteCropGrowthStage(cropCycleId: string, stageCode: string) {
+  return apiRequest<void>(
+    `/crop-cycles/${cropCycleId}/growth-stages/${encodeURIComponent(stageCode)}`,
+    { method: "DELETE" },
   );
 }
