@@ -680,3 +680,58 @@ def test_sar_change_skips_more_recent_mismatched_orbit() -> None:
     finally:
         db.rollback()
         db.close()
+
+
+def test_sar_change_missing_orbit_geometry_never_guesses_baseline() -> None:
+    db = SessionLocal()
+
+    try:
+        for orbit_state, relative_orbit in (
+            ("descending", None),
+            (None, 63),
+            (None, None),
+        ):
+            field = _field(db)
+
+            _add_metric(
+                db,
+                field_id=field.id,
+                observed_on=date(2026, 9, 28),
+                metric_type="sar_rvi",
+                median=0.45,
+                orbit_state="ascending",
+                relative_orbit=136,
+            )
+
+            _add_metric(
+                db,
+                field_id=field.id,
+                observed_on=date(2026, 10, 5),
+                metric_type="sar_rvi",
+                median=0.82,
+                orbit_state=orbit_state,
+                relative_orbit=relative_orbit,
+            )
+
+            for mode in ("previous", "days_7"):
+                result = build_field_satellite_change(
+                    db=db,
+                    field_id=field.id,
+                    metric_type="sar_rvi",
+                    mode=mode,
+                    requested_to_date=None,
+                    requested_from_date=None,
+                    crop_cycle_id=None,
+                    crop_reference_date=None,
+                    minimum_valid_percent=80.0,
+                    date_tolerance_days=7,
+                    pixel_change_threshold=None,
+                )
+
+                assert result.after is not None
+                assert result.before is None
+                assert result.status == "missing_baseline"
+
+    finally:
+        db.rollback()
+        db.close()
