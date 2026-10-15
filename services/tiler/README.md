@@ -7,8 +7,7 @@ private GCS COGs.
 
 `main.py` contains the FastAPI/TiTiler endpoint registration.
 Pixel-wise change calculations live in `services/change.py`, and validated
-private GCS dataset paths in `storage/gcs_path.py`. The former `change.py`
-and `gcs_path.py` paths remain compatible imports.
+private GCS dataset paths in `storage/gcs_path.py`. The old top-level forwarding files were removed; use the canonical packages.
 
 See [backend architecture](../../docs/BACKEND_ARCHITECTURE.md).
 

@@ -28,10 +28,10 @@ zones where a scientifically appropriate anomaly rule exists.
 - `storage/`: GCS access, canonical keys, COGs and manifests.
 - `cli/`: explicitly invoked backfill, maintenance and batch commands.
 
-The older top-level Python files remain small import/command compatibility
-shims. They do **not** duplicate processing logic. New code should import
-canonical package modules. Existing `satellite-ingestion-worker` and
-`python -m satellite_worker.process_*` commands remain valid.
+No forwarding modules are kept. All imports and worker commands now refer
+directly to their canonical packages. The installed `satellite-ingestion-worker`
+executable targets `satellite_worker.ingestion.worker:main` directly.
+Update any external scheduled jobs that still use old module command paths.
 
 See [backend architecture](../../docs/BACKEND_ARCHITECTURE.md).
 
@@ -81,7 +81,7 @@ nearby radar date containing only the four SAR metrics.
 ## Process one field manually
 
 ```bash
-uv run python -m satellite_worker.process_field \
+uv run python -m satellite_worker.sources.sentinel2.pipeline \
   --field-id <FIELD_UUID> \
   --start 2026-10-01 \
   --end 2026-10-14
@@ -90,10 +90,10 @@ uv run python -m satellite_worker.process_field \
 Manual processing remains available when an explicit reprocess is needed:
 
 ```bash
-uv run python -m satellite_worker.process_sentinel1_field \
+uv run python -m satellite_worker.sources.sentinel1.pipeline \
   --field-id <FIELD_UUID> --start 2026-10-01 --end 2026-10-14
 
-uv run python -m satellite_worker.process_landsat_field \
+uv run python -m satellite_worker.sources.landsat.pipeline \
   --field-id <FIELD_UUID> --start 2026-10-01 --end 2026-10-14
 ```
 

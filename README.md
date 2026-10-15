@@ -12,7 +12,7 @@ crop cycles, activities, media, yield, and multi-source satellite analysis.
 Feature importance/feasibility scores in these documents are planning judgments,
 not scientific accuracy guarantees. Drone-dependent features are deferred.
 
-For backend contributors, see [the organized backend package map and compatibility rules](docs/BACKEND_ARCHITECTURE.md).
+For backend contributors, see [the canonical backend package map](docs/BACKEND_ARCHITECTURE.md).
 
 ## Stack
 
@@ -153,7 +153,7 @@ uv run satellite-ingestion-worker --once
 Manual field processing remains available:
 
 ```bash
-uv run python -m satellite_worker.process_field \
+uv run python -m satellite_worker.sources.sentinel2.pipeline \
   --field-id <FIELD_UUID> \
   --start 2026-10-01 \
   --end 2026-10-14
