@@ -971,6 +971,841 @@ function pointsForMetric(
 }
 
 
+function radarGroupKey(
+  point: SatelliteTrendPoint,
+) {
+  return (
+    point.radar_orbit_key
+    ?? `unknown:${point.observation_id}`
+  );
+}
+
+
+function titleCase(
+  value: string,
+) {
+  if (!value) {
+    return value;
+  }
+
+  return (
+    value.charAt(
+      0,
+    ).toUpperCase()
+    + value.slice(
+      1,
+    ).toLowerCase()
+  );
+}
+
+
+function radarOrbitLabel(
+  point: SatelliteTrendPoint,
+) {
+  if (
+    point.radar_orbit_key
+    == null
+  ) {
+    return (
+      "Unknown geometry · "
+      + formatLongDate(
+        point.observed_on,
+      )
+    );
+  }
+
+  const parts = [];
+
+  if (point.orbit_state) {
+    parts.push(
+      titleCase(
+        point.orbit_state,
+      ),
+    );
+  }
+
+  if (
+    point.relative_orbit
+    != null
+  ) {
+    parts.push(
+      `relative orbit ${point.relative_orbit}`,
+    );
+  }
+
+  return (
+    parts.join(
+      " · ",
+    )
+    || "Radar orbit"
+  );
+}
+
+
+function radarPointTooltip(
+  point: SatelliteTrendPoint,
+  metricType:
+    SatelliteMetricType,
+  value: number,
+) {
+  const parts = [
+    metricLabel(
+      metricType,
+    ),
+    formatLongDate(
+      point.observed_on,
+    ),
+    value.toFixed(
+      metricType
+        === "sar_vv_db"
+        || metricType
+        === "sar_vh_db"
+        ? 2
+        : 3,
+    ),
+  ];
+
+  if (point.orbit_state) {
+    parts.push(
+      titleCase(
+        point.orbit_state,
+      ),
+    );
+  }
+
+  if (
+    point.relative_orbit
+    != null
+  ) {
+    parts.push(
+      `relative orbit ${point.relative_orbit}`,
+    );
+  }
+
+  if (point.platform) {
+    parts.push(
+      point.platform,
+    );
+  }
+
+  return parts.join(
+    " · ",
+  );
+}
+
+
+function RadarTrendPanel({
+  trends,
+}: {
+  trends: FieldSatelliteTrends;
+}) {
+  const radarPoints =
+    useMemo(
+      () =>
+        trends.points.filter(
+          (
+            point,
+          ) =>
+            point.source
+              .startsWith(
+                "sentinel-1",
+              )
+            && RADAR_METRICS.includes(
+              point.metric_type,
+            )
+            && (
+              point.valid_pixel_percent
+              == null
+              || point.valid_pixel_percent
+              >= 80
+            ),
+        ),
+      [
+        trends,
+      ],
+    );
+
+  const orbitGroups =
+    useMemo(
+      () => {
+        const groups =
+          new Map<
+            string,
+            {
+              key: string;
+              label: string;
+              observationIds:
+                Set<string>;
+              representative:
+                SatelliteTrendPoint;
+            }
+          >();
+
+        for (
+          const point
+          of radarPoints
+        ) {
+          const key =
+            radarGroupKey(
+              point,
+            );
+
+          const current =
+            groups.get(
+              key,
+            );
+
+          if (current) {
+            current
+              .observationIds
+              .add(
+                point.observation_id,
+              );
+
+            continue;
+          }
+
+          groups.set(
+            key,
+            {
+              key,
+              label:
+                radarOrbitLabel(
+                  point,
+                ),
+              observationIds:
+                new Set(
+                  [
+                    point
+                      .observation_id,
+                  ],
+                ),
+              representative:
+                point,
+            },
+          );
+        }
+
+        return [
+          ...groups.values(),
+        ]
+          .sort(
+            (
+              a,
+              b,
+            ) =>
+              b.observationIds
+                .size
+              - a.observationIds
+                .size,
+          );
+      },
+      [
+        radarPoints,
+      ],
+    );
+
+  const [
+    selectedOrbitKey,
+    setSelectedOrbitKey,
+  ] = useState(
+    "",
+  );
+
+  useEffect(
+    () => {
+      if (
+        orbitGroups.length
+        === 0
+      ) {
+        setSelectedOrbitKey(
+          "",
+        );
+
+        return;
+      }
+
+      if (
+        orbitGroups.some(
+          (
+            group,
+          ) =>
+            group.key
+            === selectedOrbitKey,
+        )
+      ) {
+        return;
+      }
+
+      setSelectedOrbitKey(
+        orbitGroups[
+          0
+        ].key,
+      );
+    },
+    [
+      orbitGroups,
+      selectedOrbitKey,
+    ],
+  );
+
+  const selectedGroup =
+    orbitGroups.find(
+      (
+        group,
+      ) =>
+        group.key
+        === selectedOrbitKey,
+    )
+    ?? orbitGroups[
+      0
+    ]
+    ?? null;
+
+  const selectedPoints =
+    useMemo(
+      () => {
+        if (!selectedGroup) {
+          return [];
+        }
+
+        return radarPoints.filter(
+          (
+            point,
+          ) =>
+            radarGroupKey(
+              point,
+            )
+            === selectedGroup.key,
+        );
+      },
+      [
+        radarPoints,
+        selectedGroup,
+      ],
+    );
+
+  function radarSeries(
+    metricType:
+      SatelliteMetricType,
+    className: string,
+  ): ChartSeries[] {
+    const points =
+      selectedPoints
+        .filter(
+          (
+            point,
+          ) =>
+            point.metric_type
+            === metricType
+            && point.median
+            != null
+            && Number.isFinite(
+              point.median,
+            ),
+        )
+        .map(
+          (
+            point,
+          ) => ({
+            date:
+              point.observed_on,
+            value:
+              point.median
+              as number,
+            source:
+              point.source,
+            tooltip:
+              radarPointTooltip(
+                point,
+                metricType,
+                point.median
+                as number,
+              ),
+          }),
+        );
+
+    return [
+      {
+        key:
+          metricType,
+        label:
+          metricLabel(
+            metricType,
+          ),
+        className,
+        points,
+      },
+    ];
+  }
+
+  const passRows =
+    useMemo(
+      () => {
+        const passes =
+          new Map<
+            string,
+            {
+              observationId: string;
+              observedOn: string;
+              orbitState:
+                string
+                | null;
+              relativeOrbit:
+                number
+                | null;
+              platform:
+                string
+                | null;
+              values:
+                Partial<
+                  Record<
+                    SatelliteMetricType,
+                    number
+                  >
+                >;
+            }
+          >();
+
+        for (
+          const point
+          of selectedPoints
+        ) {
+          if (
+            point.median
+            == null
+          ) {
+            continue;
+          }
+
+          const existing =
+            passes.get(
+              point.observation_id,
+            );
+
+          if (existing) {
+            existing.values[
+              point.metric_type
+            ] = point.median;
+
+            continue;
+          }
+
+          passes.set(
+            point.observation_id,
+            {
+              observationId:
+                point.observation_id,
+              observedOn:
+                point.observed_on,
+              orbitState:
+                point.orbit_state,
+              relativeOrbit:
+                point.relative_orbit,
+              platform:
+                point.platform,
+              values: {
+                [
+                  point.metric_type
+                ]:
+                  point.median,
+              },
+            },
+          );
+        }
+
+        return [
+          ...passes.values(),
+        ]
+          .sort(
+            (
+              a,
+              b,
+            ) =>
+              b.observedOn
+                .localeCompare(
+                  a.observedOn,
+                ),
+          );
+      },
+      [
+        selectedPoints,
+      ],
+    );
+
+  if (
+    orbitGroups.length
+    === 0
+  ) {
+    return (
+      <article className="radar-interpretation-panel">
+        <div className="radar-interpretation-heading">
+          <div>
+            <span className="workspace-eyebrow">
+              RADAR INTERPRETATION
+            </span>
+
+            <h4>
+              Orbit-aware Sentinel-1
+            </h4>
+
+            <p>
+              No reliable Sentinel-1 radar observations are available in
+              this period.
+            </p>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  const representative =
+    selectedGroup
+      ?.representative
+    ?? null;
+
+  return (
+    <article className="radar-interpretation-panel">
+      <div className="radar-interpretation-heading">
+        <div>
+          <span className="workspace-eyebrow">
+            RADAR INTERPRETATION
+          </span>
+
+          <h4>
+            Orbit-aware Sentinel-1
+          </h4>
+
+          <p>
+            Radar passes are only connected when their viewing geometry is
+            comparable. RVI, VV, VH and VV/VH are signals—not health scores.
+          </p>
+        </div>
+
+        <label className="radar-orbit-selector">
+          <span>
+            Comparable orbit
+          </span>
+
+          <select
+            value={
+              selectedGroup
+                ?.key
+              ?? ""
+            }
+            onChange={(
+              event,
+            ) =>
+              setSelectedOrbitKey(
+                event.currentTarget
+                  .value,
+              )
+            }
+          >
+            {orbitGroups.map(
+              (
+                group,
+              ) => (
+                <option
+                  key={
+                    group.key
+                  }
+                  value={
+                    group.key
+                  }
+                >
+                  {group.label}
+                  {" · "}
+                  {
+                    group
+                      .observationIds
+                      .size
+                  }
+                  {" "}
+                  {
+                    group
+                      .observationIds
+                      .size
+                    === 1
+                      ? "pass"
+                      : "passes"
+                  }
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+      </div>
+
+      <div className="radar-orbit-summary">
+        <div>
+          <span>
+            Orbit state
+          </span>
+
+          <strong>
+            {representative
+              ?.orbit_state
+              ? titleCase(
+                  representative
+                    .orbit_state,
+                )
+              : "Unknown"}
+          </strong>
+        </div>
+
+        <div>
+          <span>
+            Relative orbit
+          </span>
+
+          <strong>
+            {representative
+              ?.relative_orbit
+              ?? "Unknown"}
+          </strong>
+        </div>
+
+        <div>
+          <span>
+            Platform
+          </span>
+
+          <strong>
+            {representative
+              ?.platform
+              ?? "Unknown"}
+          </strong>
+        </div>
+
+        <div>
+          <span>
+            Comparable passes
+          </span>
+
+          <strong>
+            {selectedGroup
+              ?.observationIds
+              .size
+              ?? 0}
+          </strong>
+        </div>
+      </div>
+
+      {orbitGroups.length > 1 && (
+        <p className="radar-orbit-warning">
+          {orbitGroups.length - 1}
+          {" other viewing "}
+          {
+            orbitGroups.length
+            - 1
+            === 1
+              ? "geometry is"
+              : "geometries are"
+          }
+          {" kept separate from this line. Switch the orbit selector to inspect them."}
+        </p>
+      )}
+
+      <div className="radar-metric-chart-grid">
+        <TrendChart
+          title="Radar RVI"
+          subtitle="Relative dual-polarization canopy/structure signal for the selected orbit geometry."
+          series={
+            radarSeries(
+              "sar_rvi",
+              "sar-rvi",
+            )
+          }
+          activities={
+            trends.activities
+          }
+          startDate={
+            trends.start_date
+          }
+          endDate={
+            trends.end_date
+          }
+          valueLabel="RVI"
+          fixedMin={
+            0
+          }
+          emptyMessage="No reliable RVI observations exist for this orbit."
+        />
+
+        <TrendChart
+          title="VV backscatter"
+          subtitle="Co-polarized gamma-nought backscatter. Changes can reflect moisture, roughness and structure."
+          series={
+            radarSeries(
+              "sar_vv_db",
+              "sar-vv",
+            )
+          }
+          activities={
+            trends.activities
+          }
+          startDate={
+            trends.start_date
+          }
+          endDate={
+            trends.end_date
+          }
+          valueLabel="dB"
+          emptyMessage="No reliable VV observations exist for this orbit."
+        />
+
+        <TrendChart
+          title="VH backscatter"
+          subtitle="Cross-polarized gamma-nought backscatter, often responsive to vegetation structure."
+          series={
+            radarSeries(
+              "sar_vh_db",
+              "sar-vh",
+            )
+          }
+          activities={
+            trends.activities
+          }
+          startDate={
+            trends.start_date
+          }
+          endDate={
+            trends.end_date
+          }
+          valueLabel="dB"
+          emptyMessage="No reliable VH observations exist for this orbit."
+        />
+
+        <TrendChart
+          title="VV / VH ratio"
+          subtitle="Polarization ratio for the same comparable Sentinel-1 passes."
+          series={
+            radarSeries(
+              "sar_vv_vh_ratio",
+              "sar-ratio",
+            )
+          }
+          activities={
+            trends.activities
+          }
+          startDate={
+            trends.start_date
+          }
+          endDate={
+            trends.end_date
+          }
+          valueLabel="Ratio"
+          fixedMin={
+            0
+          }
+          emptyMessage="No reliable VV/VH observations exist for this orbit."
+        />
+      </div>
+
+      {passRows.length > 0 && (
+        <div className="radar-pass-table-wrap">
+          <table className="radar-pass-table">
+            <thead>
+              <tr>
+                <th>
+                  Date
+                </th>
+                <th>
+                  Platform
+                </th>
+                <th>
+                  VV dB
+                </th>
+                <th>
+                  VH dB
+                </th>
+                <th>
+                  VV/VH
+                </th>
+                <th>
+                  RVI
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {passRows
+                .slice(
+                  0,
+                  12,
+                )
+                .map(
+                  (
+                    pass,
+                  ) => (
+                    <tr
+                      key={
+                        pass
+                          .observationId
+                      }
+                    >
+                      <td>
+                        {formatLongDate(
+                          pass.observedOn,
+                        )}
+                      </td>
+                      <td>
+                        {pass.platform
+                          ?? "—"}
+                      </td>
+                      <td>
+                        {pass.values
+                          .sar_vv_db
+                          ?.toFixed(
+                            2,
+                          )
+                          ?? "—"}
+                      </td>
+                      <td>
+                        {pass.values
+                          .sar_vh_db
+                          ?.toFixed(
+                            2,
+                          )
+                          ?? "—"}
+                      </td>
+                      <td>
+                        {pass.values
+                          .sar_vv_vh_ratio
+                          ?.toFixed(
+                            3,
+                          )
+                          ?? "—"}
+                      </td>
+                      <td>
+                        {pass.values
+                          .sar_rvi
+                          ?.toFixed(
+                            3,
+                          )
+                          ?? "—"}
+                      </td>
+                    </tr>
+                  ),
+                )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="radar-interpretation-note">
+        Do not interpret higher/lower radar values as automatically
+        healthier/unhealthier. Soil moisture, standing water, canopy
+        structure, surface roughness and crop-row geometry can all change
+        the signal. Crop/stage-aware anomaly rules remain intentionally
+        disabled until enough field data is collected.
+      </p>
+    </article>
+  );
+}
+
+
 export default function SatelliteTrendCharts({
   fieldId,
   cropCycle,
@@ -1141,42 +1976,6 @@ export default function SatelliteTrendCharts({
               ),
           }),
         );
-      },
-      [
-        trends,
-      ],
-    );
-
-
-  const radarSeries =
-    useMemo(
-      () => {
-        if (!trends) {
-          return [];
-        }
-
-        return [
-          {
-            key:
-              "sar_rvi",
-
-            label:
-              "Radar RVI",
-
-            className:
-              "sar-rvi",
-
-            points:
-              pointsForMetric(
-                trends,
-                "sar_rvi",
-                (
-                  point,
-                ) =>
-                  point.median,
-              ),
-          },
-        ];
       },
       [
         trends,
@@ -1369,23 +2168,10 @@ export default function SatelliteTrendCharts({
             emptyMessage="No NDVI, NDRE or NDMI observations are available in this period."
           />
 
-          <TrendChart
-            title="All-weather radar"
-            subtitle="Sentinel-1 Radar RVI. Kept on its own scale because it is not an optical index."
-            series={
-              radarSeries
+          <RadarTrendPanel
+            trends={
+              trends
             }
-            activities={
-              trends.activities
-            }
-            startDate={
-              trends.start_date
-            }
-            endDate={
-              trends.end_date
-            }
-            valueLabel="RVI"
-            emptyMessage="No Radar RVI observations are available in this period."
           />
 
           <TrendChart
@@ -1424,7 +2210,7 @@ export default function SatelliteTrendCharts({
                     );
                   }}
                 >
-                  {CONTEXT_METRICS.map(
+                  {ANOMALY_METRICS.map(
                     (
                       metricType,
                     ) => (
