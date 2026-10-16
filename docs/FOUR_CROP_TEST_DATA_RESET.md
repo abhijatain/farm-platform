@@ -51,6 +51,66 @@ Before considering an irreversible wipe:
 6. Create/retain a single test Firebase phone user; obtain its UID, then
    seed the empty DB. Using arbitrary made-up Firebase credentials is invalid.
 
+## Authorized clean reset of the existing disposable demo resources
+
+The user confirmed that their present Farm Platform data was made up and
+requested a permanent reset. The guard remains necessary because Firebase,
+GCS and PostgreSQL **may not share exclusive ownership with this application**,
+and a deletion cannot be undone.
+
+**Prerequisites:** Stop FastAPI, satellite ingestion worker, historical zones
+worker, any media processor and scheduled incremental jobs. Confirm this is an
+exclusive *nonproduction* deployment. Select the correct local `services/api/.env`
+(or provide the same environment variables to the command). Back up anything
+you actually wish to keep. **Do not share .env, Firebase credentials or passwords.**
+
+First perform the live **read-only inventory**:
+
+```bash
+cd services/api
+uv run python -m app.cli.reset_test_data
+```
+
+It prints the database host/name, Firebase project ID, GCS bucket,
+and counts of application rows, Firebase users and all accessible
+Cloud Storage object generations. No deletions occur.
+
+Review that ALL the displayed resources belong only to this Farm Platform
+demo. The following command only succeeds if you type each exact target from
+the inventory (replace placeholders with actual names; do not send secrets):
+
+```bash
+uv run python -m app.cli.reset_test_data --apply \
+  --confirm-db-host "EXACT_HOST" \
+  --confirm-db-name "EXACT_DATABASE_NAME" \
+  --confirm-firebase-project "EXACT_FIREBASE_PROJECT_ID" \
+  --confirm-gcs-bucket "EXACT_GCS_BUCKET_NAME" \
+  --acknowledge "PERMANENTLY ERASE ALL DEMO USERS DATA AND OBJECTS"
+```
+
+It deletes every accessible object generation in that one named GCS bucket,
+all Auth users in that one named Firebase project, and rows from every
+registered Farm Platform public-schema table in that one PostgreSQL
+database. **It leaves `alembic_version`, PostGIS `spatial_ref_sys`, all
+schema definitions and the Firebase project/bucket configuration intact.**
+
+The command requires `ENVIRONMENT` be a test/development/staging value,
+an exact match on all resource IDs, and a schema match; it will refuse
+unexpected database tables. PostgreSQL TRUNCATE uses one transaction
+and intentionally omits CASCADE to avoid silently wiping external tables.
+No cross-service transaction is possible, so if a cloud delete fails
+partway through, resolve the error and rerun the inventory.
+
+**GCS retention and soft-delete** may retain recoverable versions after a
+delete or disallow deletion. A successful command verifies that normal
+listings are empty but does *not* bypass bucket retention policy. Check
+GCS settings if immediate irreversible erasure is required.
+
+Now your Firebase Auth user list is also empty. **Sign back in through
+real Firebase phone verification**, which creates a new Auth user/UID;
+do not manually invent a verified identity. Use that UID + E.164 number
+with the separate seed command below.
+
 ## Seed commands (from services/api)
 
 Preview with your local boundary file (no DB or cloud I/O):
