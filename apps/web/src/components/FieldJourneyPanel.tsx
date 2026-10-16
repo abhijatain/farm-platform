@@ -154,7 +154,7 @@ export default function FieldJourneyPanel({
         <article><span>Field preparation</span><strong>{prepDays==null?"In progress":prepDays+" days"}</strong>
           <small>{firstPreparation ? "From first recorded tractor/preparation work" : "From crop-cycle start"}
             {cycle.planted_on ? " to planting" : " · ends when planted"}</small></article>
-        <article><span>Crop age</span><strong>{age==null?"Not planted":age+" days"}</strong>
+        <article><span>{cycle.harvested_on ? "Age at harvest" : "Crop age"}</span><strong>{age==null?"Not planted":age+" days"}</strong>
           <small>{cycle.planted_on ? "Planted " + pretty(cycle.planted_on) : "Record sowing/transplanting to start the clock"}</small></article>
         <article><span>{cycle.harvested_on ? "Harvested" : "Expected harvest"}</span>
           <strong>{cycle.harvested_on ? pretty(cycle.harvested_on) :
