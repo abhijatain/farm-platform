@@ -2421,6 +2421,7 @@ export default function SatelliteTrendCharts({
             activities={trends.activities}
             startDate={trends.start_date}
             endDate={trends.end_date}
+            degreeDayBaseC={growth?.degree_day_base_c}
           />}
 
           {section === "trends" && <TrendChart
