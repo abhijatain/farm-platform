@@ -9,6 +9,7 @@ class StageDefinition(BaseModel):
     code: str
     label: str
     approx_days_after_planting: int | None
+    bbch_reference: str | None = None
 
 
 class StageObservationInput(BaseModel):
