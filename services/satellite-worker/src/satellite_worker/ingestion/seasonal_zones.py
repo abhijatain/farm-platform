@@ -89,7 +89,7 @@ def compute_season(geometry, start, end):
     if not scenes:
         raise ValueError("No suitable historical Sentinel-2 scenes found for this season.")
     summed = np.zeros((height, width), dtype=np.float64)
-    counts = np.zeros((HEIGHT, WIDTH), dtype=np.uint16)
+    counts = np.zeros((height, width), dtype=np.uint16)
     used_dates = []
     failures = 0
     for item in scenes:
@@ -112,7 +112,7 @@ def compute_season(geometry, start, end):
             if valid.sum() / grid.pixel_count * 100 < MIN_COVERAGE:
                 continue
             masked = np.where(valid, metric, NODATA).astype("float32")
-            projected = np.full((HEIGHT, WIDTH), NODATA, dtype="float32")
+            projected = np.full((height, width), NODATA, dtype="float32")
             reproject(
                 source=masked, destination=projected,
                 src_transform=grid.transform, src_crs=grid.crs, src_nodata=NODATA,
@@ -133,7 +133,7 @@ def compute_season(geometry, start, end):
             f"Only {len(used_dates)} valid dates found; at least {MIN_SCENES} clear dates required."
         )
     valid_final = inside & (counts >= 2)
-    values = np.full((HEIGHT, WIDTH), np.nan, dtype=np.float32)
+    values = np.full((height, width), np.nan, dtype=np.float32)
     values[valid_final] = (summed[valid_final] / counts[valid_final]).astype("float32")
     if valid_final.sum() < 16 or valid_final.sum() / inside.sum() < 0.5:
         raise ValueError("Final season has insufficient multi-date pixel coverage.")
