@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.channels.whatsapp.events import incoming_envelopes
 from app.channels.whatsapp.linking import complete_link, stop_messaging
 from app.channels.whatsapp.handler import schedule_session_reply
+from app.channels.whatsapp.delivery import update_delivery_receipts
 from app.channels.whatsapp.security import verify_handshake, verify_signature
 from app.api.deps import DBSession
 from app.models.whatsapp_inbound_event import WhatsAppInboundEvent
@@ -75,5 +76,7 @@ async def receive_meta_webhook(
                 schedule_session_reply(db, item, link_completed=True)
         elif item.command is not None:
             schedule_session_reply(db, item)
+    # Signed outbound statuses arrive independently of inbound messages.
+    update_delivery_receipts(db, payload)
     db.commit()
     return {"status": "received"}
