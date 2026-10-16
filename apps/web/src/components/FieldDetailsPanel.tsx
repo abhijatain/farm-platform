@@ -513,7 +513,7 @@ export default function FieldDetailsPanel({
     }
 
     return timeline
-      .filter((item) => viewCycle ? item.crop_cycle_id === viewCycle.id : item.season_id === season.id)
+      .filter((item) => viewCycle ? item.crop_cycle_id === viewCycle.id : item.season_id === season?.id)
       .sort(
         (a, b) =>
           new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
