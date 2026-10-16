@@ -785,7 +785,8 @@ export type RelativeZone = {
 export type TrackedZone = {
   id: string;
   anomaly_type: string;
-  transition: "new" | "persistent" | "resolved";
+  transition: "new" | "persistent" | "recurring" | "resolved";
+  recent_dates: string[];
   area_acres: number;
   geometry: RelativeZone["geometry"];
 };
@@ -801,6 +802,7 @@ export type FieldSpatialHistory = {
   minimum_valid_percent: number;
   cell_size_m: number | null;
   zone_model: string;
+  recent_dates: string[];
   zones: RelativeZone[];
   tracking: TrackedZone[];
   warnings: string[];
