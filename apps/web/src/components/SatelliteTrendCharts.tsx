@@ -33,6 +33,7 @@ import type {
 type Props = {
   fieldId: string;
   cropCycle: CropCycle | null;
+  section?: "trends" | "radar" | "growth" | "quality";
 };
 
 
@@ -371,6 +372,31 @@ function TrendChart({
   fixedMax,
   emptyMessage,
 }: TrendChartProps) {
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const validObservations = series.flatMap((item) =>
+    item.points.filter((point) => Number.isFinite(point.value)).map((point) => ({
+      ...point, label: item.label,
+    }))
+  );
+  const latest = validObservations.reduce<typeof validObservations[number] | null>(
+    (current, point) => !current || point.date > current.date ? point : current, null
+  );
+  const hoveredValues = hoveredDate
+    ? validObservations.filter((point) => point.date === hoveredDate)
+    : [];
+  function handleChartPointer(event: React.PointerEvent<SVGSVGElement>) {
+    if (!validObservations.length) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (!bounds.width) return;
+    const sx = (event.clientX - bounds.left) * width / bounds.width;
+    const timeAtPointer = start + (sx - margins.left) / innerWidth * (end - start);
+    const nearest = validObservations.reduce((best, point) =>
+      Math.abs(dateMs(point.date) - timeAtPointer) <
+      Math.abs(dateMs(best.date) - timeAtPointer) ? point : best
+    );
+    setHoveredDate(nearest.date);
+  }
+
   const width =
     940;
 
@@ -547,18 +573,14 @@ function TrendChart({
     <article className="satellite-trend-chart-card">
       <div className="satellite-trend-chart-heading">
         <div>
-          <h4>
-            {title}
-          </h4>
-
-          <p>
-            {subtitle}
-          </p>
+          <h4>{title}</h4>
+          <p>{subtitle}</p>
         </div>
-
-        <span>
-          {valueLabel}
-        </span>
+        <div className="satellite-chart-latest" aria-label={`Latest ${title} value`}>
+          <span>Latest {valueLabel}</span>
+          <strong>{latest ? latest.value.toFixed(Math.abs(latest.value) >= 10 ? 1 : 3) : "—"}</strong>
+          <small>{latest ? formatLongDate(latest.date) : "No data"}</small>
+        </div>
       </div>
 
       <div className="satellite-trend-legend">
@@ -606,14 +628,18 @@ function TrendChart({
           <div className="satellite-trend-svg-wrap">
             <svg
               className="satellite-trend-svg"
-              viewBox={
-                `0 0 ${width} ${height}`
-              }
+              viewBox={`0 0 ${width} ${height}`}
               role="img"
-              aria-label={
-                `${title} time series`
-              }
+              aria-label={`${title} time series. Point values available on pointer hover.`}
+              onPointerMove={handleChartPointer}
+              onPointerLeave={() => setHoveredDate(null)}
             >
+              {hoveredDate && (
+                <line className="satellite-trend-hover-line"
+                  x1={xForDate(hoveredDate)} x2={xForDate(hoveredDate)}
+                  y1={margins.top} y2={height - margins.bottom}
+                />
+              )}
               {horizontalTicks.map(
                 (
                   tick,
@@ -935,6 +961,18 @@ function TrendChart({
                 }
               />
             </svg>
+            {hoveredDate && hoveredValues.length > 0 && (
+              <div className="satellite-chart-tooltip" role="status"
+                style={{left: `${Math.max(9,Math.min(79,xForDate(hoveredDate)/width*100))}%`}}>
+                <strong>{formatLongDate(hoveredDate)}</strong>
+                {hoveredValues.map((point, index) => (
+                  <span key={point.label + index}>
+                    {point.label}: <b>{point.value.toFixed(Math.abs(point.value)>=10?1:3)} {valueLabel === "Index value" ? "" : valueLabel}</b>
+                  </span>
+                ))}
+                <small>Actual observation values · not interpolated</small>
+              </div>
+            )}
           </div>
         )}
     </article>
@@ -1882,6 +1920,7 @@ function RadarTrendPanel({
 export default function SatelliteTrendCharts({
   fieldId,
   cropCycle,
+  section = "trends",
 }: Props) {
   const [
     trends,
@@ -2254,18 +2293,22 @@ export default function SatelliteTrendCharts({
       <div className="satellite-trends-heading">
         <div>
           <span className="workspace-eyebrow">
-            FIELD TRENDS
+            {section === "trends" ? "SATELLITE TRENDS"
+              : section === "radar" ? "ALL-WEATHER OBSERVATIONS"
+              : section === "growth" ? "GROWTH & WEATHER"
+              : "DATA QUALITY"}
           </span>
-
-          <h3>
-            Satellite trends and farm activities
-          </h3>
-
-          <p>
-            Satellite observations use their actual acquisition dates.
-            Activity markers show when irrigation, fertilizer, spraying
-            and other field work occurred.
-          </p>
+          <h3>{section === "trends" ? "How the field changes over time"
+            : section === "radar" ? "Radar observations and screening"
+            : section === "growth" ? "Crop development and weather"
+            : "Are these satellite observations reliable?"}</h3>
+          <p>{section === "trends"
+            ? "NDVI measures relative green canopy, NDRE is red-edge sensitive, and NDMI responds to canopy water content. Look for trends, not instant diagnoses."
+            : section === "radar"
+              ? "Sentinel-1 sees through clouds. Compare the same orbit and interpret radar changes in crop-stage context."
+              : section === "growth"
+                ? "Record the stages you actually observe. Weather and estimated crop calendars provide context, not proof of crop health."
+                : "Clouds, missing pixels and scene availability affect how confidently satellite measurements can be compared."}</p>
         </div>
 
         {trends && (
@@ -2298,7 +2341,7 @@ export default function SatelliteTrendCharts({
         && !error
         && trends && (
         <div className="satellite-trends-grid">
-          {cropCycle && (
+          {section === "growth" && cropCycle && (
             <CropGrowthStagePanel
               cropCycle={cropCycle}
               growth={growth}
@@ -2307,34 +2350,60 @@ export default function SatelliteTrendCharts({
               onChanged={refreshGrowthStages}
             />
           )}
-          <TrendChart
-            title="Optical crop signals"
-            stageMarkers={growth?.observations ?? []}
-            subtitle="NDVI, NDRE and NDMI on one comparable index scale."
-            series={
-              opticalSeries
-            }
-            activities={
-              trends.activities
-            }
-            startDate={
-              trends.start_date
-            }
-            endDate={
-              trends.end_date
-            }
-            valueLabel="Index value"
-            emptyMessage="No NDVI, NDRE or NDMI observations are available in this period."
-          />
+          {section === "trends" && <>
+            <div className="satellite-chart-group">
+              <header>
+                <span className="workspace-eyebrow">VEGETATION</span>
+                <h4>Canopy greenness & chlorophyll-sensitive signals</h4>
+                <p>NDVI estimates relative green canopy cover; NDRE uses the red-edge band to reveal a different part of canopy variation. Hover each graph to see actual readings and dates.</p>
+              </header>
+              <TrendChart
+                title="Vegetation greenness (NDVI)"
+                subtitle="Tracks relative green vegetation. A high reading alone does not prove the crop is healthy."
+                stageMarkers={growth?.observations ?? []}
+                series={opticalSeries.filter((item) => item.key === "ndvi")}
+                activities={trends.activities}
+                startDate={trends.start_date} endDate={trends.end_date}
+                valueLabel="Index value"
+                emptyMessage="No cloud-screened NDVI observations available."
+              />
+              <TrendChart
+                title="Red-edge canopy (NDRE)"
+                subtitle="A chlorophyll-sensitive canopy measure; most informative with crop and growth-stage context."
+                stageMarkers={growth?.observations ?? []}
+                series={opticalSeries.filter((item) => item.key === "ndre")}
+                activities={trends.activities}
+                startDate={trends.start_date} endDate={trends.end_date}
+                valueLabel="Index value"
+                emptyMessage="No cloud-screened NDRE observations available."
+              />
+            </div>
+            <div className="satellite-chart-group">
+              <header>
+                <span className="workspace-eyebrow">MOISTURE</span>
+                <h4>Vegetation water-content signal</h4>
+                <p>NDMI responds to vegetation moisture, but is not a soil-water measurement. Compare the pattern with recorded irrigation and rainfall in Crop & weather.</p>
+              </header>
+              <TrendChart
+                title="Canopy moisture response (NDMI)"
+                subtitle="Vegetation moisture-sensitive satellite index; not direct measured soil moisture."
+                series={opticalSeries.filter((item) => item.key === "ndmi")}
+                activities={trends.activities}
+                startDate={trends.start_date} endDate={trends.end_date}
+                valueLabel="Index value"
+                emptyMessage="No cloud-screened NDMI observations available."
+              />
+            </div>
+          </>}
 
-          <RadarTrendPanel
+          {section === "radar" && <RadarTrendPanel
             trends={trends}
             weather={weather}
             stageMarkers={growth?.observations ?? []}
             selectedOrbitKey={selectedRadarOrbit}
             onSelectOrbit={setSelectedRadarOrbit}
-          />
-          {cropCycle && !growthLoading && (
+          />}
+          {section === "radar" && cropCycle && !growthLoading && (
             <RadarScreeningPanel
               selectedOrbitKey={selectedRadarOrbit}
               cropCycleId={cropCycle.id}
@@ -2345,16 +2414,23 @@ export default function SatelliteTrendCharts({
               }
             />
           )}
-          <WeatherContextPanel
+          {section === "growth" && <WeatherContextPanel
             weather={weather}
             loading={weatherLoading}
             error={weatherError}
             activities={trends.activities}
             startDate={trends.start_date}
             endDate={trends.end_date}
-          />
+            degreeDayBaseC={growth?.degree_day_base_c}
+          />}
 
-          <TrendChart
+          {section === "trends" && <div className="satellite-chart-group">
+            <header>
+              <span className="workspace-eyebrow">TEMPERATURE</span>
+              <h4>Crop-surface temperature</h4>
+              <p>Land-surface temperature from Landsat is not the same as air temperature. Interpret it alongside weather and crop conditions.</p>
+            </header>
+            <TrendChart
             title="Surface temperature"
             subtitle="Landsat land-surface temperature trend."
             series={
@@ -2371,9 +2447,16 @@ export default function SatelliteTrendCharts({
             }
             valueLabel="°C"
             emptyMessage="No Landsat surface-temperature observations are available in this period."
-          />
+           />
+          </div>}
 
-          <article className="satellite-trend-chart-with-control">
+          {section === "trends" && <div className="satellite-chart-group">
+            <header>
+              <span className="workspace-eyebrow">OBSERVED ANOMALIES</span>
+              <h4>Areas with unusual field-relative signals</h4>
+              <p>Shows previously calculated anomaly area by date. Unusual satellite signals are not automatically disease, damage or yield loss.</p>
+            </header>
+            <article className="satellite-trend-chart-with-control">
             <div className="satellite-trend-inline-control">
               <label>
                 <span>
@@ -2434,8 +2517,9 @@ export default function SatelliteTrendCharts({
               emptyMessage="No anomaly history is available for this metric in this period."
             />
           </article>
+          </div>}
 
-          <article className="satellite-trend-chart-with-control">
+          {section === "quality" && <article className="satellite-trend-chart-with-control">
             <div className="satellite-trend-inline-control">
               <label>
                 <span>
@@ -2498,7 +2582,7 @@ export default function SatelliteTrendCharts({
               }
               emptyMessage="No coverage history is available for this metric in this period."
             />
-          </article>
+          </article>}
         </div>
       )}
     </section>

@@ -6,6 +6,11 @@ import type {
   CropCycle,
   CropGrowth,
   CropRadarScreening,
+  FieldSpatialHistory,
+  SeasonalZonesResponse,
+  SeasonalZoneGrid,
+  FieldObservationIntelligence,
+  CropPhenologyIntelligence,
   CropStageObservation,
   CurrentUser,
   Farm,
@@ -460,5 +465,46 @@ export function deleteCropGrowthStage(cropCycleId: string, stageCode: string) {
 export function getCropRadarScreening(cropCycleId: string) {
   return apiRequest<CropRadarScreening>(
     "/crop-cycles/" + encodeURIComponent(cropCycleId) + "/radar-screening",
+  );
+}
+
+/* Conservative field spatial zones and stage-aware sensor intelligence. */
+export function getFieldSpatialHistory(
+  fieldId: string, metricType: "ndvi" | "ndmi" | "ndre" = "ndvi", years = 10,
+) {
+  const params = new URLSearchParams({ metric_type: metricType, years: String(years) });
+  return apiRequest<FieldSpatialHistory>(
+    `/fields/${encodeURIComponent(fieldId)}/spatial-history?${params}`,
+  );
+}
+
+export function getFieldObservationIntelligence(fieldId: string, years = 2) {
+  return apiRequest<FieldObservationIntelligence>(
+    `/fields/${encodeURIComponent(fieldId)}/observation-intelligence?years=${years}`,
+  );
+}
+
+export function getCropPhenologyIntelligence(cropCycleId: string) {
+  return apiRequest<CropPhenologyIntelligence>(
+    `/crop-cycles/${encodeURIComponent(cropCycleId)}/phenology-intelligence`,
+  );
+}
+
+/* Historical season processing is strictly user-triggered. */
+export function getSeasonalZones(fieldId: string, cropCycleId: string) {
+  return apiRequest<SeasonalZonesResponse>(
+    `/fields/${encodeURIComponent(fieldId)}/seasonal-zones?crop_cycle_id=${encodeURIComponent(cropCycleId)}`,
+  );
+}
+export function calculateSeasonalZones(fieldId: string, cropCycleId: string, years: number[]) {
+  return apiRequest<{queued_years:number[];already_available_or_running:number[];worker_required:boolean}>(
+    `/fields/${encodeURIComponent(fieldId)}/seasonal-zones/calculate`,
+    { method: "POST", body: JSON.stringify({crop_cycle_id: cropCycleId,years}) },
+  );
+}
+export function combineSeasonalZones(fieldId: string, cropCycleId: string, years: number[]) {
+  return apiRequest<SeasonalZoneGrid>(
+    `/fields/${encodeURIComponent(fieldId)}/seasonal-zones/combine`,
+    { method: "POST", body: JSON.stringify({crop_cycle_id: cropCycleId,years}) },
   );
 }

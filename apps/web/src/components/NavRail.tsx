@@ -1,11 +1,8 @@
 import {
-  CalendarDays,
   LayoutGrid,
   LogOut,
   MapPin,
   MessageCircle,
-  NotebookTabs,
-  Settings,
   Sprout,
 } from "lucide-react";
 
@@ -18,9 +15,11 @@ type Props = {
   onOpenWhatsApp: () => void;
   mobileView: "fields" | "map";
   onMobileViewChange: (view: "fields" | "map") => void;
+  sidebarExpanded: boolean;
+  onSidebarExpandedChange: (expanded: boolean) => void;
 };
 
-export default function NavRail({ onOpenWhatsApp, mobileView, onMobileViewChange }: Props) {
+export default function NavRail({ onOpenWhatsApp, mobileView, onMobileViewChange, sidebarExpanded, onSidebarExpandedChange }: Props) {
 
   const {
     logout,
@@ -44,25 +43,19 @@ export default function NavRail({ onOpenWhatsApp, mobileView, onMobileViewChange
       </div>
 
 
-      <button className="rail-button">
-        <CalendarDays size={23} />
-      </button>
-
-
-      <button className="rail-button active">
+      <button type="button"
+        className={"rail-button desktop-rail-button" + (sidebarExpanded ? " active" : "")}
+        onClick={() => { onSidebarExpandedChange(true); onMobileViewChange("fields"); }}
+        title="Show field list" aria-label="Show field list" aria-pressed={sidebarExpanded}>
         <LayoutGrid size={23} />
       </button>
-
-
-      <button className="rail-button">
+      <button type="button"
+        className={"rail-button desktop-rail-button" + (!sidebarExpanded ? " active" : "")}
+        onClick={() => { onSidebarExpandedChange(false); onMobileViewChange("map"); }}
+        title="Expand map and hide field list" aria-label="Expand map and hide field list"
+        aria-pressed={!sidebarExpanded}>
         <MapPin size={23} />
       </button>
-
-
-      <button className="rail-button">
-        <NotebookTabs size={23} />
-      </button>
-
 
       <div className="rail-spacer" />
 
@@ -77,10 +70,6 @@ export default function NavRail({ onOpenWhatsApp, mobileView, onMobileViewChange
         <MessageCircle size={23} /><span className="mobile-nav-label">WhatsApp</span>
       </button>
 
-
-      <button className="rail-button">
-        <Settings size={23} />
-      </button>
 
 
       <button

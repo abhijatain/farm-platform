@@ -141,7 +141,7 @@ def _screen_metric(
     )
     if stage_source != "farmer_confirmed":
         return RadarScreenMetric(status="unverified_stage", **args)
-    if crop_key == "other":
+    if crop_key not in {"wheat", "rice", "maize"}:
         return RadarScreenMetric(status="unsupported_crop", **args)
     if count < MIN_BASELINE:
         return RadarScreenMetric(status="insufficient_baseline", **args)

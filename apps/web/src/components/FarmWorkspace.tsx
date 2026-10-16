@@ -186,6 +186,7 @@ export default function FarmWorkspace() {
 
 
   const [mobileView, setMobileView] = useState<"fields" | "map">("fields");
+  const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(true);
 
   const [
     mapMode,
@@ -821,12 +822,14 @@ export default function FarmWorkspace() {
 
 
   return (
-    <div className="app-shell" data-mobile-view={mobileView}>
+    <div className="app-shell" data-mobile-view={mobileView} data-desktop-sidebar={desktopSidebarExpanded ? "expanded" : "collapsed"}>
 
       <NavRail
         onOpenWhatsApp={() => setWhatsAppOpen(true)}
         mobileView={mobileView}
         onMobileViewChange={setMobileView}
+        sidebarExpanded={desktopSidebarExpanded}
+        onSidebarExpandedChange={setDesktopSidebarExpanded}
       />
 
 

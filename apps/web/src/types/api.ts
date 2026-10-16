@@ -687,6 +687,7 @@ export type CropStageDefinition = {
   code: string;
   label: string;
   approx_days_after_planting: number | null;
+  bbch_reference: string | null;
 };
 
 export type CropStageObservation = {
@@ -769,4 +770,157 @@ export type CropRadarScreening = {
   orbits: RadarOrbitScreen[];
   warnings: string[];
   statement: string;
+};
+
+
+/** Historical field-relative anomaly frequencies; NOT measured yield/productivity. */
+export type RelativeZone = {
+  id: string;
+  classification: string;
+  stability: string;
+  stability_score: number;
+  centroid: number[];
+  visit_point: number[];
+  area_acres: number;
+  geometry: { type: "Polygon" | "MultiPolygon"; coordinates: number[][][] | number[][][][] };
+  interpretation: string;
+};
+export type TrackedZone = {
+  id: string;
+  anomaly_type: string;
+  transition: "new" | "persistent" | "recurring" | "resolved";
+  recent_dates: string[];
+  area_acres: number;
+  geometry: RelativeZone["geometry"];
+};
+export type FieldSpatialHistory = {
+  field_id: string;
+  metric_type: "ndvi" | "ndmi" | "ndre";
+  history_years: number;
+  status: "insufficient_history" | "short_history" | "candidate_zones";
+  observation_count: number;
+  year_count: number;
+  years: number[];
+  date_range: string[] | null;
+  minimum_valid_percent: number;
+  cell_size_m: number | null;
+  zone_model: string;
+  recent_dates: string[];
+  zones: RelativeZone[];
+  tracking: TrackedZone[];
+  warnings: string[];
+};
+
+export type SensorComparison = {
+  status: "complete" | "one_usable_date";
+  kind: "radar" | "optical";
+  metric_type: string;
+  source: string;
+  unit: string;
+  orbit_key: string | null;
+  latest_date: string;
+  latest_value: number;
+  latest_valid_percent: number;
+  previous_date: string | null;
+  previous_value: number | null;
+  days_between: number | null;
+  change: number | null;
+  interpretation: string;
+};
+export type FieldObservationIntelligence = {
+  field_id: string;
+  window_years: number;
+  comparisons: SensorComparison[];
+  suppressed_unidentified_radar_metrics: number;
+  notes: string[];
+};
+export type CropPhenologyIntelligence = {
+  crop_cycle_id: string;
+  field_id: string;
+  crop_name: string;
+  variety: string | null;
+  profile_key: string;
+  profile_version: string;
+  stage_code: string | null;
+  stage_source: "farmer_confirmed" | "provisional_calendar" | "unknown";
+  as_of: string;
+  days_after_planting: number | null;
+  recommended_indices: string[];
+  guidance: string;
+  historical_comparisons: {
+    crop_cycle_id: string;
+    crop: string;
+    variety: string | null;
+    observed_on: string;
+    days_after_planting: number;
+    ndvi_median: number | null;
+    valid_percent: number;
+    alignment: string;
+  }[];
+  warnings: string[];
+};
+/** Derived on read from compact NDVI cells; not measured yield. */
+export type SeasonalZoneAnalysis = {
+  status: "zones_available" | "low_spatial_contrast" | "insufficient_data";
+  display: { min: number; max: number; mean: number; mode: string } | null;
+  zones: {
+    method: string;
+    status: "qualified" | "low_spatial_contrast";
+    mapped_area_acres: number;
+    low_area_acres: number;
+    medium_area_acres: number;
+    high_area_acres: number;
+    low_percent: number;
+    medium_percent: number;
+    high_percent: number;
+    p10_p90_spread: number;
+    threshold_low: number | null;
+    threshold_high: number | null;
+  } | null;
+  zone_classes: Array<"low" | "medium" | "high" | null>;
+  notes: string[];
+};
+
+/* Compact seasonal NDVI means; source images are never returned. */
+export type SeasonalZoneGrid = {
+  width: number;
+  height: number;
+  mask: boolean[];
+  pixels: Array<number | null>;
+  mean_ndvi: number | null;
+  spatial_analysis?: SeasonalZoneAnalysis;
+  relative_pixels?: Array<number | null>;
+  relative_analysis?: SeasonalZoneAnalysis;
+  stable_relative_area_percent?: number | null;
+  stability_basis?: string;
+  weak_area_acres?: number;
+  strong_area_acres?: number;
+  mapped_area_acres?: number;
+  scene_count?: number;
+  scene_dates?: string[];
+  selected_years?: number[];
+  zone_threshold_ndvi?: number;
+  years_contributing?: number[];
+  notes?: string;
+};
+export type SeasonalZoneRow = {
+  id: string;
+  year: number;
+  status: "pending" | "running" | "completed" | "failed" | "stale_boundary";
+  start_date: string;
+  end_date: string;
+  season_label: string;
+  crop_key: string;
+  window_source: "reference_calendar" | "recorded_crop_cycle";
+  error: string | null;
+  result: SeasonalZoneGrid | null;
+};
+export type SeasonalZonesResponse = {
+  field_id: string;
+  crop_cycle_id: string;
+  crop: string;
+  calendar_key: string;
+  reference_window: { start: string; length_days: number; basis: string };
+  available_years: number[];
+  seasons: SeasonalZoneRow[];
 };

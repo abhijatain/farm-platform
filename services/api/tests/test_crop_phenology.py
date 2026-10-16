@@ -23,10 +23,13 @@ def test_profiles_support_local_aliases_and_manual_only_unknowns():
     assert resolve_profile(" Gehun ").key == "wheat"
     assert resolve_profile("dhan").key == "rice"
     assert resolve_profile("MAKKA").key == "maize"
-    unknown = resolve_profile("Guava")
+    orchard = resolve_profile("Guava")
+    assert orchard.key == "guava"
+    assert not orchard.provisional
+    assert all(stage.approx_day is None for stage in orchard.stages)
+    unknown = resolve_profile("Dragonfruit")
     assert unknown.key == "other"
     assert not unknown.provisional
-    assert all(stage.approx_day is None for stage in unknown.stages)
 
 
 def test_provisional_stage_requires_real_planting_date():

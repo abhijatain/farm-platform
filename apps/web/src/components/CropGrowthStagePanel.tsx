@@ -150,6 +150,7 @@ export default function CropGrowthStagePanel({
                 >
                   <span className="crop-growth-dot" />
                   <strong>{stage.label}</strong>
+                  {stage.bbch_reference && <small>BBCH reference {stage.bbch_reference} · not verified</small>}
                   <small>
                     {observation
                       ? displayDate(observation.observed_on) + " · Recorded"

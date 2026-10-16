@@ -69,10 +69,57 @@ PROFILES: dict[str, CropProfile] = {
         )),
     ),
 }
+
+# Orchards are perennial: farmer-observed stages, never cereal-style calendars.
+# Legacy generic codes remain valid for previously saved observations.
+ORCHARD_STAGES = _stages((
+    ("planting", "Planting / establishment", None),
+    ("establishment", "Canopy establishment", None),
+    ("vegetative", "Vegetative flush / pruning", None),
+    ("flowering", "Flowering", None),
+    ("fruiting", "Fruit set and growth", None),
+    ("maturity", "Harvest / fruit maturity", None),
+))
+for _orchard_key, _orchard_label in (
+    ("mango", "Mango"), ("litchi", "Litchi"),
+    ("guava", "Guava"), ("sapota", "Sapota / chikoo"),
+):
+    PROFILES[_orchard_key] = CropProfile(
+        _orchard_key, _orchard_label, None, ORCHARD_STAGES,
+        provisional=False, version="2026-10-orchard-manual-v1",
+    )
+
+# Approximate BBCH reference families only; never confirmed codes or a
+# cultivar/site-specific model. Farmer records still determine observed stage.
+BBCH_FAMILIES = {
+    "wheat": {
+        "planting": "00–09", "emergence": "10–19", "vegetative": "20–29",
+        "stem_elongation": "30–39", "heading": "50–59",
+        "grain_fill": "70–89", "maturity": "90–99",
+    },
+    "rice": {
+        "planting": "00–09", "establishment": "10–19",
+        "vegetative": "20–29", "panicle": "30–39", "heading": "50–69",
+        "grain_fill": "70–89", "maturity": "90–99",
+    },
+    "maize": {
+        "planting": "00–09", "emergence": "10–19", "vegetative": "10–19",
+        "tasseling": "50–59", "silking": "60–69",
+        "grain_fill": "70–89", "maturity": "90–99",
+    },
+}
+
+
+def bbch_family(crop_key: str, stage_code: str) -> str | None:
+    """Broad BBCH reference only, not an observed growth-stage code."""
+    return BBCH_FAMILIES.get(crop_key, {}).get(stage_code)
+
+
 ALIASES = {
     "gehun": "wheat", "gehu": "wheat",
     "paddy": "rice", "dhan": "rice", "chawal": "rice",
     "corn": "maize", "makka": "maize", "makkai": "maize",
+    "chikoo": "sapota", "chiku": "sapota", "lychee": "litchi",
 }
 GENERIC = CropProfile(
     "other", "Other / uncalibrated crop", None,

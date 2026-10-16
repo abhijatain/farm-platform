@@ -10,6 +10,7 @@ from app.models.satellite_anomaly import SatelliteAnomaly
 from app.models.satellite_ingestion_job import SatelliteIngestionJob
 from app.models.satellite_metric import SatelliteMetric
 from app.models.satellite_observation import SatelliteObservation
+from app.models.seasonal_zone_composite import SeasonalZoneComposite
 from app.models.season import Season
 from app.models.user import User
 from app.models.whatsapp_inbound_event import WhatsAppInboundEvent
@@ -20,6 +21,7 @@ __all__ = [
     "Farm",
     "Field",
     "Season",
+    "SeasonalZoneComposite",
     "CropCycle",
     "CropStageObservation",
     "Activity",

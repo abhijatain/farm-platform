@@ -3571,3 +3571,311 @@
   .crop-growth-summary { grid-template-columns: minmax(0, 1fr); }
   .satellite-trend-svg { min-width: 500px; width: 500px; }
 }
+
+
+/* Focused secondary navigation within the Satellite workspace. */
+.satellite-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 7px;
+  border: 1px solid #e1e9e2;
+  border-radius: 13px;
+  background: #f3f7f3;
+}
+.satellite-section-tab {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  min-height: 42px;
+  padding: 9px 13px;
+  background: transparent;
+  color: #53645a;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.satellite-section-tab:hover { background: #e7f0e8; }
+.satellite-section-tab.active {
+  background: #fff;
+  color: #1b7041;
+  border-color: #bfd8c6;
+  box-shadow: 0 1px 3px rgba(20,65,35,.08);
+}
+.satellite-section-tab:focus-visible,
+.satellite-metric-selector select:focus-visible {
+  outline: 3px solid #87bea0;
+  outline-offset: 2px;
+}
+.satellite-metric-selector {
+  padding: 18px;
+  margin-bottom: 15px;
+  background: #fff;
+  border: 1px solid #e0e8e1;
+  border-radius: 13px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  align-items: center;
+  gap: 10px 20px;
+}
+.satellite-metric-selector h3 { font-size: 16px; margin: 0 0 7px; color: #2a4a34; }
+.satellite-metric-selector p { font-size: 12px; line-height: 1.5; color: #66776a; margin: 0; }
+.satellite-metric-selector label { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.satellite-metric-selector label span { font-size: 11px; color: #586e5e; font-weight: 700; }
+.satellite-metric-selector select {
+  width: 100%;
+  min-height: 43px;
+  min-width: 0;
+  background: white;
+  color: #244b35;
+  border: 1px solid #b5cfbd;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.satellite-metric-selector .satellite-metric-help {
+  grid-column: 1 / -1;
+  background: #f2f8f3;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.activity-response-chart-card { min-width: 0; }
+.activity-response-chart-header { padding-bottom: 12px; margin-bottom: 10px; }
+.activity-response-stats { margin-top: 0; }
+@media (max-width: 760px) {
+  .satellite-section-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 5px;
+    margin-bottom: 13px;
+    scrollbar-width: thin;
+  }
+  .satellite-section-tab { flex: 0 0 auto; min-height: 42px; }
+  .satellite-metric-selector {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+    gap: 12px;
+  }
+  .satellite-metric-selector label { width: 100%; }
+  .satellite-first-page > .workspace-page-title { margin-bottom: 15px; }
+  .field-workspace-tabs {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  .field-workspace-tab { flex-shrink: 0; white-space: nowrap; }
+}
+
+
+/* Compressed details heading: preserve readable tab navigation and main content. */
+@media (min-width:761px) {
+  .field-workspace-panel .field-workspace-header {
+    padding: 9px 17px 3px;
+    gap: 8px;
+    align-items:center;
+  }
+  .field-workspace-panel .field-workspace-header h1 {
+    font-size: 18px;
+    line-height:1.1;
+  }
+  .field-workspace-panel .field-workspace-header p {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+  .field-workspace-panel .field-workspace-header-actions .secondary-action {
+    padding: 6px 9px; min-height:34px;
+  }
+  .field-workspace-panel .field-workspace-tabs {
+    gap: 22px;
+    padding: 0 17px;
+    min-height: 35px;
+  }
+  .field-workspace-panel .field-workspace-tab { padding: 6px 0 9px; font-size:12px; }
+  .field-workspace-panel .field-workspace-close { width:33px; height:33px; }
+  .field-workspace-panel .workspace-page {
+    padding-top: 14px;
+  }
+  .field-workspace-panel .workspace-page-title {
+    margin-bottom: 12px; gap: 10px;
+  }
+  .field-workspace-panel .workspace-page-title h2 { font-size: 19px; margin-top:3px; }
+  .field-workspace-panel .workspace-page-title p { margin-top: 4px; font-size:12px; line-height:1.4; }
+}
+@media (max-width:760px) {
+  .field-workspace-panel .field-workspace-header {
+    padding: 8px 11px 3px;
+    gap: 7px;
+  }
+  .field-workspace-panel .field-workspace-header h1 {font-size:17px;}
+  .field-workspace-panel .field-workspace-header p {margin-top: 2px; font-size:10px;}
+  .field-workspace-panel .field-workspace-close {width:36px;height:36px;}
+  .field-workspace-panel .field-workspace-tabs {min-height:40px;}
+  .field-workspace-panel .field-workspace-tab {min-height:40px;padding:7px 0;font-size:12px;}
+  .field-workspace-panel .workspace-page { padding-top:10px; }
+  .field-workspace-panel .workspace-page-title {margin-bottom:10px;}
+  .field-workspace-panel .workspace-page-title h2 {font-size:18px;}
+}
+
+
+/* Interactive trend cards: vegetation, moisture, radar and heat each have
+   an independent value box and show the exact observed value on hover/tap. */
+.satellite-chart-group {
+  display:grid;
+  gap:13px;
+  min-width:0;
+  padding:14px;
+  border:1px solid #dce6de;
+  border-radius:13px;
+  background:#f4f8f5;
+}
+.satellite-chart-group>header {padding:0 4px 2px;}
+.satellite-chart-group>header h4 {
+  margin:5px 0;
+  font-size:17px;
+  color:#254733;
+}
+.satellite-chart-group>header p {
+  margin:0;
+  font-size:12px;
+  color:#66796b;
+  line-height:1.5;
+  max-width:760px;
+}
+.satellite-chart-group .satellite-trend-chart-card {
+  background:white;
+  border:1px solid #dee6e1;
+  border-radius:11px;
+  min-width:0;
+}
+.satellite-trend-chart-heading {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:15px;
+}
+.satellite-trend-chart-heading>div:first-child {min-width:0;}
+.satellite-chart-latest {
+  flex:0 0 auto;
+  min-width:120px;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  padding:9px 12px;
+  background:#eff6f0;
+  border:1px solid #dce8df;
+  border-radius:9px;
+}
+.satellite-chart-latest span,
+.satellite-chart-latest small {font-size:10px;color:#617969;}
+.satellite-chart-latest strong {font-size:21px;color:#245e3d;font-variant-numeric:tabular-nums;}
+.satellite-trend-svg-wrap {position:relative; min-width:0;}
+.satellite-trend-svg {touch-action:pan-y;cursor:crosshair;}
+.satellite-trend-hover-line {
+  stroke:#2b5d47;
+  stroke-dasharray:5 4;
+  stroke-width:1.4;
+  pointer-events:none;
+}
+.satellite-chart-tooltip {
+  position:absolute;
+  top:6px;
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:160px;
+  max-width:min(225px,80%);
+  transform:translateX(-30%);
+  padding:9px 12px;
+  color:white;
+  background:rgba(25,39,34,.96);
+  border-radius:9px;
+  box-shadow:0 3px 12px rgba(0,0,0,.12);
+  font-size:11px;
+  pointer-events:none;
+  font-variant-numeric:tabular-nums;
+}
+.satellite-chart-tooltip strong {font-size:12px;}
+.satellite-chart-tooltip span {display:flex;justify-content:space-between;gap:10px;}
+.satellite-chart-tooltip small {font-size:9px;color:#cbded1;}
+@media(max-width:760px){
+  .satellite-chart-group {padding:8px;gap:9px;}
+  .satellite-chart-group>header {padding:5px;}
+  .satellite-chart-group>header h4 {font-size:15px;}
+  .satellite-trend-chart-heading {gap:7px;}
+  .satellite-chart-latest {min-width:88px;padding:7px;}
+  .satellite-chart-latest strong {font-size:16px;}
+  .satellite-chart-tooltip {max-width:75%;min-width:140px;}
+}
+
+
+/* Weather charts use the same value-card + exact-value-hover pattern as satellite trends. */
+.weather-metric-chart-card {
+  min-width:0;
+  margin-top:12px;
+  padding:12px;
+  border:1px solid #dce6e0;
+  border-radius:11px;
+  background:#fff;
+}
+.weather-metric-chart-heading {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.weather-metric-chart-heading > div:first-child {min-width:0;}
+.weather-metric-chart-heading strong {font-size:14px;color:#284e38;}
+.weather-metric-chart-heading p {font-size:11px;color:#667a6a;line-height:1.5;margin:5px 0;}
+.weather-metric-latest {
+  display:flex;
+  flex:0 0 auto;
+  flex-direction:column;
+  gap:3px;
+  min-width:122px;
+  border-radius:8px;
+  background:#f0f6f2;
+  border:1px solid #dceade;
+  padding:9px;
+}
+.weather-metric-latest span,.weather-metric-latest small{font-size:10px;color:#65766c;}
+.weather-metric-latest strong{font-size:17px;color:#245c3a;font-variant-numeric:tabular-nums;}
+.weather-metric-chart-card .weather-chart-scroll {position:relative;min-width:0;}
+.weather-metric-chart-card .weather-rainfall-chart {cursor:crosshair;touch-action:pan-y;}
+.weather-hover-line {stroke:#384d43;stroke-width:1.5;stroke-dasharray:6 4;pointer-events:none;}
+.weather-hover-readout {
+  position:absolute;
+  right:10px;
+  top:7px;
+  z-index:4;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  max-width:190px;
+  padding:9px 11px;
+  border-radius:8px;
+  background:#26382d;
+  color:white;
+  font-size:11px;
+  pointer-events:none;
+  box-shadow:0 3px 10px rgba(0,0,0,.12);
+  font-variant-numeric:tabular-nums;
+}
+.weather-hover-readout strong{font-size:12px;}
+.weather-hover-readout small {color:#c8d8cd;font-size:10px;}
+.weather-heat-note{font-size:10px;line-height:1.5;color:#657769;margin:8px 0 0;}
+@media(max-width:760px){
+  .weather-metric-chart-card{padding:8px;}
+  .weather-metric-chart-heading{gap:7px;}
+  .weather-metric-latest{min-width:90px;padding:7px;}
+  .weather-metric-latest strong{font-size:13px;}
+  .weather-hover-readout {max-width:155px;}
+}
