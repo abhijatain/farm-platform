@@ -127,8 +127,7 @@ export default function FieldJourneyPanel({
         <p>{cycle ? "Every crop has its own preparation, planting, activities, growth measurements and eventual harvest." :
           "First create a farm and season, then choose a crop for this field. You can start preparing before it is planted."}</p>
       </div>
-      {season && (!cycle || cycle.status === "completed") &&
-        <button className="primary-action" type="button" onClick={onStart}>+ Start another crop</button>}
+      {season && <button className="primary-action" type="button" onClick={onStart}>+ Start another crop</button>}
     </header>
     {cycles.length > 0 && <label className="journey-cycle-picker">
       <span>Crop cycle</span>
@@ -162,16 +161,20 @@ export default function FieldJourneyPanel({
             toHarvest==null ? "Not planned" : toHarvest >= 0 ? toHarvest+" days left" : Math.abs(toHarvest)+" days overdue"}</strong>
           <small>{cycle.harvested_on ? "Cycle completed" :
             cycle.expected_harvest_on ? "Target: " + pretty(cycle.expected_harvest_on) + " · estimate only" : "Set a target harvest date, not an automatic prediction"}</small></article>
-        <article><span>Current crop stage</span><strong>{!cycle.planted_on ? "Preparing" :
-          growthError ? "Unavailable" : stage?.label ?? "Not confirmed"}</strong>
-          <small>{!cycle.planted_on ? "Crop not planted yet" :
+        <article><span>{cycle.harvested_on ? "Final crop status" : "Current crop stage"}</span><strong>
+          {cycle.harvested_on ? "Harvested" : !cycle.planted_on ? "Preparing" :
+            growthError ? "Unavailable" : stage?.label ?? "Not confirmed"}</strong>
+          <small>{cycle.harvested_on ? "Harvested " + pretty(cycle.harvested_on) + ". Earlier stage records are kept in the diary." :
+            !cycle.planted_on ? "Crop not planted yet" :
             isConfirmed ? "Confirmed by your field record" : stage ? "Approximate calendar stage · verify in field" :
             growthError ?? "Record what you observe"}</small></article>
       </div>
       <div className="journey-actions">
+        <button className="primary-action" type="button" onClick={onActivity}>
+          {cycle.status === "completed" ? "+ Record previous / post-harvest work" :
+            cycle.planted_on ? "+ Record field activity" : "+ Record preparation / planting"}
+        </button>
         {cycle.status === "active" && <>
-          <button className="primary-action" type="button" onClick={onActivity}>
-            {cycle.planted_on ? "+ Record field activity" : "+ Record preparation / planting"}</button>
           <button className="secondary-action" type="button" onClick={()=>setEditing(v=>!v)}>
             Edit planting & harvest plan</button>
           {cycle.planted_on && <button className="secondary-action" type="button" onClick={onHarvest}>Record harvest</button>}
