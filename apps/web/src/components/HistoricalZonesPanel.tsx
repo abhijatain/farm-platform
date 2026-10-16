@@ -265,7 +265,6 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
           <h3>Combined average of selected seasons</h3>
           {combined ? <>
             <p><strong>{(combined.selected_years ?? []).join(", ")}</strong> · Mean NDVI: {fmt(combined.mean_ndvi)}</p>
-            <p className="hz-area-summary">Relative low: <strong>{fmt(combined.weak_area_acres ?? null)} ac</strong> · Relative high: <strong>{fmt(combined.strong_area_acres ?? null)} ac</strong></p>
             <SeasonalBoundaryMap grid={combined} title="Combined season relative zones" mode={mapMode} relative />
             <ZoneBreakdown grid={combined} relative />
             <p className="hz-explanation">This spatial map averages each year\'s deviations from its own seasonal field mean, preventing greener or wetter years from automatically dominating the zone boundaries.</p>
@@ -284,7 +283,6 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
                 <p>{r.window_source === "recorded_crop_cycle" ? "Actual saved crop-cycle dates" : "Projected crop calendar · estimated dates"}</p>
                 <p>Season mean NDVI: <strong>{fmt(r.result?.mean_ndvi)}</strong> · {r.result?.scene_count} clear dates</p>
                 {r.result && <>
-                  <p className="hz-area-summary">Relative low: <strong>{fmt(r.result.weak_area_acres ?? null)} ac</strong> · Relative high: <strong>{fmt(r.result.strong_area_acres ?? null)} ac</strong></p>
                   <SeasonalBoundaryMap grid={r.result} title={r.year + " NDVI season mean zones"} mode={mapMode} />
                   <ZoneBreakdown grid={r.result} />
                   <details className="hz-dates"><summary>Show {r.result.scene_count ?? 0} image acquisition dates used</summary>
