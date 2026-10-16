@@ -174,7 +174,7 @@ export default function HistoricalZonesPanel({ field, cropCycle }: Props) {
         <section className="hz-section">
           <h3>Combined average of selected seasons</h3>
           {combined ? <>
-            <p><strong>{combined.selected_years.join(", ")}</strong> · Mean NDVI: {fmt(combined.mean_ndvi)}</p>
+            <p><strong>{(combined.selected_years ?? []).join(", ")}</strong> · Mean NDVI: {fmt(combined.mean_ndvi)}</p>
             <SeasonalBoundaryMap grid={combined} title="Combined season relative zones" />
             <p className="hz-explanation">{combined.notes}</p>
           </> : <p className="hz-explanation">Select completed seasons above and click “Show average” to produce the combined zone map.</p>}
