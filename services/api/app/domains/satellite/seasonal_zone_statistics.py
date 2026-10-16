@@ -113,7 +113,8 @@ def combine_deviations(grids: list[dict], mask: list[bool]):
                   for g, center in zip(grids, centers)
                   if center is not None and g["pixels"][i] is not None
                   and isfinite(float(g["pixels"][i]))]
-        enough = mask[i] and len(deltas) >= max(2, (len(grids) + 1) // 2)
+        needed = 1 if len(grids) == 1 else max(2, (len(grids) + 1) // 2)
+        enough = mask[i] and len(deltas) >= needed
         contributing.append(len(deltas))
         relatives.append(round(sum(deltas) / len(deltas), 5) if enough else None)
         if not enough or len(grids) < 3 or len(deltas) < 3:
