@@ -249,6 +249,16 @@ export default function WhatsAppLinkDialog({ onClose }: Props) {
                       <Copy size={16} aria-hidden="true" /> Copy
                     </button>
                   </div>
+                  {challenge.business_phone_e164 && /^\\+[1-9]\\d{7,14}$/.test(challenge.business_phone_e164) && (
+                    <a
+                      className="whatsapp-open-link"
+                      href={`https://wa.me/${challenge.business_phone_e164.slice(1)}?text=${encodeURIComponent(`LINK ${challenge.link_code}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open WhatsApp with the linking message
+                    </a>
+                  )}
                   {copyStatus && <p className="whatsapp-muted" role="status">{copyStatus}</p>}
                 </>
               ) : (
