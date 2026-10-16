@@ -11,6 +11,8 @@ import {
 import {
   getSatelliteChange,
 } from "../lib/api";
+import { apiRequest } from "../lib/api-client";
+import { usePrivateRaster } from "../lib/privateRaster";
 
 import {
   METRIC_OPTIONS,
@@ -30,18 +32,6 @@ type Props = {
   fieldId: string;
   cropCycle: CropCycle | null;
 };
-
-
-const TILER_URL =
-  import.meta.env
-    .VITE_TILER_URL;
-
-
-if (!TILER_URL) {
-  throw new Error(
-    "VITE_TILER_URL is missing.",
-  );
-}
 
 
 const MODE_OPTIONS: Array<{
@@ -230,69 +220,28 @@ function radarGeometryLabel(
 }
 
 
-function buildChangeSummaryUrl(
-  change: FieldSatelliteChange,
-) {
-  if (
-    !change.before
-    || !change.after
-  ) {
-    return null;
-  }
-
-  const params =
-    new URLSearchParams({
-      before:
-        change.before
-          .raster_uri,
-      after:
-        change.after
-          .raster_uri,
-      threshold:
-        String(
-          change
-            .pixel_change_threshold,
-        ),
-    });
-
-  return (
-    `${TILER_URL}/change/summary?`
-    + params.toString()
-  );
+function changeParams(fieldId: string, change: FieldSatelliteChange, metricType: SatelliteMetricType) {
+  if (!change.before || !change.after) return null;
+  const prefix = `/fields/${encodeURIComponent(fieldId)}`;
+  const params = new URLSearchParams({
+    before_id: change.before.observation_id,
+    after_id: change.after.observation_id,
+    metric_type: metricType,
+  });
+  return { prefix, params };
 }
-
-
-function buildChangePreviewUrl(
-  change: FieldSatelliteChange,
-) {
-  if (
-    !change.before
-    || !change.after
-  ) {
-    return null;
-  }
-
-  const params =
-    new URLSearchParams({
-      before:
-        change.before
-          .raster_uri,
-      after:
-        change.after
-          .raster_uri,
-      max_abs:
-        String(
-          change
-            .pixel_change_display_max,
-        ),
-    });
-
-  return (
-    `${TILER_URL}/change/preview.png?`
-    + params.toString()
-  );
+function buildChangeSummaryUrl(fieldId: string, change: FieldSatelliteChange, metricType: SatelliteMetricType) {
+  const parts = changeParams(fieldId, change, metricType);
+  if (!parts) return null;
+  parts.params.set("threshold", String(change.pixel_change_threshold));
+  return `${parts.prefix}/satellite-change-pixels?${parts.params.toString()}`;
 }
-
+function buildChangePreviewUrl(fieldId: string, change: FieldSatelliteChange, metricType: SatelliteMetricType) {
+  const parts = changeParams(fieldId, change, metricType);
+  if (!parts) return null;
+  parts.params.set("max_abs", String(change.pixel_change_display_max));
+  return `${parts.prefix}/satellite-change-preview?${parts.params.toString()}`;
+}
 
 export default function SatelliteChangePanel({
   fieldId,
@@ -453,35 +402,16 @@ export default function SatelliteChangePanel({
             }
 
             const summaryUrl =
-              buildChangeSummaryUrl(
-                result,
-              );
+              buildChangeSummaryUrl(fieldId, result, metricType);
 
             if (!summaryUrl) {
               return;
             }
 
             try {
-              const response =
-                await fetch(
-                  summaryUrl,
-                  {
-                    signal:
-                      controller.signal,
-                  },
-                );
-
-              if (
-                !response.ok
-              ) {
-                throw new Error(
-                  "Unable to calculate pixel change."
-                );
-              }
-
-              const summary = (
-                await response.json()
-              ) as SatellitePixelChangeSummary;
+              const summary = await apiRequest<SatellitePixelChangeSummary>(
+                summaryUrl, { signal: controller.signal },
+              );
 
               if (!cancelled) {
                 setPixels(
@@ -567,14 +497,15 @@ export default function SatelliteChangePanel({
     useMemo(
       () =>
         change
-          ? buildChangePreviewUrl(
-              change,
-            )
+          ? buildChangePreviewUrl(fieldId, change, metricType)
           : null,
       [
-        change,
+        change, fieldId, metricType,
       ],
     );
+
+
+  const { url: previewBlobUrl, loading: previewLoading, error: previewError } = usePrivateRaster(previewUrl);
 
 
   return (
@@ -913,14 +844,13 @@ export default function SatelliteChangePanel({
                 </span>
               </div>
 
-              {previewUrl && (
-                <img
-                  src={
-                    previewUrl
-                  }
-                  alt="Pixel-by-pixel satellite metric change"
-                />
-              )}
+              {previewBlobUrl ? (
+                <img src={previewBlobUrl} alt="Pixel-by-pixel satellite metric change" />
+              ) : previewLoading ? (
+                <p className="satellite-change-state">Loading private change imagery…</p>
+              ) : previewError ? (
+                <p className="satellite-change-state" role="status">{previewError}</p>
+              ) : null}
 
               <div className="satellite-change-gradient">
                 <span>
