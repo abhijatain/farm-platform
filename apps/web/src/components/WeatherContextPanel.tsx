@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import type {
   FieldWeather,
@@ -14,6 +14,7 @@ type Props = {
   activities: SatelliteTrendActivity[];
   startDate: string;
   endDate: string;
+  degreeDayBaseC?: number | null;
 };
 
 const DAY_MS = 86_400_000;
@@ -55,6 +56,11 @@ function RainfallChart({
   startDate: string;
   endDate: string;
 }) {
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const plotted = days.filter((day) =>
+    day.precipitation_mm != null && Number.isFinite(day.precipitation_mm) && day.precipitation_mm >= 0
+  );
+  const latest = plotted[plotted.length - 1];
   const width = 960;
   const height = 230;
   const left = 52;
@@ -75,13 +81,39 @@ function RainfallChart({
   const hasRain = values.length > 0;
 
   return (
-    <div className="weather-chart-scroll">
+    <div className="weather-metric-chart-card">
+      <div className="weather-metric-chart-heading">
+        <div>
+          <strong>Daily precipitation</strong>
+          <p>Weather-model rainfall. Hover a bar or chart date to read the actual model value.</p>
+        </div>
+        <div className="weather-metric-latest">
+          <span>Latest daily rain</span><strong>{amount(latest?.precipitation_mm, "mm")}</strong>
+          <small>{latest ? dateLabel(latest.date) : "No data"}</small>
+        </div>
+      </div>
+      <div className="weather-chart-scroll">
       <svg
         className="weather-rainfall-chart"
         viewBox={"0 0 " + width + " " + height}
         role="img"
         aria-label="Daily modeled precipitation with irrigation and farm-activity markers"
+        onPointerMove={(event) => {
+          if (!plotted.length) return;
+          const bounds = event.currentTarget.getBoundingClientRect();
+          if (!bounds.width) return;
+          const sx = (event.clientX - bounds.left) * width / bounds.width;
+          const hoverTime = start + ((sx-left)/(width-left-right))*span;
+          const nearest = plotted.reduce((best, day) =>
+            Math.abs(utcDate(day.date)-hoverTime) < Math.abs(utcDate(best.date)-hoverTime)
+              ? day : best
+          );
+          setHoveredDate(nearest.date);
+        }}
+        onPointerLeave={() => setHoveredDate(null)}
       >
+        {hoveredDate && <line className="weather-hover-line"
+          x1={x(hoveredDate)} x2={x(hoveredDate)} y1={top} y2={height-bottom} />}
         {[0, 0.5, 1].map((ratio) => (
           <g key={ratio}>
             <line className="weather-gridline" x1={left} x2={width - right} y1={top + (1 - ratio) * plotHeight} y2={top + (1 - ratio) * plotHeight} />
@@ -135,7 +167,90 @@ function RainfallChart({
         })}
         <text className="weather-axis-title" x={left} y={10}>Rainfall (mm)</text>
       </svg>
+      {hoveredDate && plotted.find((day) => day.date === hoveredDate) && (
+        <div className="weather-hover-readout" role="status">
+          <strong>{dateLabel(hoveredDate)}</strong>
+          <span>{amount(plotted.find((day) => day.date === hoveredDate)?.precipitation_mm, "mm")} modeled rain</span>
+          <small>{plotted.find((day) => day.date === hoveredDate)?.source.replace(/_/g," ")}</small>
+        </div>
+      )}
       {!hasRain && <p className="weather-no-data">No precipitation readings were returned for this period.</p>}
+      </div>
+    </div>
+  );
+}
+
+
+/** Cumulative available-day heat sum. Missing days are not filled or guessed. */
+function GrowingHeatChart({ days, baseC }: { days: FieldWeatherDay[]; baseC: number }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const observed = days
+    .filter((day) =>
+      day.source !== "forecast" &&
+      day.temperature_max_c != null && Number.isFinite(day.temperature_max_c) &&
+      day.temperature_min_c != null && Number.isFinite(day.temperature_min_c)
+    )
+    .sort((a,b) => a.date.localeCompare(b.date));
+  let running = 0;
+  const points = observed.map((day) => {
+    const increment = Math.max(0, ((day.temperature_max_c ?? 0) + (day.temperature_min_c ?? 0))/2 - baseC);
+    running += increment;
+    return {date:day.date, daily:increment, total:running};
+  });
+  if (!points.length) return <p className="weather-context-status">No temperature history available for accumulated heat estimates.</p>;
+  const width=960, height=210, left=50, right=22, top=18, bottom=35;
+  const low=utcDate(points[0].date), high=Math.max(low+DAY_MS,utcDate(points[points.length-1].date));
+  const max=Math.max(5,points[points.length-1].total);
+  const x=(date:string)=>left+(utcDate(date)-low)/(high-low)*(width-left-right);
+  const y=(total:number)=>height-bottom-total/max*(height-top-bottom);
+  const active = hovered == null ? null : points[hovered];
+  return (
+    <div className="weather-metric-chart-card">
+      <div className="weather-metric-chart-heading">
+        <div>
+          <strong>Accumulated growing-degree days (estimated)</strong>
+          <p>Daily mean temperature above {baseC} °C, summed only over available dates in this view. Missing days are not filled.</p>
+        </div>
+        <div className="weather-metric-latest">
+          <span>Available-day total</span>
+          <strong>{points[points.length-1].total.toFixed(0)} °C·days</strong>
+          <small>{points.length} modeled days</small>
+        </div>
+      </div>
+      <div className="weather-chart-scroll">
+        <svg className="weather-rainfall-chart" viewBox={`0 0 ${width} ${height}`}
+          role="img" aria-label="Estimated accumulated heat for available modeled weather dates"
+          onPointerMove={(event)=>{
+            const bounds=event.currentTarget.getBoundingClientRect();
+            if(!bounds.width)return;
+            const cursorX=(event.clientX-bounds.left)*width/bounds.width;
+            let nearest=0;
+            for(let i=1;i<points.length;i++){
+              if(Math.abs(x(points[i].date)-cursorX)<Math.abs(x(points[nearest].date)-cursorX))nearest=i;
+            }
+            setHovered(nearest);
+          }}
+          onPointerLeave={()=>setHovered(null)}>
+          {[0,0.5,1].map(f => <g key={f}>
+            <line className="weather-gridline" x1={left} x2={width-right} y1={y(max*f)} y2={y(max*f)}/>
+            <text className="weather-axis-label" x={left-8} y={y(max*f)+4} textAnchor="end">{(max*f).toFixed(0)}</text>
+          </g>)}
+          <path d={points.map((p,i)=>`${i===0?"M":"L"} ${x(p.date).toFixed(2)} ${y(p.total).toFixed(2)}`).join(" ")}
+            stroke="#e5912f" strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          {active && <g>
+            <line className="weather-hover-line" x1={x(active.date)} x2={x(active.date)} y1={top} y2={height-bottom}/>
+            <circle cx={x(active.date)} cy={y(active.total)} r={5} fill="#cb6d13" stroke="white" strokeWidth={2}/>
+          </g>}
+          <text x={left} y={height-8} className="weather-axis-label">{dateLabel(points[0].date)}</text>
+          <text x={width-right} y={height-8} textAnchor="end" className="weather-axis-label">{dateLabel(points[points.length-1].date)}</text>
+        </svg>
+        {active && <div className="weather-hover-readout" role="status">
+          <strong>{dateLabel(active.date)}</strong>
+          <span>{active.total.toFixed(1)} °C·days accumulated</span>
+          <small>{active.daily.toFixed(1)} °C·days this day · modeled</small>
+        </div>}
+      </div>
+      <p className="weather-heat-note">Not a full-season total unless every growing-season date is included. This temperature-based estimate does not independently determine crop stage.</p>
     </div>
   );
 }
@@ -147,6 +262,7 @@ export default function WeatherContextPanel({
   activities,
   startDate,
   endDate,
+  degreeDayBaseC,
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
 
@@ -224,6 +340,9 @@ export default function WeatherContextPanel({
           </div>
           {chartDays.length > 0 && (
             <RainfallChart days={chartDays} activities={activities} startDate={chartStart} endDate={chartEnd} />
+          )}
+          {degreeDayBaseC != null && Number.isFinite(degreeDayBaseC) && chartDays.length > 0 && (
+            <GrowingHeatChart days={chartDays} baseC={degreeDayBaseC} />
           )}
 
           <div className="weather-chart-legend">
