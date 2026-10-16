@@ -123,7 +123,7 @@ def compute_season(geometry, start, end):
             reproject(
                 source=masked, destination=projected,
                 src_transform=grid.transform, src_crs=grid.crs, src_nodata=NODATA,
-                dst_transform=aligned_transform, dst_crs=crs, dst_nodata=NODATA,
+                dst_transform=aligned_transform, dst_crs=str(crs), dst_nodata=NODATA,
                 resampling=Resampling.nearest,
             )
             good = inside & np.isfinite(projected) & (projected != NODATA)
@@ -151,7 +151,7 @@ def compute_season(geometry, start, end):
     high_cells = int(np.sum(valid_final & (values > field_mean + 0.08)))
     mask = [bool(x) for x in inside.ravel()]
     return {
-        "width": width, "height": height, "projection": crs.to_string(),
+        "width": width, "height": height, "projection": str(crs),
         "transform": [round(float(v), 7) for v in tuple(aligned_transform)[:6]],
         "mask": mask, "pixels": pixels,
         "mean_ndvi": round(field_mean, 4),
