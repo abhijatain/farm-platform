@@ -6,6 +6,7 @@ import ActivityMediaSection from "./ActivityMediaSection";
 import FieldReport from "./FieldReport";
 import FieldRasterImage from "./FieldRasterImage";
 import FieldIntelligencePanel from "./FieldIntelligencePanel";
+import HistoricalZonesPanel from "./HistoricalZonesPanel";
 import SatelliteChangePanel from "./SatelliteChangePanel";
 import SatelliteTrendCharts from "./SatelliteTrendCharts";
 import {
@@ -51,7 +52,7 @@ type Props = {
   onDataChanged: () => Promise<void>;
 };
 
-type FieldWorkspaceTab = "satellite" | "activities" | "yield" | "report";
+type FieldWorkspaceTab = "satellite" | "activities" | "yield" | "report" | "historical";
 
 type FarmerMetric = {
   metricType: SatelliteMetricType;
@@ -640,6 +641,7 @@ export default function FieldDetailsPanel({
       <nav className="field-workspace-tabs">
         {[
           ["satellite", "Satellite"],
+          ["historical", "Historical Zones"],
           ["activities", "Activities"],
           ["yield", "Yield"],
           ["report", "Report"],
@@ -670,6 +672,8 @@ export default function FieldDetailsPanel({
             cropCycle={cropCycle}
           />
         )}
+
+        {activeTab === "historical" && <HistoricalZonesPanel field={field} cropCycle={cropCycle} />}
 
         {activeTab === "activities" && (
           <ActivitiesTab
