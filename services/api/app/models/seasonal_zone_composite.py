@@ -18,6 +18,7 @@ class SeasonalZoneComposite(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     crop_key: Mapped[str] = mapped_column(String(100), nullable=False)
     calendar_key: Mapped[str] = mapped_column(String(32), nullable=False)
     season_label: Mapped[str] = mapped_column(String(120), nullable=False)
+    window_source: Mapped[str] = mapped_column(String(32), nullable=False, server_default="reference_calendar")
     year: Mapped[int] = mapped_column(Integer, nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
