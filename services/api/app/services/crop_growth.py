@@ -9,6 +9,7 @@ from app.models.crop_stage_observation import CropStageObservation
 from app.schemas.crop_growth import CropGrowthResponse, StageDefinition
 from app.domains.crops.phenology import (
     growing_degree_days,
+    bbch_family,
     provisional_stage,
     resolve_profile,
 )
@@ -33,6 +34,8 @@ def make_crop_growth_response(
     )
     if not planted:
         warnings.append("Enter a planting date to enable provisional stages and GDD.")
+    if profile.key in {"mango", "litchi", "guava", "sapota"}:
+        warnings.append("Orchard development is recorded manually; this service does not predict flowering or fruiting dates.")
     if profile.key == "other":
         warnings.append("No stage calendar is calibrated for this crop. Record actual stages manually.")
     elif estimate:
@@ -85,6 +88,7 @@ def make_crop_growth_response(
                 code=stage.code,
                 label=stage.label,
                 approx_days_after_planting=stage.approx_day,
+                bbch_reference=bbch_family(profile.key, stage.code),
             ) for stage in profile.stages
         ],
         observations=chronological,
