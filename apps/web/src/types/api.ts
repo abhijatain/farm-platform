@@ -881,6 +881,7 @@ export type SeasonalZoneRow = {
   end_date: string;
   season_label: string;
   crop_key: string;
+  window_source: "reference_calendar" | "recorded_crop_cycle";
   error: string | null;
   result: SeasonalZoneGrid | null;
 };
