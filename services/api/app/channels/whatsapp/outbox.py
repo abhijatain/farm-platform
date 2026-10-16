@@ -106,6 +106,33 @@ def check_configuration() -> dict[str, bool]:
     }
 
 
+def verify_meta_connection() -> str:
+    """Read the configured phone-number ID using Meta Graph; send no messages.
+
+    This verifies the access token and number access on the developer's
+    machine without printing credentials, display numbers, or API responses.
+    """
+    token = settings.whatsapp_access_token
+    phone = settings.whatsapp_phone_number_id
+    version = settings.whatsapp_graph_version
+    if not token or not phone or not phone.isdigit() or not re.fullmatch(r"v\d{1,2}\.\d", version):
+        return "Meta connection: configuration incomplete"
+    request = urllib.request.Request(
+        f"https://graph.facebook.com/{version}/{phone}?fields=id",
+        headers={"Authorization": f"Bearer {token.get_secret_value()}"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            result = json.load(response)
+        if isinstance(result, dict) and result.get("id") == phone:
+            return "Meta connection: OK (sending still requires permission)"
+        return "Meta connection: unexpected phone ID"
+    except urllib.error.HTTPError as exc:
+        return f"Meta connection: HTTP {exc.code}"
+    except (urllib.error.URLError, OSError, ValueError, TypeError):
+        return "Meta connection: request failed"
+
+
 def _claim(db: Session) -> WhatsAppOutbox | None:
     """Lease a job transactionally, including timed-out abandoned leases."""
     now = _utcnow()
@@ -213,10 +240,14 @@ def main() -> None:
     mode.add_argument("--once", action="store_true", help="Process at most one message")
     mode.add_argument("--loop", action="store_true", help="Poll the outbox until stopped")
     mode.add_argument("--check", action="store_true", help="Show safe configuration readiness flags")
+    mode.add_argument("--verify-meta", action="store_true", help="Validate sender number and token via Meta GET (no messages)")
     args = parser.parse_args()
     if args.check:
         for name, ready in check_configuration().items():
             print(f"{name}: {'yes' if ready else 'no'}")
+        return
+    if args.verify_meta:
+        print(verify_meta_connection())
         return
     if args.once:
         print(dispatch_one())
