@@ -2547,3 +2547,26 @@ textarea.form-input {
   .app-shell { grid-template-columns:minmax(0,1fr) !important; }
   .app-shell .nav-rail .logout-rail-button { margin-top: 0; flex: 1 1 0; }
 }
+
+
+/* A small onboarding guide, displayed only before the first farm/season/field. */
+.farm-onboarding-guide {
+  position:absolute;
+  top:85px;
+  left:20px;
+  z-index:18;
+  width:min(380px,calc(100% - 40px));
+  padding:20px;
+  border-radius:14px;
+  border:1px solid #dbeadf;
+  background:rgba(255,255,255,.97);
+  box-shadow:0 9px 26px rgba(24,61,36,.16);
+}
+.farm-onboarding-guide h2 {margin:6px 0 7px;font-size:20px;color:#224d31;}
+.farm-onboarding-guide p {font-size:13px;line-height:1.6;color:#597267;margin:0 0 15px;}
+.farm-onboarding-guide .primary-action {min-height:43px;}
+@media(max-width:760px){
+ .farm-onboarding-guide{top:74px;left:10px;width:calc(100% - 20px);padding:14px;}
+ .farm-onboarding-guide h2{font-size:17px;}
+ .farm-onboarding-guide p{font-size:12px;}
+}
