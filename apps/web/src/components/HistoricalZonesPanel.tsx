@@ -187,6 +187,7 @@ export default function HistoricalZonesPanel({ field, cropCycle }: Props) {
               <article className="hz-season-card" key={r.id}>
                 <h4>{cropCycle.crop_name} {r.year}</h4>
                 <p>{r.start_date} to {r.end_date}</p>
+                <p>{r.window_source === "recorded_crop_cycle" ? "Actual saved crop-cycle dates" : "Projected crop calendar · estimated dates"}</p>
                 <p>Season mean NDVI: <strong>{fmt(r.result?.mean_ndvi)}</strong> · {r.result?.scene_count} clear dates</p>
                 {r.result && <SeasonalBoundaryMap grid={r.result} title={r.year + " NDVI season mean zones"} />}
               </article>
