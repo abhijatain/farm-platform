@@ -13,7 +13,7 @@ def test_denied_owner_prevents_any_metric_read_or_upstream(monkeypatch):
     user = SimpleNamespace(id=uuid4())
     db = SimpleNamespace(scalar=lambda _: pytest.fail("Unowned metric must not be queried"))
 
-    def reject(**_):
+    def reject(*_args, **_kwargs):
         raise HTTPException(status_code=404, detail="Field not found.")
 
     monkeypatch.setattr(previews, "get_owned_field", reject)
