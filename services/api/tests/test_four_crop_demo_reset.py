@@ -54,3 +54,38 @@ def test_db_url_never_prints_password():
     assert got.db_host=="db.internal"
     assert got.db_name=="farm_test"
     assert "secret_password" not in str(got)
+
+
+def test_exact_known_whatsapp_outbox_schema_is_recognized():
+    from app.cli.reset_test_data import (
+        LEGACY_OUTBOX_COLUMNS, verify_legacy_whatsapp_outbox,
+    )
+
+    class Inspector:
+        def get_columns(self, table, schema):
+            assert table == "whatsapp_outbox" and schema == "public"
+            return [{"name": name} for name in sorted(LEGACY_OUTBOX_COLUMNS)]
+
+        def get_pk_constraint(self, table, schema):
+            return {"constrained_columns": ["id"]}
+
+        def get_foreign_keys(self, table, schema):
+            return [{"referred_table": "users",
+                     "constrained_columns": ["user_id"],
+                     "referred_columns": ["id"]}]
+
+    assert verify_legacy_whatsapp_outbox(Inspector()) is True
+
+
+def test_unknown_whatsapp_outbox_layout_is_not_whitelisted():
+    from app.cli.reset_test_data import (
+        LEGACY_OUTBOX_COLUMNS, verify_legacy_whatsapp_outbox,
+    )
+    class WrongInspector:
+        def get_columns(self, table, schema):
+            return [{"name": name} for name in LEGACY_OUTBOX_COLUMNS - {"payload"}]
+        def get_pk_constraint(self, table, schema):
+            return {"constrained_columns": ["id"]}
+        def get_foreign_keys(self, table, schema):
+            return []
+    assert verify_legacy_whatsapp_outbox(WrongInspector()) is False
