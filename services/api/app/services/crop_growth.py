@@ -29,9 +29,13 @@ def make_crop_growth_response(
     as_of = min(today, crop_cycle.harvested_on or today)
     age = (as_of - planted).days if planted and planted <= as_of else None
     warnings: list[str] = []
-    estimate = provisional_stage(
+    # A harvested cycle has no current growing stage. Keep farmer-confirmed
+    # observations in the history but stop reporting an active stage estimate.
+    estimate = None if crop_cycle.harvested_on is not None else provisional_stage(
         crop_name=crop_cycle.crop_name, planted_on=planted, as_of=as_of
     )
+    if crop_cycle.harvested_on is not None:
+        warnings.append("Crop harvested on " + crop_cycle.harvested_on.isoformat() + "; stages below are historical, not current growth.")
     if not planted:
         warnings.append("Enter a planting date to enable provisional stages and GDD.")
     if profile.key in {"mango", "litchi", "guava", "sapota"}:
