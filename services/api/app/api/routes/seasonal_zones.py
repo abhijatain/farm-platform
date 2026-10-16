@@ -198,8 +198,8 @@ def _aggregate(rows, selected_years):
         "strong_area_acres": round(strong * cell_area_acres, 3),
         "mapped_area_acres": round(len(good) * cell_area_acres, 3),
         "zone_threshold_ndvi": 0.08, "selected_years": sorted(selected_years),
-        "zone_model": "relative_to_pooled_field_mean_v1",
-        "notes": "Each year's season mean receives equal weight. Low zones mean NDVI at least 0.08 below the field-wide multi-year mean; not measured yield.",
+        "zone_model": "season_centered_robust_relative_ndvi_v2",
+        "notes": "Each season receives equal weight. Continuous colors show field-relative NDVI contrast; qualified zones are not measured yield.",
     }
 
 @router.post("/fields/{field_id}/seasonal-zones/combine")
