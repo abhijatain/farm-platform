@@ -181,8 +181,12 @@ def phenology_intelligence(
         .order_by(CropStageObservation.observed_on)
     ).all())
     valid_confirmed = [o for o in recorded if o.observed_on <= today]
-    stage = valid_confirmed[-1].stage_code if valid_confirmed else provisional_stage(
-        crop_name=cycle.crop_name, planted_on=planted, as_of=today,
+    # After actual harvest there is no currently growing stage. Retain only
+    # historical *farmer-confirmed* stages; never synthesize an active stage.
+    stage = valid_confirmed[-1].stage_code if valid_confirmed else (
+        None if cycle.harvested_on is not None else provisional_stage(
+            crop_name=cycle.crop_name, planted_on=planted, as_of=today,
+        )
     )
     source = "farmer_confirmed" if valid_confirmed else (
         "provisional_calendar" if stage else "unknown"
@@ -250,6 +254,7 @@ def phenology_intelligence(
         **recommendations,
         "historical_comparisons": comparisons[:10],
         "warnings": [
+            *([] if cycle.harvested_on is None else ["Crop has been harvested; any reported farmer stage is a historical observation, not the current stage."]),
             "Unverified crop calendars are not BBCH-confirmed growth stages.",
             "Planting-age matching does not prove equal physiology across seasons/varieties.",
             "Older seasons without comparable optical observations are omitted, not treated as zero.",
