@@ -3672,3 +3672,53 @@
   }
   .field-workspace-tab { flex-shrink: 0; white-space: nowrap; }
 }
+
+
+/* Compressed details heading: preserve readable tab navigation and main content. */
+@media (min-width:761px) {
+  .field-workspace-panel .field-workspace-header {
+    padding: 9px 17px 3px;
+    gap: 8px;
+    align-items:center;
+  }
+  .field-workspace-panel .field-workspace-header h1 {
+    font-size: 18px;
+    line-height:1.1;
+  }
+  .field-workspace-panel .field-workspace-header p {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+  .field-workspace-panel .field-workspace-header-actions .secondary-action {
+    padding: 6px 9px; min-height:34px;
+  }
+  .field-workspace-panel .field-workspace-tabs {
+    gap: 22px;
+    padding: 0 17px;
+    min-height: 35px;
+  }
+  .field-workspace-panel .field-workspace-tab { padding: 6px 0 9px; font-size:12px; }
+  .field-workspace-panel .field-workspace-close { width:33px; height:33px; }
+  .field-workspace-panel .workspace-page {
+    padding-top: 14px;
+  }
+  .field-workspace-panel .workspace-page-title {
+    margin-bottom: 12px; gap: 10px;
+  }
+  .field-workspace-panel .workspace-page-title h2 { font-size: 19px; margin-top:3px; }
+  .field-workspace-panel .workspace-page-title p { margin-top: 4px; font-size:12px; line-height:1.4; }
+}
+@media (max-width:760px) {
+  .field-workspace-panel .field-workspace-header {
+    padding: 8px 11px 3px;
+    gap: 7px;
+  }
+  .field-workspace-panel .field-workspace-header h1 {font-size:17px;}
+  .field-workspace-panel .field-workspace-header p {margin-top: 2px; font-size:10px;}
+  .field-workspace-panel .field-workspace-close {width:36px;height:36px;}
+  .field-workspace-panel .field-workspace-tabs {min-height:40px;}
+  .field-workspace-panel .field-workspace-tab {min-height:40px;padding:7px 0;font-size:12px;}
+  .field-workspace-panel .workspace-page { padding-top:10px; }
+  .field-workspace-panel .workspace-page-title {margin-bottom:10px;}
+  .field-workspace-panel .workspace-page-title h2 {font-size:18px;}
+}
