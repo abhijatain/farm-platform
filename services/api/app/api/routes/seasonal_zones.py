@@ -25,10 +25,12 @@ class CalculateRequest(BaseModel):
     years: list[int] = PydanticField(min_length=1, max_length=6)
     start_month: int | None = PydanticField(default=None, ge=1, le=12)
     end_month: int | None = PydanticField(default=None, ge=1, le=12)
+    all_crops: bool = False
 
 def _template(
     db, current_user, field_id: UUID, crop_cycle_id: UUID,
     start_month: int | None = None, end_month: int | None = None,
+    all_crops: bool = False,
 ):
     get_owned_field(db=db, user_id=current_user.id, field_id=field_id)
     cycle = get_owned_crop_cycle(db=db, user_id=current_user.id, crop_cycle_id=crop_cycle_id)
@@ -37,6 +39,8 @@ def _template(
     if (start_month is None) != (end_month is None):
         raise HTTPException(status_code=422, detail="Select both the first and last month.")
     custom = start_month is not None and end_month is not None
+    if all_crops and not custom:
+        raise HTTPException(status_code=422, detail="All-crop field history requires a calendar-month window.")
     if custom:
         assert start_month is not None and end_month is not None
         start = date(cycle.started_on.year, start_month, 1)
@@ -52,7 +56,7 @@ def _template(
     duration = (end - start).days
     if not 20 <= duration <= (250 if custom else 240):
         raise HTTPException(status_code=422, detail="Select a historical window of 20–240 days (up to roughly eight months).")
-    crop = " ".join(cycle.crop_name.strip().lower().split())
+    crop = "__all_crops__" if all_crops else " ".join(cycle.crop_name.strip().lower().split())
     boundary = db.scalar(select(func.ST_AsEWKB(Field.boundary)).where(Field.id == field_id))
     if boundary is None:
         raise HTTPException(status_code=404, detail="Field boundary not found.")
@@ -84,13 +88,14 @@ def _rows(db, field_id, crop, key):
 def list_saved_zone_windows(
     field_id: UUID, crop_cycle_id: UUID,
     db: DBSession, current_user: CurrentUser,
+    all_crops: bool = False,
 ) -> list[dict]:
     """Previously calculated time periods; stored results are never auto-regenerated."""
     get_owned_field(db=db, user_id=current_user.id, field_id=field_id)
     cycle = get_owned_crop_cycle(db=db, user_id=current_user.id, crop_cycle_id=crop_cycle_id)
     if cycle.field_id != field_id:
         raise HTTPException(status_code=404, detail="Crop cycle is not on this field.")
-    crop = " ".join(cycle.crop_name.strip().lower().split())
+    crop = "__all_crops__" if all_crops else " ".join(cycle.crop_name.strip().lower().split())
     rows = db.scalars(select(SeasonalZoneComposite).where(
         SeasonalZoneComposite.field_id == field_id,
         SeasonalZoneComposite.crop_key == crop,
@@ -112,16 +117,19 @@ def list_saved_zone_windows(
 def list_seasonal_zones(
     field_id: UUID, crop_cycle_id: UUID, db: DBSession, current_user: CurrentUser,
     start_month: int | None = None, end_month: int | None = None,
+    all_crops: bool = False,
 ) -> dict:
     cycle, start, duration, crop, key, hash_ = _template(
-        db, current_user, field_id, crop_cycle_id, start_month, end_month,
+        db, current_user, field_id, crop_cycle_id, start_month, end_month, all_crops,
     )
     years = list(range(_today().year - 1, _today().year - 7, -1))
     return {
-        "crop": crop, "crop_cycle_id": str(cycle.id), "field_id": str(field_id),
+        "crop": "field history (all crops)" if all_crops else crop,
+        "crop_cycle_id": str(cycle.id), "field_id": str(field_id),
         "calendar_key": key, "reference_window": {
             "start": start.strftime("%d %b"), "length_days": duration,
-            "basis": ("Farmer-selected month window; no historical sowing dates inferred."
+            "basis": ("Same field, selected months across all crops; different crops are NOT agronomically equivalent." if all_crops else
+                      "Farmer-selected month window; no historical sowing dates inferred."
                       if start_month is not None else
                       "Selected crop cycle calendar projected onto prior years; historical dates are estimates unless recorded."),
         },
@@ -135,7 +143,7 @@ def calculate_seasonal_zones(
 ) -> dict:
     cycle, start, duration, crop, key, hash_ = _template(
         db, current_user, field_id, request.crop_cycle_id,
-        request.start_month, request.end_month,
+        request.start_month, request.end_month, request.all_crops,
     )
     years = sorted(set(request.years))
     allowed = set(range(_today().year - 6, _today().year))
@@ -189,7 +197,7 @@ def calculate_seasonal_zones(
         else:
             row = SeasonalZoneComposite(
                 field_id=field_id, crop_key=crop, calendar_key=key,
-                season_label=f"{cycle.crop_name} {year}", year=year,
+                season_label=f"{'Field history' if request.all_crops else cycle.crop_name} {year}", year=year,
                 start_date=start_date, end_date=end_date,
                 window_source=window_source,
                 boundary_hash=hash_, status="pending",
@@ -260,7 +268,7 @@ def combine_seasonal_zones(
 ):
     _, _, _, crop, key, hash_ = _template(
         db, current_user, field_id, request.crop_cycle_id,
-        request.start_month, request.end_month,
+        request.start_month, request.end_month, request.all_crops,
     )
     years = sorted(set(request.years))
     if not 1 <= len(years) <= 6:
