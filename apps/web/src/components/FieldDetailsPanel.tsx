@@ -758,7 +758,7 @@ export default function FieldDetailsPanel({
           field={field}
           season={season}
           onClose={() => setCropForm(false)}
-          onSaved={refreshAll}
+          onSaved={async () => { setSelectedCycleId(null); await refreshAll(); }}
         />
       )}
 
@@ -2050,6 +2050,7 @@ function StartCropDialog({
   const [startedOn, setStartedOn] = useState(localDateInputValue());
 
   const [plantedOn, setPlantedOn] = useState("");
+  const [expectedHarvest, setExpectedHarvest] = useState("");
 
   const [saving, setSaving] = useState(false);
 
@@ -2072,7 +2073,7 @@ function StartCropDialog({
         variety: variety.trim() || null,
         started_on: startedOn,
         planted_on: plantedOn || null,
-        expected_harvest_on: null,
+        expected_harvest_on: expectedHarvest || null,
         notes: null,
       });
 
@@ -2091,7 +2092,7 @@ function StartCropDialog({
   return (
     <div className="modal-backdrop">
       <div className="dialog-card">
-        <h2>Start crop</h2>
+        <h2>Plan a crop cycle</h2>
 
         <p className="dialog-muted">
           {field.name}
@@ -2117,7 +2118,8 @@ function StartCropDialog({
           placeholder="PR-126"
         />
 
-        <label>Crop cycle started</label>
+        <p className="dialog-muted">Start recording preparation today, even if sowing or transplanting happens later. The crop age starts only after planting is recorded.</p>
+        <label>Preparation / cycle start date</label>
 
         <input
           className="form-input"
@@ -2126,7 +2128,7 @@ function StartCropDialog({
           onChange={(event) => setStartedOn(event.target.value)}
         />
 
-        <label>Sowing / transplanting date</label>
+        <label>Sowing / transplanting date (optional)</label>
 
         <input
           className="form-input"
@@ -2134,6 +2136,11 @@ function StartCropDialog({
           value={plantedOn}
           onChange={(event) => setPlantedOn(event.target.value)}
         />
+
+        <label>Expected harvest date (optional)</label>
+        <input className="form-input" type="date" min={plantedOn || startedOn}
+          value={expectedHarvest} onChange={event => setExpectedHarvest(event.target.value)} />
+        <p className="dialog-muted">You can set the target later or correct it as the crop develops.</p>
 
         {error && <div className="login-error">{error}</div>}
 
@@ -2162,7 +2169,7 @@ function ActivityDialog({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const [activityType, setActivityType] = useState("irrigation");
+  const [activityType, setActivityType] = useState(cropCycle.planted_on ? "irrigation" : "tillage");
 
   const [occurredAt, setOccurredAt] = useState(currentDateTime());
 
@@ -2243,7 +2250,7 @@ function ActivityDialog({
   return (
     <div className="modal-backdrop">
       <div className="dialog-card">
-        <h2>Add activity</h2>
+        <h2>Record field work</h2>
 
         <p className="dialog-muted">
           {cropCycle.crop_name}
@@ -2260,9 +2267,9 @@ function ActivityDialog({
         >
           <option value="irrigation">Irrigation</option>
 
-          <option value="sowing">Sowing</option>
+          <option value="sowing">Sowing (sets planting date)</option>
 
-          <option value="transplanting">Transplanting</option>
+          <option value="transplanting">Transplanting (sets planting date)</option>
 
           <option value="fertilizer">Fertilizer</option>
 
@@ -2272,7 +2279,8 @@ function ActivityDialog({
 
           <option value="fungicide">Fungicide</option>
 
-          <option value="tillage">Tillage</option>
+          <option value="tillage">Tractor / tillage / field preparation</option>
+          <option value="land_preparation">Leveling / field preparation</option>
 
           <option value="weeding">Weeding</option>
 
@@ -2283,6 +2291,9 @@ function ActivityDialog({
           <option value="other">Other</option>
         </select>
 
+        {!cropCycle.planted_on && ["sowing","transplanting","planting"].includes(activityType) && (
+          <p className="dialog-muted">Saving this planting activity starts the crop-age clock from the selected date.</p>
+        )}
         <label>Date & time</label>
 
         <input
