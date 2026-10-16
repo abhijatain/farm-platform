@@ -104,7 +104,7 @@ export default function FieldReport({
 
   const activities = useMemo(() =>
     timeline
-      .filter((item) => !season || item.season_id === season.id)
+      .filter((item) => cropCycle ? item.crop_cycle_id === cropCycle.id : (!season || item.season_id === season.id))
       .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)),
     [timeline, season]);
 

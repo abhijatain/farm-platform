@@ -2588,3 +2588,69 @@ export default function SatelliteTrendCharts({
     </section>
   );
 }
+
+
+/** One matching, hoverable measurement graph directly under Latest imagery.
+ * Read the same crop-scoped endpoint as the full Trends tab. No fabricated
+ * daily points or cross-sensor interpolation: dots use actual acquisitions.
+ */
+export function SelectedMetricCycleChart({
+  fieldId, cropCycle, metricType, label,
+}: {
+  fieldId: string;
+  cropCycle: CropCycle | null;
+  metricType: SatelliteMetricType;
+  label: string;
+}) {
+  const [data, setData] = useState<FieldSatelliteTrends | null>(null);
+  const [fetching, setFetching] = useState(true);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setFetching(true);
+    setData(null);
+    setProblem(null);
+    void getSatelliteTrends(fieldId, { cropCycleId: cropCycle?.id ?? null })
+      .then(result => { if (active) setData(result); })
+      .catch((error: unknown) => {
+        if (active) setProblem(error instanceof Error ? error.message : "Unable to load crop trend.");
+      })
+      .finally(() => { if (active) setFetching(false); });
+    return () => { active = false; };
+  }, [fieldId, cropCycle?.id]);
+
+  const points = data ? pointsForMetric(data, metricType, point => point.median) : [];
+  return <section className="satellite-chart-group latest-cycle-graph" aria-label={label + " crop-cycle graph"}>
+    <header>
+      <span className="workspace-eyebrow">FIELD MEASUREMENTS OVER TIME</span>
+      <h4>{label} · {cropCycle ? cropCycle.crop_name + " crop cycle" : "last 12 months"}</h4>
+      <p>{cropCycle
+        ? "Actual satellite measurements from preparation (" + cropCycle.started_on + ") to " +
+          (cropCycle.harvested_on ? "harvest (" + cropCycle.harvested_on + ")" : "the latest available date") +
+          ". Hover a point for its acquisition date and value."
+        : "Start or select a crop cycle to see this graph only for that crop. Hover a point for its acquisition date and value."}</p>
+    </header>
+    {fetching && <p className="satellite-trends-state">Loading matching measurements…</p>}
+    {problem && <p className="satellite-trends-state error" role="alert">{problem}</p>}
+    {data && <TrendChart
+      title={label + " through the crop cycle"}
+      subtitle={metricType === "ndmi"
+        ? "Moisture-sensitive canopy index, not direct soil moisture."
+        : metricType === "sar_rvi"
+          ? "Radar RVI readings may use different orbit geometry. See Radar for pass-by-pass comparison."
+          : metricType === "lst_c"
+            ? "Land surface temperature; not ambient air temperature."
+            : "Measured satellite values, not daily crop-health predictions."}
+      series={[{
+        key:metricType,label,className:metricType === "ndmi" ? "ndmi" : "ndvi",
+        points,
+      }]}
+      activities={data.activities}
+      startDate={data.start_date}
+      endDate={data.end_date}
+      valueLabel={metricType === "lst_c" ? "°C" : "Index value"}
+      emptyMessage={"No usable " + metricType.toUpperCase() + " acquisitions in this crop-cycle period."}
+    />}
+  </section>;
+}

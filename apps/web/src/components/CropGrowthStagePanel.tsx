@@ -104,18 +104,21 @@ export default function CropGrowthStagePanel({
               <small>{growth.planting_date ? "From " + displayDate(growth.planting_date) : "Planting date not recorded"}</small>
             </div>
             <div>
-              <span>Farmer-confirmed stage</span>
+              <span>{cropCycle.harvested_on ? "Last recorded stage before harvest" : "Farmer-confirmed stage"}</span>
               <strong>
                 {stages.find((stage) => stage.code === growth.latest_recorded_stage)?.label ?? "Not recorded"}
               </strong>
               <small>{growth.observations.length} confirmed transitions</small>
             </div>
             <div>
-              <span>Approximate calendar stage</span>
+              <span>{cropCycle.harvested_on ? "Final crop status" : "Approximate calendar stage"}</span>
               <strong>
-                {stages.find((stage) => stage.code === growth.provisional_stage)?.label ?? "Unknown"}
+                {cropCycle.harvested_on ? "Harvested" :
+                  stages.find((stage) => stage.code === growth.provisional_stage)?.label ?? "Unknown"}
               </strong>
-              <small>Unverified template estimate</small>
+              <small>{cropCycle.harvested_on
+                ? "Harvest recorded " + displayDate(cropCycle.harvested_on)
+                : "Unverified template estimate"}</small>
             </div>
             <div>
               <span>Accumulated growing degree days</span>
@@ -137,7 +140,7 @@ export default function CropGrowthStagePanel({
             {stages.map((stage) => {
               const observation = growth.observations.find((item) => item.stage_code === stage.code);
               const estimated = growth.provisional_stage === stage.code;
-              const current = growth.latest_recorded_stage === stage.code;
+              const current = !cropCycle.harvested_on && growth.latest_recorded_stage === stage.code;
               return (
                 <div
                   key={stage.code}

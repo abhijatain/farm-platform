@@ -41,7 +41,7 @@ export default function FieldIntelligencePanel({ field, cropCycle, section }: Pr
       <div className="intelligence-heading">
         <div>
           <span className="workspace-eyebrow">{section === "radar" ? "SATELLITE COMPARISONS" : "CROP INTELLIGENCE"}</span>
-          <h3>{section === "radar" ? "Compare observations on separate dates" : "Which growth stage is the crop in?"}</h3>
+          <h3>{section === "radar" ? "Compare observations on separate dates" : cropCycle?.harvested_on ? "Completed crop: growth history" : "Which growth stage is the crop in?"}</h3>
           <p>{section === "radar" ? "Compare usable Sentinel-1 passes from the same orbit. Optical measurements are also shown as context. Values alone do not diagnose crop problems." : "Farmer-confirmed stages are preferred. Approximate calendars and comparisons with earlier seasons are estimates, not verified growth stages."}</p>
         </div>
         <button type="button" onClick={() => setRefresh(n => n + 1)}>Refresh information</button>
@@ -69,9 +69,15 @@ export default function FieldIntelligencePanel({ field, cropCycle, section }: Pr
         {phenologyError && <p className="intelligence-error" role="alert">{phenologyError}</p>}
         {!phenology && !phenologyError && <p className="intelligence-muted">Loading crop context…</p>}
         {phenology && <>
-          <p><strong>{phenology.crop_name}</strong> · {phenology.stage_code?.replace(/_/g, " ") ?? "Unknown"}
-            <span className="intelligence-source">{phenology.stage_source.replace(/_/g, " ")}</span></p>
-          <p>{phenology.guidance}</p>
+          <p><strong>{phenology.crop_name}</strong> · {cropCycle.harvested_on ? "Harvested " + cropCycle.harvested_on :
+            phenology.stage_code?.replace(/_/g, " ") ?? "Unknown"}
+            <span className="intelligence-source">{cropCycle.harvested_on ? "Final status" :
+              phenology.stage_source.replace(/_/g, " ")}</span></p>
+          {cropCycle.harvested_on && <p className="intelligence-muted">
+            The last observed or estimated stage was {phenology.stage_code?.replace(/_/g, " ") ?? "not established"}.
+            This is historical context, not a current growing stage.
+          </p>}
+          {!cropCycle.harvested_on && <p>{phenology.guidance}</p>}
           {phenology.recommended_indices.length > 0 &&
             <p className="intelligence-index-list">Indices to inspect:
               {phenology.recommended_indices.map(index => <span key={index}>{index.toUpperCase()}</span>)}

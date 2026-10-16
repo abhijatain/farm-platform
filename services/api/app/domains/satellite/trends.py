@@ -24,6 +24,7 @@ TREND_METRIC_TYPES = (
     "ndvi",
     "ndre",
     "ndmi",
+    "bsi",
     "sar_vv_db",
     "sar_vh_db",
     "sar_vv_vh_ratio",
@@ -155,8 +156,8 @@ def _resolve_window(
         start_date
         or (
             (
-                crop_cycle.planted_on
-                or crop_cycle.started_on
+                # Show the complete cycle, including preparation before planting.
+                crop_cycle.started_on
             )
             if crop_cycle is not None
             else (

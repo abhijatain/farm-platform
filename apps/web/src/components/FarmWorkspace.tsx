@@ -187,6 +187,7 @@ export default function FarmWorkspace() {
 
   const [mobileView, setMobileView] = useState<"fields" | "map">("fields");
   const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(true);
+  const [initialFarmLoadFinished, setInitialFarmLoadFinished] = useState(false);
 
   const [
     mapMode,
@@ -291,6 +292,8 @@ export default function FarmWorkspace() {
           ? error.message
           : "Unable to load farms.",
       );
+    } finally {
+      setInitialFarmLoadFinished(true);
     }
   }
 
@@ -904,6 +907,26 @@ export default function FarmWorkspace() {
 
 
       <main className="map-workspace">
+        {initialFarmLoadFinished && !drawing && !pendingBoundary && !selectedFieldId &&
+          (farms.length === 0 || seasons.length === 0 || fields.length === 0) && (
+            <div className="farm-onboarding-guide" role="region" aria-label="Get started with your farm">
+              <span className="workspace-eyebrow">GET YOUR FARM READY</span>
+              <h2>{farms.length === 0 ? "1. Create a farm" : seasons.length === 0 ?
+                "2. Add a growing season" : "3. Draw your first field"}</h2>
+              <p>{farms.length === 0 ? "Group fields under a farm. Then create a season and draw your first field." :
+                seasons.length === 0 ? "Use a farm season to group Rabi, Kharif or another growing period." :
+                "Draw the field boundary. Then choose a crop and start recording preparation and planting."}</p>
+              <button type="button" className="primary-action" onClick={()=>{
+                if (farms.length === 0) setCreateFarmOpen(true);
+                else if (seasons.length === 0) setCreateSeasonOpen(true);
+                else handleStartDrawing();
+                setMobileView("map");
+              }}>
+                {farms.length === 0 ? "+ Create farm" : seasons.length === 0 ?
+                  "+ Create season" : "+ Draw field"}
+              </button>
+            </div>
+          )}
 
         <FarmMap
           mapMode={
