@@ -204,8 +204,7 @@ def phenology_intelligence(
                     SatelliteMetric.valid_pixel_count >= 8,
                 )
                 .order_by(
-                    func.abs(func.extract("epoch",
-                        SatelliteObservation.observed_on - target)),
+                    func.abs(SatelliteObservation.observed_on - target),
                     SatelliteMetric.valid_pixel_percent.desc(),
                 ).limit(1)
             ).first()
