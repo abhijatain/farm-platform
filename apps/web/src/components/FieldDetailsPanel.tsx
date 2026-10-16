@@ -931,13 +931,13 @@ function SatelliteTab({
                 metric={selectedMetric}
                 cropCycle={cropCycle}
               />
-              <SelectedMetricCycleChart
-                fieldId={field.id}
-                cropCycle={cropCycle}
-                metricType={selectedMetric.metricType}
-                label={selectedMetric.label}
-              />
             </>}
+          <SelectedMetricCycleChart
+            fieldId={field.id}
+            cropCycle={cropCycle}
+            metricType={selectedMetric.metricType}
+            label={selectedMetric.label}
+          />
         </>
       )}
 
