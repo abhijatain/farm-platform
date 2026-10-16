@@ -12,7 +12,7 @@ the responsive field UI. It does not add tables or data migrations.
   - Uses existing field-relative anomaly polygons, sampled on resolution-aware,
     clipped geospatial cells; optional last-two-date transition coverage.
   - Returns repeated-relative-low/high *candidate scouting/management zones*
-    and new/persistent/resolved relative anomaly areas.
+    and new/persistent/recurring/resolved relative anomaly areas using the latest three qualifying dates.
   - Requires 80% valid pixel coverage; refuses <8 valid pixels and unsupported
     metric types. Stable multi-year labels require >=6 usable acquisitions from
     >=2 calendar years; otherwise the API emits `short_history` and
