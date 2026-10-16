@@ -44,6 +44,12 @@ class CropCycleCreate(BaseModel):
         return self
 
 
+class CropCyclePlanUpdate(BaseModel):
+    """Farmer-correctable dates: omitted fields are left unchanged."""
+    planted_on: date | None = None
+    expected_harvest_on: date | None = None
+
+
 class CropCycleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
