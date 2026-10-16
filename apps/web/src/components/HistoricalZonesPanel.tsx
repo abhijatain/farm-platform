@@ -158,6 +158,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
 
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [combining, setCombining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -168,6 +169,10 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
     if (!cropCycle || (screen === "saved" && !openedSaved)) return;
     const response = await getSeasonalZones(field.id, cropCycle.id, period, savedKey);
     setData(response);
+    if (screen === "saved") {
+      const next = response.seasons.filter(row => row.status === "completed").slice(0,6).map(row=>row.year);
+      setSelected(previous => previous.join(",") === next.join(",") ? previous : next);
+    }
     return response;
   }, [cropCycle?.id, field.id, period, savedKey, screen, openedSaved]);
 
@@ -222,14 +227,16 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   useEffect(() => {
     let active = true;
     setCombined(null);
+    setCombining(false);
     if (!cropCycle || !data || !selected.length || busy) return;
     const completed = data.seasons.filter(row => selected.includes(row.year) && row.status === "completed");
     if (completed.length !== selected.length) return;
+    setCombining(true);
     void combineSeasonalZones(field.id, cropCycle.id, selected, period, savedKey)
       .then(result => { if (active) setCombined(result); })
       .catch((e: unknown) => {
         if (active) setError(e instanceof Error ? e.message : "Unable to combine saved years.");
-      });
+      }).finally(() => { if (active) setCombining(false); });
     return () => { active = false; };
   }, [field.id, cropCycle?.id, data, selected, period, savedKey, busy]);
 
@@ -412,6 +419,9 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
           {rows.filter((r) => r.status === "failed").map((r) =>
             <p className="hz-error" key={r.year}>{r.year}: {r.error}. Select Calculate to retry.</p>)}
         </section>}
+        {screen === "saved" && pending && <p className="hz-info" role="status">
+          Some years are still queued or running. Completed maps will appear as the worker finishes; no new calculation is started here.
+        </p>}
         {(screen === "new" || openedSaved) && <div className="hz-results" ref={resultsRef}>
           <div className="hz-results-heading">
             <div>
@@ -443,7 +453,8 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
             <p className="hz-explanation">{combined.notes}</p>
           </> : <p className="hz-explanation">{
             selected.length === 0 ? "No completed yearly averages available yet." :
-              "Loading the combined map from saved yearly averages…"
+              combining ? "Loading the combined map from saved yearly averages…" :
+              "The combined map is unavailable. Individual yearly maps are below."
           }</p>}
         </section>
         <section className="hz-section">
