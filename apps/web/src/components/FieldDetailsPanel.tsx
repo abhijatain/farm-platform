@@ -737,6 +737,7 @@ export default function FieldDetailsPanel({
             timelineError={timelineError}
             satelliteLoading={satelliteLoading}
             satelliteError={satelliteError}
+            onRefresh={refreshAll}
           />
         )}
       </div>
