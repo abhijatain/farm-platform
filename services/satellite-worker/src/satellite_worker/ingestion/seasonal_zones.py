@@ -35,8 +35,7 @@ from satellite_worker.sources.sentinel2.indices import calculate_metric
 from satellite_worker.sources.stac import search_sentinel2
 
 LOG = logging.getLogger(__name__)
-WIDTH = 64
-HEIGHT = 64
+MAX_DIM = 64
 MAX_SCENES = 18
 MIN_SCENES = 3
 MIN_COVERAGE = 80.0
@@ -53,8 +52,12 @@ def canonical_grid(geometry):
     left, bottom, right, top = projected.bounds
     if right <= left or top <= bottom:
         raise ValueError("Invalid projected field boundary")
-    transform = from_bounds(left, bottom, right, top, WIDTH, HEIGHT)
-    mask = geometry_mask([mapping(projected)], (HEIGHT, WIDTH), transform,
+    span_x, span_y = right - left, top - bottom
+    longest = max(span_x, span_y)
+    width = max(8, round(MAX_DIM * span_x / longest))
+    height = max(8, round(MAX_DIM * span_y / longest))
+    transform = from_bounds(left, bottom, right, top, width, height)
+    mask = geometry_mask([mapping(projected)], (height, width), transform,
                          invert=True, all_touched=False)
     if mask.sum() < 16:
         raise ValueError("Field has fewer than 16 aligned cells; insufficient spatial resolution")
@@ -77,6 +80,7 @@ def select_scenes(items, start_date):
 
 def compute_season(geometry, start, end):
     crs, aligned_transform, inside = canonical_grid(geometry)
+    height, width = inside.shape
     items = search_sentinel2(
         geometry=geometry, start_date=start, end_date=end,
         max_scene_cloud=55, limit=0, include_cloudy=False,
@@ -84,7 +88,7 @@ def compute_season(geometry, start, end):
     scenes = select_scenes(items, start)
     if not scenes:
         raise ValueError("No suitable historical Sentinel-2 scenes found for this season.")
-    summed = np.zeros((HEIGHT, WIDTH), dtype=np.float64)
+    summed = np.zeros((height, width), dtype=np.float64)
     counts = np.zeros((HEIGHT, WIDTH), dtype=np.uint16)
     used_dates = []
     failures = 0
@@ -136,7 +140,7 @@ def compute_season(geometry, start, end):
     pixels = [round(float(x), 4) if np.isfinite(x) else None for x in values.ravel()]
     mask = [bool(x) for x in inside.ravel()]
     return {
-        "width": WIDTH, "height": HEIGHT, "projection": crs.to_string(),
+        "width": width, "height": height, "projection": crs.to_string(),
         "transform": [round(float(v), 7) for v in tuple(aligned_transform)[:6]],
         "mask": mask, "pixels": pixels,
         "mean_ndvi": round(float(np.nanmean(values)), 4),
