@@ -57,32 +57,30 @@ export default function NavRail({ onOpenWhatsApp, mobileView, onMobileViewChange
         <MapPin size={23} />
       </button>
 
-      <div className="rail-spacer" />
-
-
-      <button
-        type="button"
-        className="rail-button whatsapp-rail-button"
-        onClick={onOpenWhatsApp}
-        title="WhatsApp linking"
-        aria-label="Connect WhatsApp account"
-      >
-        <MessageCircle size={23} /><span className="mobile-nav-label">WhatsApp</span>
-      </button>
-
-
-
-      <button
-        className="rail-button logout-rail-button"
-
-        onClick={() =>
-          void logout()
-        }
-
-        title="Sign out"
-      >
-        <LogOut size={23} /><span className="mobile-nav-label">Sign out</span>
-      </button>
+      <div className="rail-account-actions" aria-label="Account actions">
+        <button
+          type="button"
+          className="rail-button whatsapp-rail-button"
+          onClick={onOpenWhatsApp}
+          title="WhatsApp linking"
+          aria-label="Connect WhatsApp account"
+        >
+          <MessageCircle size={22} />
+          <span className="mobile-nav-label">WhatsApp</span>
+          <span className="desktop-nav-label">WhatsApp</span>
+        </button>
+        <button
+          type="button"
+          className="rail-button logout-rail-button"
+          onClick={() => void logout()}
+          title="Sign out"
+          aria-label="Sign out"
+        >
+          <LogOut size={22} />
+          <span className="mobile-nav-label">Sign out</span>
+          <span className="desktop-nav-label">Sign out</span>
+        </button>
+      </div>
 
     </aside>
   );
