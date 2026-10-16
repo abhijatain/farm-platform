@@ -139,6 +139,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   const [screen, setScreen] = useState<"saved" | "new">("saved");
   const [openedSaved, setOpenedSaved] = useState<SavedOption | null>(null);
   const [savedLoading, setSavedLoading] = useState(true);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const [periodMode, setPeriodMode] = useState<"crop" | "custom">("custom");
   const [startMonth, setStartMonth] = useState(8);
   const [endMonth, setEndMonth] = useState(10);
@@ -241,8 +242,15 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
     return () => window.clearInterval(interval);
   }, [cropCycle?.id, data?.seasons, refresh]);
 
+  // One click opens the results without another "show average" action.
+  useEffect(() => {
+    if (screen === "saved" && openedSaved && data) {
+      resultsRef.current?.scrollIntoView({block:"start",behavior:"smooth"});
+    }
+  }, [openedSaved, screen, data?.calendar_key]);
+
   function openSaved(item: SavedOption) {
-    const match = /^month-(\\d{2})-to-(\\d{2})$/.exec(item.calendar_key);
+    const match = /^month-(\d{2})-to-(\d{2})$/.exec(item.calendar_key);
     if (match) {
       setStartMonth(Number(match[1]));
       setEndMonth(Number(match[2]));
@@ -257,14 +265,15 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
 
   const toggle = (year: number) => {
     setCombined(null);
-    setSelected((prev) => prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year].sort());
+    setSelected(prev => prev.includes(year)
+      ? prev.filter(y => y !== year)
+      : prev.length < 6 ? [...prev, year].sort() : prev);
   };
   const rows = (data?.seasons ?? []).filter((s) => selected.includes(s.year));
-  const finished = rows.filter((r) => r.status === "completed");
   const missing = selected.filter((year) => !data?.seasons.some((s) =>
     s.year === year && ["completed", "pending", "running"].includes(s.status)
   ));
-  const pending = rows.some((r) => r.status === "pending" || r.status === "running");
+  const pending = (data?.seasons ?? []).some((r) => r.status === "pending" || r.status === "running");
 
   async function calculate() {
     if (!cropCycle || !missing.length || busy) return;
@@ -305,7 +314,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
           }
         }}>{screen === "new" ? "← Saved reports" : "+ New analysis"}</button>
       </header>
-      <section className="hz-section hz-library">
+      {screen === "saved" && <section className="hz-section hz-library">
         <h3>Saved analyses</h3>
         <p>Click a report to see its combined map and each year's average immediately.</p>
         {savedLoading && <p>Loading saved analyses…</p>}
@@ -333,7 +342,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
             </button>;
           })}
         </div>}
-      </section>
+      </section>}
       {screen === "new" && <section className="hz-section hz-create">
         <h3>Create a new analysis</h3>
         <p>Choose the months and the years. Calculation only starts when you press Calculate.</p>
@@ -376,7 +385,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
         <p className="hz-choose-hint">Select a saved analysis above to open its maps and results.</p>}
       {error && <p className="hz-error" role="alert">{error}</p>}
       {info && <p className="hz-info" role="status">{info}</p>}
-      {loading && <p>Loading available seasons…</p>}
+      {loading && <p>Opening historical results…</p>}
       {data && <>
         {screen === "new" && <section className="hz-section">
           <h3>Choose years to calculate</h3>
@@ -403,7 +412,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
           {rows.filter((r) => r.status === "failed").map((r) =>
             <p className="hz-error" key={r.year}>{r.year}: {r.error}. Select Calculate to retry.</p>)}
         </section>}
-        {(screen === "new" || openedSaved) && <div className="hz-results">
+        {(screen === "new" || openedSaved) && <div className="hz-results" ref={resultsRef}>
           <div className="hz-results-heading">
             <div>
               <span className="workspace-eyebrow">SAVED SATELLITE AVERAGES</span>
