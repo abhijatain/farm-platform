@@ -166,9 +166,16 @@ def _aggregate(rows, selected_years):
         coverage.append(len(values))
     good = [v for v in pixels if v is not None]
     average = round(sum(good)/len(good), 4) if good else None
+    pixel_transform = base["transform"]
+    cell_area_acres = abs(pixel_transform[0] * pixel_transform[4]) / 4046.8564224
+    weak = sum(v < average - 0.08 for v in good) if average is not None else 0
+    strong = sum(v > average + 0.08 for v in good) if average is not None else 0
     return {
         "width": base["width"], "height": base["height"], "mask": base["mask"],
         "pixels": pixels, "years_contributing": coverage, "mean_ndvi": average,
+        "weak_area_acres": round(weak * cell_area_acres, 3),
+        "strong_area_acres": round(strong * cell_area_acres, 3),
+        "mapped_area_acres": round(len(good) * cell_area_acres, 3),
         "zone_threshold_ndvi": 0.08, "selected_years": sorted(selected_years),
         "zone_model": "relative_to_pooled_field_mean_v1",
         "notes": "Each year's season mean receives equal weight. Low zones mean NDVI at least 0.08 below the field-wide multi-year mean; not measured yield.",
