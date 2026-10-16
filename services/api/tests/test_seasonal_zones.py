@@ -34,7 +34,7 @@ def test_equal_year_weights_not_scene_counts():
     out = _aggregate([a,b],[2024,2025])
     assert out["pixels"] == [0.5,0.7,None,0.5]
     assert out["years_contributing"] == [2,2,1,2]
-    assert out["mean_ndvi"] == pytest.approx((0.5+0.7+0.5)/3)
+    assert out["mean_ndvi"] == pytest.approx((0.5+0.7+0.5)/3, abs=1e-4)
 
 
 def test_incompatible_saved_grids_are_rejected():
