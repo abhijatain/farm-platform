@@ -859,3 +859,37 @@ export type CropPhenologyIntelligence = {
   }[];
   warnings: string[];
 };
+/* Compact seasonal NDVI means; source images are never returned. */
+export type SeasonalZoneGrid = {
+  width: number;
+  height: number;
+  mask: boolean[];
+  pixels: Array<number | null>;
+  mean_ndvi: number | null;
+  scene_count?: number;
+  scene_dates?: string[];
+  selected_years?: number[];
+  zone_threshold_ndvi?: number;
+  years_contributing?: number[];
+  notes?: string;
+};
+export type SeasonalZoneRow = {
+  id: string;
+  year: number;
+  status: "pending" | "running" | "completed" | "failed" | "stale_boundary";
+  start_date: string;
+  end_date: string;
+  season_label: string;
+  crop_key: string;
+  error: string | null;
+  result: SeasonalZoneGrid | null;
+};
+export type SeasonalZonesResponse = {
+  field_id: string;
+  crop_cycle_id: string;
+  crop: string;
+  calendar_key: string;
+  reference_window: { start: string; length_days: number; basis: string };
+  available_years: number[];
+  seasons: SeasonalZoneRow[];
+};
