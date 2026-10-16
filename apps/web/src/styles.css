@@ -2505,3 +2505,45 @@ textarea.form-input {
 @media (min-width: 761px) {
   .mobile-rail-button, .mobile-nav-label { display: none !important; }
 }
+
+
+/* Smaller desktop field list; map remains available and grows on collapse. */
+@media (min-width: 761px) {
+  .app-shell { grid-template-columns: 58px minmax(220px, 260px) minmax(0, 1fr); }
+  .app-shell[data-desktop-sidebar="collapsed"] { grid-template-columns: 58px 0 minmax(0, 1fr); }
+  .app-shell[data-desktop-sidebar="collapsed"] > .fields-sidebar {
+    visibility: hidden;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .app-shell .nav-rail { gap: 9px; padding: 8px 6px; min-height: 0; }
+  .app-shell .nav-rail .rail-button { height: 40px; width: 42px; flex: 0 0 auto; }
+  .app-shell .nav-rail .rail-spacer { min-height: 8px; }
+  .app-shell .sidebar-header { padding: 11px 12px; }
+  .app-shell .sidebar-search { height: 48px; padding: 0 12px; }
+  .app-shell .fields-heading { padding: 12px; }
+  .app-shell .field-list { padding: 0 8px 54px; }
+  .app-shell .field-card { min-height: 65px; }
+}
+.field-thumbnail {
+  background: #edf5ed;
+  border: 1px solid #cadbcb;
+  overflow: hidden;
+  padding: 2px;
+}
+.field-thumbnail svg { width: 100%; height: 100%; display: block; }
+.field-thumbnail svg path {
+  fill: #b5dec0;
+  stroke: #21814c;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.field-thumbnail-unavailable { font-size: 8px; color: #8b958e; text-align: center; }
+.nav-rail .desktop-rail-button.active { color: #177d47; background:#dff3e5; }
+.nav-rail .logout-rail-button { margin-top: auto; flex: 0 0 auto; }
+.nav-rail .rail-button:focus-visible { outline: 3px solid #7fbba0; outline-offset: 1px; }
+@media (max-width: 760px) {
+  .app-shell { grid-template-columns:minmax(0,1fr) !important; }
+  .app-shell .nav-rail .logout-rail-button { margin-top: 0; flex: 1 1 0; }
+}
