@@ -16,6 +16,21 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+For ngrok-based WhatsApp / Firebase testing, use one HTTPS tunnel to Vite:
+```bash
+# from a second terminal; FastAPI remains running on 127.0.0.1:8000
+ngrok http 5173
+```
+Set `VITE_API_URL=/api/v1` in `apps/web/.env` and restart Vite.
+The development server proxies `/api/*` to `http://127.0.0.1:8000`,
+including the Meta webhook at `/api/v1/webhooks/whatsapp`. Configure
+Meta's callback URL to `https://YOUR-NGROK-DOMAIN/api/v1/webhooks/whatsapp`.
+Also authorize that hostname under Firebase Authentication's Authorized
+domains. Do not run a second ngrok tunnel on the same reserved domain.
+This proxy is for Vite development; production must configure its own
+reverse proxy. The app's `VITE_API_URL` must not remain set to a separate
+HTTP localhost or LAN backend URL during HTTPS testing.
+
 For a **real mobile number**, set `VITE_FIREBASE_TEST_PHONE_AUTH=false`
 in `apps/web/.env`; enable Firebase Phone sign-in, allow your country's SMS
 region and an authorized HTTPS web domain in Firebase Console. Your old
