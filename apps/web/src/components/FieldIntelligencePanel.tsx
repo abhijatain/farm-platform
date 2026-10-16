@@ -159,7 +159,7 @@ export default function FieldIntelligencePanel({ field, cropCycle }: Props) {
             {selected.length > 0 && <div className="intelligence-zone-rows">
               {selected.map((z) => <div key={z.id}>
                 <strong>{"classification" in z ? z.classification.replace(/_/g, " ") : z.anomaly_type.replace(/_/g, " ") + " · " + z.transition}</strong>
-                <span>{area(z.area_acres)}</span>
+                <span>{area(z.area_acres)}{"stability_score" in z ? " · " + Math.round(z.stability_score * 100) + "% repeat frequency" : ""}</span>
               </div>)}
             </div>}
             {spatial.status !== "candidate_zones" && <p className="intelligence-caution">
