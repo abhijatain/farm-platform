@@ -20,6 +20,7 @@ def upgrade():
         sa.Column("calendar_key", sa.String(32), nullable=False),
         sa.Column("season_label", sa.String(120), nullable=False),
         sa.Column("year", sa.Integer(), nullable=False),
+        sa.Column("window_source", sa.String(32), server_default="reference_calendar", nullable=False),
         sa.Column("start_date", sa.Date(), nullable=False),
         sa.Column("end_date", sa.Date(), nullable=False),
         sa.Column("boundary_hash", sa.String(64), nullable=False),
