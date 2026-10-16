@@ -41,6 +41,7 @@ import type {
 
 import {
   localDateInputValue,
+  localDateTimeWithOffset,
 } from "../lib/dates";
 
 import "./FieldWorkspace.css";
@@ -2230,7 +2231,7 @@ function ActivityDialog({
       await createActivity(field.id, {
         crop_cycle_id: cropCycle.id,
         activity_type: activityType,
-        occurred_at: new Date(occurredAt).toISOString(),
+        occurred_at: localDateTimeWithOffset(occurredAt),
         notes: notes.trim() || null,
         details,
       });
@@ -2447,7 +2448,7 @@ function HarvestDialog({
       setError(null);
 
       await harvestCropCycle(cropCycle.id, {
-        harvested_at: new Date(harvestedAt).toISOString(),
+        harvested_at: localDateTimeWithOffset(harvestedAt),
         yield_kg: yieldNumber,
         harvested_area_acres: areaNumber,
         moisture_percent: moisture ? Number(moisture) : null,
