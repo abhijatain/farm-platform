@@ -24,6 +24,7 @@ TREND_METRIC_TYPES = (
     "ndvi",
     "ndre",
     "ndmi",
+    "bsi",
     "sar_vv_db",
     "sar_vh_db",
     "sar_vv_vh_ratio",
