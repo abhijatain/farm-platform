@@ -16,6 +16,7 @@ from app.models.field import Field
 from app.models.seasonal_zone_composite import SeasonalZoneComposite
 from app.services.ownership import get_owned_crop_cycle, get_owned_field
 from app.services.weather import _today
+from app.domains.satellite.seasonal_zone_statistics import describe_zone_grid, combine_deviations
 
 router = APIRouter(tags=["manual historical seasonal zones"])
 
@@ -41,6 +42,11 @@ def _template(db, current_user, field_id: UUID, crop_cycle_id: UUID):
         raise HTTPException(status_code=404, detail="Field boundary not found.")
     return cycle, start, duration, crop, calendar_key, hashlib.sha256(bytes(boundary)).hexdigest()
 
+def _enriched_grid(grid: dict) -> dict:
+    # Enrich saved pixels without downloading or reprocessing imagery.
+    return {**grid, "spatial_analysis": describe_zone_grid(grid)}
+
+
 def _data(row, boundary_hash: str):
     return {
         "id": str(row.id), "year": row.year, "status": row.status if row.boundary_hash == boundary_hash else "stale_boundary",
@@ -48,7 +54,7 @@ def _data(row, boundary_hash: str):
         "season_label": row.season_label, "crop_key": row.crop_key,
         "window_source": row.window_source,
         "error": row.error if row.boundary_hash == boundary_hash else "Field boundary has changed. Recalculate explicitly.",
-        "result": row.result_json if row.boundary_hash == boundary_hash and row.status == "completed" else None,
+        "result": _enriched_grid(row.result_json) if row.boundary_hash == boundary_hash and row.status == "completed" and row.result_json else None,
     }
 
 def _rows(db, field_id, crop, key):
@@ -164,15 +170,30 @@ def _aggregate(rows, selected_years):
         enough = len(values) >= (2 if len(grids) > 1 else 1) and len(values) >= (len(grids) + 1) // 2
         pixels.append(round(sum(values)/len(values), 4) if enough else None)
         coverage.append(len(values))
+    relative_pixels, _, agreement = combine_deviations(grids, base["mask"])
+    relative_analysis = describe_zone_grid(
+        {**base, "pixels": pixels}, relative_pixels=relative_pixels,
+    )
     good = [v for v in pixels if v is not None]
     average = round(sum(good)/len(good), 4) if good else None
     pixel_transform = base["transform"]
     cell_area_acres = abs(pixel_transform[0] * pixel_transform[4]) / 4046.8564224
     weak = sum(v < average - 0.08 for v in good) if average is not None else 0
     strong = sum(v > average + 0.08 for v in good) if average is not None else 0
+    eligible = [v for v in agreement if v is not None]
+    stable_pct = (
+        round(100 * sum(v is True for v in eligible) / len(eligible), 1)
+        if eligible else None
+    )
     return {
         "width": base["width"], "height": base["height"], "mask": base["mask"],
+        "projection": base["projection"], "transform": base["transform"],
         "pixels": pixels, "years_contributing": coverage, "mean_ndvi": average,
+        "relative_pixels": relative_pixels,
+        "relative_analysis": relative_analysis,
+        "stable_relative_area_percent": stable_pct,
+        "stability_minimum_years": 3,
+        "stability_basis": "At least 75% of qualifying years agree in above/below-field NDVI deviation of 0.02 or more; NOT observed yield stability.",
         "weak_area_acres": round(weak * cell_area_acres, 3),
         "strong_area_acres": round(strong * cell_area_acres, 3),
         "mapped_area_acres": round(len(good) * cell_area_acres, 3),
