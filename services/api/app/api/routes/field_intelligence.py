@@ -29,7 +29,8 @@ from shapely.geometry import shape
 from shapely.ops import unary_union
 
 router = APIRouter(tags=["field intelligence"])
-MAX_OBSERVATIONS = 180
+MAX_MONTHS = 120
+MAX_RECENT = 4
 MAX_ANOMALIES = 1200
 
 
@@ -50,7 +51,11 @@ def spatial_history(
     ).one()
     geom = shape(json.loads(geom_json))
     cutoff = _today() - timedelta(days=365 * years + 3)
-    rows = db.execute(
+    # Balanced monthly samples retain the entire 10-year window instead of
+    # allowing the latest dense year to crowd all older observations out.
+    # A few additional recent scenes preserve short-date anomaly transitions.
+    monthly_bucket = func.date_trunc("month", SatelliteObservation.observed_on)
+    qualified = (
         select(SatelliteObservation, SatelliteMetric)
         .join(SatelliteMetric, SatelliteMetric.satellite_observation_id == SatelliteObservation.id)
         .where(
@@ -62,22 +67,33 @@ def spatial_history(
             SatelliteMetric.valid_pixel_percent >= 80.0,
             SatelliteMetric.valid_pixel_count >= 8,
         )
-        .order_by(SatelliteObservation.observed_on.desc(), SatelliteMetric.valid_pixel_percent.desc())
-        .limit(MAX_OBSERVATIONS + 1)
+    )
+    monthly = db.execute(
+        qualified.distinct(monthly_bucket).order_by(
+            monthly_bucket.desc(),
+            SatelliteMetric.valid_pixel_percent.desc(),
+            SatelliteObservation.observed_on.desc(),
+        ).limit(MAX_MONTHS + 1)
     ).all()
-    limited = len(rows) > MAX_OBSERVATIONS
-    # At most one acquisition per calendar day; best-quality scene wins.
+    recent = db.execute(
+        qualified.order_by(
+            SatelliteObservation.observed_on.desc(),
+            SatelliteMetric.valid_pixel_percent.desc(),
+        ).limit(MAX_RECENT)
+    ).all()
+    limited = len(monthly) > MAX_MONTHS
     dates = set()
     selected = []
-    for observation, metric in rows[:MAX_OBSERVATIONS]:
+    for observation, metric in [*recent, *monthly[:MAX_MONTHS]]:
         if observation.observed_on in dates:
             continue
         dates.add(observation.observed_on)
         selected.append((observation, metric))
+    selected.sort(key=lambda pair: pair[0].observed_on, reverse=True)
     if not selected:
         result = summarize_spatial_history(geom, float(real_area), [])
         result["warnings"].append("No suitable optical date has >=80% valid coverage and >=8 valid pixels.")
-        result.update({"field_id": str(field_id), "metric_type": metric_type, "history_years": years})
+        result.update({"field_id": str(field_id), "metric_type": metric_type, "history_years": years, "sampling": "monthly_best_plus_recent_4"})
         return result
     ids = [observation.id for observation, _ in selected]
     shapes = db.execute(
@@ -119,7 +135,7 @@ def spatial_history(
     result = summarize_spatial_history(
         geom, float(real_area), scenes, history_limited=limited,
     )
-    result.update({"field_id": str(field_id), "metric_type": metric_type, "history_years": years})
+    result.update({"field_id": str(field_id), "metric_type": metric_type, "history_years": years, "sampling": "monthly_best_plus_recent_4"})
     if limited:
         result["warnings"].append("More than the bounded query limit was available; extend analysis offline.")
     return result
