@@ -824,6 +824,7 @@ function SatelliteTab({
       {!loading && !error && usableObservations.length > 0 && (
         <>
           <SatelliteTrendCharts
+            field={field}
             fieldId={field.id}
             cropCycle={cropCycle}
           />
