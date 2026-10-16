@@ -688,6 +688,9 @@ export default function FieldDetailsPanel({
         {activeTab === "journey" && <FieldJourneyPanel
           field={field} season={season} cycle={viewCycle} cycles={cycleOptions}
           timeline={timeline} loading={loading}
+          satelliteObservations={satelliteObservations}
+          satelliteLoading={satelliteLoading}
+          satelliteError={satelliteError}
           onSelectCycle={setSelectedCycleId}
           onStart={() => setCropForm(true)}
           onActivity={() => setActivityForm(true)}
