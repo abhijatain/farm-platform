@@ -27,8 +27,9 @@ function daysBetween(a: string, b: string): number {
 }
 function pretty(value: string | null | undefined) {
   if (!value) return "Not recorded";
-  return new Date(value.slice(0,10) + "T00:00:00Z").toLocaleDateString("en-IN",{
-    day:"numeric",month:"short",year:"numeric",timeZone:"UTC",
+  const timestamp = value.includes("T");
+  return new Date(timestamp ? value : value.slice(0,10) + "T00:00:00Z").toLocaleDateString("en-IN",{
+    day:"numeric",month:"short",year:"numeric", ...(timestamp ? {} : {timeZone:"UTC"}),
   });
 }
 function activityName(code: string) {
