@@ -10,7 +10,7 @@ from app.api.routes.seasonal_zones import CalculateRequest, _aggregate
 from app.db.session import SessionLocal
 from app.models.seasonal_zone_composite import SeasonalZoneComposite
 from app.models.user import User
-from tests.test_field_intelligence_routes import _create_fixture
+from test_field_intelligence_routes import _create_fixture
 
 
 def _grid(pixels):
