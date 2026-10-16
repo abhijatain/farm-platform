@@ -9,7 +9,7 @@ import FieldRasterImage from "./FieldRasterImage";
 import FieldIntelligencePanel from "./FieldIntelligencePanel";
 import HistoricalZonesPanel from "./HistoricalZonesPanel";
 import SatelliteChangePanel from "./SatelliteChangePanel";
-import SatelliteTrendCharts from "./SatelliteTrendCharts";
+import SatelliteTrendCharts, { SelectedMetricCycleChart } from "./SatelliteTrendCharts";
 import {
   createActivity,
   createCropCycle,
@@ -929,6 +929,13 @@ function SatelliteTab({
                 field={field}
                 observations={usableObservations}
                 metric={selectedMetric}
+                cropCycle={cropCycle}
+              />
+              <SelectedMetricCycleChart
+                fieldId={field.id}
+                cropCycle={cropCycle}
+                metricType={selectedMetric.metricType}
+                label={selectedMetric.label}
               />
             </>}
         </>
@@ -1274,12 +1281,17 @@ function MetricImageryStrip({
   field,
   observations,
   metric,
+  cropCycle,
 }: {
   field: Field;
   observations: SatelliteObservation[];
   metric: FarmerMetric;
+  cropCycle: CropCycle | null;
 }) {
   const available = observations
+    .filter(observation => !cropCycle ||
+      (observation.observed_on >= cropCycle.started_on &&
+       observation.observed_on <= (cropCycle.harvested_on ?? "9999-12-31")))
     .filter((observation) => {
       const value = getObservationMetric(observation, metric.metricType);
 
