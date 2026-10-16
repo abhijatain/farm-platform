@@ -436,6 +436,9 @@ export default function FieldDetailsPanel({
     try {
       const result = await listFieldCropCycles(field.id);
       setCycleOptions(result);
+      if (!cropCycle && result.length > 0) {
+        setSelectedCycleId(current => current ?? result[0].id);
+      }
     } catch (error) {
       console.error("Could not load field crop cycles:", error);
     }
