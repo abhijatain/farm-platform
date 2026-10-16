@@ -19,7 +19,6 @@ Set the following values in `apps/web/.env`, then **restart Vite**:
 
 ```env
 VITE_API_URL=/api/v1
-VITE_TILER_URL=/tiler
 VITE_FIREBASE_TEST_PHONE_AUTH=false
 ```
 
@@ -69,7 +68,7 @@ three-column.
 Smoke test on a real phone at around 360–430px wide, plus an iPad/tablet and
 desktop: login, farm/season switching, selecting a field, drawing polygon,
 scrolling satellite tabs, editing an activity, report loading and printing.
-Also test portrait/landscape orientation. The API proxy is testable locally;
+Also test portrait/landscape orientation. Satellite tile rendering over HTTPS is not asserted until an authenticated tile gateway is added. The API proxy is testable locally;
 end-to-end verification requires your running backend, Firebase credentials
 and ngrok session.
 
