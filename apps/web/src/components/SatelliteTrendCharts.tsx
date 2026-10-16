@@ -2424,7 +2424,13 @@ export default function SatelliteTrendCharts({
             degreeDayBaseC={growth?.degree_day_base_c}
           />}
 
-          {section === "trends" && <TrendChart
+          {section === "trends" && <div className="satellite-chart-group">
+            <header>
+              <span className="workspace-eyebrow">TEMPERATURE</span>
+              <h4>Crop-surface temperature</h4>
+              <p>Land-surface temperature from Landsat is not the same as air temperature. Interpret it alongside weather and crop conditions.</p>
+            </header>
+            <TrendChart
             title="Surface temperature"
             subtitle="Landsat land-surface temperature trend."
             series={
@@ -2441,9 +2447,16 @@ export default function SatelliteTrendCharts({
             }
             valueLabel="°C"
             emptyMessage="No Landsat surface-temperature observations are available in this period."
-           />}
+           />
+          </div>}
 
-          {section === "trends" && <article className="satellite-trend-chart-with-control">
+          {section === "trends" && <div className="satellite-chart-group">
+            <header>
+              <span className="workspace-eyebrow">OBSERVED ANOMALIES</span>
+              <h4>Areas with unusual field-relative signals</h4>
+              <p>Shows previously calculated anomaly area by date. Unusual satellite signals are not automatically disease, damage or yield loss.</p>
+            </header>
+            <article className="satellite-trend-chart-with-control">
             <div className="satellite-trend-inline-control">
               <label>
                 <span>
@@ -2503,7 +2516,8 @@ export default function SatelliteTrendCharts({
               }
               emptyMessage="No anomaly history is available for this metric in this period."
             />
-          </article>}
+          </article>
+          </div>}
 
           {section === "quality" && <article className="satellite-trend-chart-with-control">
             <div className="satellite-trend-inline-control">
