@@ -5,6 +5,7 @@ import { Plus, X } from "lucide-react";
 import ActivityMediaSection from "./ActivityMediaSection";
 import FieldReport from "./FieldReport";
 import FieldRasterImage from "./FieldRasterImage";
+import FieldIntelligencePanel from "./FieldIntelligencePanel";
 import SatelliteChangePanel from "./SatelliteChangePanel";
 import SatelliteTrendCharts from "./SatelliteTrendCharts";
 import {
@@ -821,10 +822,11 @@ function SatelliteTab({
         />
       )}
 
+      {!loading && !error && <FieldIntelligencePanel field={field} cropCycle={cropCycle} />}
+
       {!loading && !error && usableObservations.length > 0 && (
         <>
           <SatelliteTrendCharts
-            field={field}
             fieldId={field.id}
             cropCycle={cropCycle}
           />
