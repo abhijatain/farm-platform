@@ -1,6 +1,6 @@
 # Farm Platform web: mobile reports and HTTPS development
 
-## Run the web app, FastAPI and satellite tiler behind one ngrok URL
+## Run the web app and FastAPI behind one ngrok URL
 
 This is a development-only setup. Start FastAPI from `services/api`:
 
@@ -24,7 +24,7 @@ VITE_FIREBASE_TEST_PHONE_AUTH=false
 
 Keep your existing `VITE_FIREBASE_*` project configuration and `VITE_MAPTILER_KEY`.
 Use real Firebase phone authentication only on a Firebase-authorized HTTPS domain.
-For satellite tiles, start the optional tiler on `127.0.0.1:8081`.
+For local-only satellite tiles, start the tiler on `127.0.0.1:8081` and use `VITE_TILER_URL=http://localhost:8081`. The unprotected tiler must **not** be exposed over a public ngrok tunnel when it has access to private farm imagery.
 
 In a separate terminal run:
 
@@ -41,7 +41,7 @@ Firebase Authentication → Settings → Authorized domains as well.
 Routing from the **one public HTTPS origin**:
 - `/` → Vite UI on port 5173
 - `/api/v1/*` and `/health` → local FastAPI on port 8000
-- `/tiler/*` → optional local tiler on port 8081
+- `/tiler/*` → disabled by default. The unsafe development-only opt-in `ENABLE_DEV_TILER_PROXY=true` forwards to port 8081; use only disposable test data and set `VITE_TILER_URL=/tiler` when opting in. Production needs a per-user authorized tile gateway.
 
 `curl -i https://stoneware-refining-flatfoot.ngrok-free.dev/health`
 should show a JSON 200 response from FastAPI. The bare
@@ -52,7 +52,7 @@ and `/api/v1/...` rather than `http://localhost:8000`; if they do not,
 check the actual `.env` value, restart Vite and hard-refresh.
 
 Do not expose Postgres, Firebase Admin credentials, Meta secrets, or the API
-directly through ngrok. A mobile phone can access the Vite URL over HTTPS.
+directly through ngrok. The public tiler proxy is disabled by default due to private raster access. A mobile phone can access the Vite URL over HTTPS.
 
 ## Phone layout and field reports
 
