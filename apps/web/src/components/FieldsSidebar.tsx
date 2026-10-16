@@ -97,6 +97,45 @@ function getFieldCropCycle(
 }
 
 
+
+/** Draw the actual saved field ring, including holes, at a stable thumbnail scale. */
+function FieldBoundaryThumbnail({ field }: { field: Field }) {
+  const rings = field.boundary?.coordinates ?? [];
+  const validRings = rings
+    .map((ring) => ring.filter((point) =>
+      point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1])
+    ))
+    .filter((ring) => ring.length >= 3);
+  if (!validRings.length) {
+    return <div className="field-thumbnail" aria-label="No usable field boundary">
+      <span className="field-thumbnail-unavailable">No boundary</span>
+    </div>;
+  }
+  const points = validRings.flat();
+  const latitude = points.reduce((sum, point) => sum + point[1], 0) / points.length;
+  const longitudeScale = Math.max(0.05, Math.abs(Math.cos(latitude * Math.PI / 180)));
+  const projected = validRings.map((ring) => ring.map(([lon, lat]) => [lon * longitudeScale, lat]));
+  const xs = projected.flatMap((ring) => ring.map((point) => point[0]));
+  const ys = projected.flatMap((ring) => ring.map((point) => point[1]));
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const width = Math.max(maxX - minX, 1e-9);
+  const height = Math.max(maxY - minY, 1e-9);
+  const scale = 46 / Math.max(width, height);
+  const offsetX = (64 - width * scale) / 2;
+  const offsetY = (64 - height * scale) / 2;
+  const path = projected.map((ring) => ring.map(([x, y], index) =>
+    `${index === 0 ? "M" : "L"} ${(offsetX + (x - minX) * scale).toFixed(2)} ${(64 - offsetY - (y - minY) * scale).toFixed(2)}`
+  ).join(" ") + " Z").join(" ");
+  return (
+    <div className="field-thumbnail">
+      <svg viewBox="0 0 64 64" role="img" aria-label={`Boundary shape of ${field.name}`}>
+        <path d={path} fillRule="evenodd" />
+      </svg>
+    </div>
+  );
+}
+
 export default function FieldsSidebar({
   farms,
   selectedFarmId,
@@ -285,9 +324,7 @@ export default function FieldsSidebar({
           }
         />
 
-        <SlidersHorizontal
-          size={17}
-        />
+        <SlidersHorizontal size={16} aria-hidden="true" />
 
       </div>
 
@@ -350,11 +387,7 @@ export default function FieldsSidebar({
                 }
               >
 
-                <div className="field-thumbnail">
-
-                  <div className="mini-boundary" />
-
-                </div>
+                <FieldBoundaryThumbnail field={field} />
 
 
                 <div className="field-details">
