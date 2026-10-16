@@ -526,7 +526,7 @@ def test_trends_share_crop_window_metrics_anomalies_and_activities() -> None:
             == date(
                 2026,
                 6,
-                15,
+                10,
             )
         )
 
@@ -553,7 +553,8 @@ def test_trends_share_crop_window_metrics_anomalies_and_activities() -> None:
             in result.points
         )
 
-        assert not any(
+        # The preparation window is now part of the crop's story.
+        assert any(
             point.observation_id
             == before_crop.id
             for point
@@ -565,7 +566,7 @@ def test_trends_share_crop_window_metrics_anomalies_and_activities() -> None:
             for point
             in result.points
             if point.metric_type
-            == "ndvi"
+            == "ndvi" and point.observed_on == date(2026, 7, 1)
         )
 
         assert (
