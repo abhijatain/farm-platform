@@ -54,6 +54,33 @@ check the actual `.env` value, restart Vite and hard-refresh.
 Do not expose Postgres, Firebase Admin credentials, Meta secrets, or the API
 directly through ngrok. The public tiler proxy is disabled by default due to private raster access. A mobile phone can access the Vite URL over HTTPS.
 
+## iPhone Safari: field imagery and mobile chart fixes
+
+Field imagery previews, before/after field comparison images and pixel-change
+images now use an owner-authorized FastAPI gateway. For these previews, the
+browser requests `/api/v1/fields/{field_id}/...` using its Firebase bearer token;
+FastAPI checks the field and observation IDs against Postgres, then requests
+the PNG from the **private loopback tiler on port 8081**. The browser receives
+a short-lived local Blob URL rather than an unprotected GCS path.
+
+Run both FastAPI (port 8000) and the tiler (port 8081) for colored previews
+on your phone. The Vite proxy forwards the authenticated API calls over the
+same ngrok HTTPS origin. `VITE_TILER_URL` remains a **local-only** setting
+for legacy raster/map tile features; it is not used by these new protected
+field preview cards or pixel-change summaries.
+
+Mobile Safari issues fixed in this branch:
+- Cards and growth-stage summaries no longer set the whole page's intrinsic
+  width; graphs scroll horizontally within their own panels.
+- Field image uses an authenticated PNG Blob and CSS polygon clipping instead
+  of an external `<image>` embedded inside SVG.
+- The drawing banner no longer retains the desktop centering transform.
+
+The MapLibre raster-tile overlay still uses the existing tiler integration,
+which is not yet behind this gateway and can remain unavailable via ngrok.
+Do not enable the raw development tiler proxy for private fields; an
+owner-authorized tile service is a separate production task.
+
 ## Phone layout and field reports
 
 On narrow screens, use the bottom **Fields / Map** navigation. Selecting a field
