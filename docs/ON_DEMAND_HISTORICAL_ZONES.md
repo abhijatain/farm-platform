@@ -25,12 +25,22 @@ and historical per-scene GeoTIFFs. **Nothing starts automatically.**
    immediate and **does not download raw satellite imagery**.
 7. Combined average map is shown first; every saved rice-season average map
    appears beneath it by year, with exact or estimated calendar provenance.
+   Switch between continuous relative NDVI and conservative three-category
+   maps. The combined map first centers each saved season around its OWN
+   spatial field mean, then averages those relative differences equally.
+   Whole-year greener/wetter baselines therefore do not imply stable
+   within-field productivity differences. A consistency percentage is only
+   shown when >=3 comparable seasons exist, and is NOT measured yield.
 
-The saved result is a small raster-like numeric grid; colored low/near/high
-areas are derived from each map's field mean at render time. The current
-relative thresholds are illustrative (NDVI +/-0.08); they are **not calibrated
-crop productivity, soil quality, yield, fertilizer recommendations or field
-diagnoses**. These are *vegetation index zones*, not actual economic
+The saved result is a small raster-like numeric grid. On each read, the
+server derives (without new downloads or writes) both a **continuous,
+percentile-stretched relative NDVI map** and optional **low / medium / high
+NDVI classes**. Zones require at least eight valid spatial cells and a
+field p10–p90 NDVI spread of at least 0.035; class boundaries use robust
+33rd/67th percentiles constrained to differences of at least 0.02 NDVI
+from the field mean. Small differences below these evidence thresholds do
+NOT become claimed management zones merely because the color map shows
+contrast. These are *vegetation index zones*, not actual economic
 productivity zones. A 10m analysis pixel is not a plot-level diagnosis.
 
 ## One-time migration
@@ -111,3 +121,17 @@ The worker is a dedicated process; automatic job recovery after an
 unexpected machine restart is intentionally not enabled until safe worker
 lease/cancellation semantics are added. Restarted workers do not silently
 repeat costly unfinished years; investigate/requeue explicitly.
+
+
+## Comparison with OneSoil's productivity-map example
+
+The historical report now presents smooth relative NDVI contrast, conditional
+three-category zones and their approximate acreage shares. The imagery date
+list explains which historical observations contributed, but old raw raster
+previews are intentionally not retained. Soil brightness/elevation
+correlations are not computed here, and no numerical `yield deviation`
+can be inferred from NDVI colors alone. Those need independent terrain/soil
+evidence and measured yields or local validation.
+
+Saved season means remain exactly as calculated before this visualization
+upgrade: **you do not need to recalculate already completed years**.
