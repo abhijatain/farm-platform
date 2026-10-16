@@ -2,6 +2,8 @@
 
 from fastapi import APIRouter
 
+from app.core.config import settings
+
 from app.api.routes import (
     activities,
     auth,
@@ -16,8 +18,6 @@ from app.api.routes import (
     satellite_observations,
     private_satellite_previews,
     radar_screening,
-    whatsapp_webhook,
-    whatsapp_link,
     seasons,
 )
 
@@ -47,6 +47,20 @@ api_router.include_router(private_satellite_previews.router)
 
 api_router.include_router(radar_screening.router)
 
-# Meta webhooks use their own signature, never Firebase bearer authentication.
-api_router.include_router(whatsapp_webhook.router)
-api_router.include_router(whatsapp_link.router)
+def include_whatsapp_routes(router: APIRouter, *, enabled: bool) -> None:
+    """Register Meta webhook/link endpoints only with explicit opt-in.
+
+    Disabling WhatsApp does not alter Firebase authentication, farms or
+    historic WhatsApp tables. Unmounted paths return HTTP 404.
+    """
+    if not enabled:
+        return
+
+    from app.api.routes import whatsapp_link, whatsapp_webhook
+
+    # Meta webhooks have their own signature, not Firebase bearer auth.
+    router.include_router(whatsapp_webhook.router)
+    router.include_router(whatsapp_link.router)
+
+
+include_whatsapp_routes(api_router, enabled=settings.whatsapp_enabled)
