@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -26,6 +27,23 @@ class CalculateRequest(BaseModel):
     start_month: int | None = PydanticField(default=None, ge=1, le=12)
     end_month: int | None = PydanticField(default=None, ge=1, le=12)
     all_crops: bool = False
+
+class CombineRequest(CalculateRequest):
+    # Saved reports can be opened even when today's reference crop cycle has
+    # a different planting date. This key never starts a calculation.
+    saved_calendar_key: str | None = None
+
+def _saved_key(db, field_id, crop, requested: str | None, default: str):
+    if requested is None:
+        return default
+    valid = bool(re.fullmatch(
+        r"(?:month-(?:0[1-9]|1[0-2])-to-(?:0[1-9]|1[0-2])|"
+        r"(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])-[0-9]{3})",
+        requested,
+    ))
+    if not valid or not _rows(db, field_id, crop, requested):
+        raise HTTPException(status_code=404, detail="Saved historical analysis not found.")
+    return requested
 
 def _template(
     db, current_user, field_id: UUID, crop_cycle_id: UUID,
@@ -118,10 +136,15 @@ def list_seasonal_zones(
     field_id: UUID, crop_cycle_id: UUID, db: DBSession, current_user: CurrentUser,
     start_month: int | None = None, end_month: int | None = None,
     all_crops: bool = False,
+    saved_calendar_key: str | None = None,
 ) -> dict:
     cycle, start, duration, crop, key, hash_ = _template(
         db, current_user, field_id, crop_cycle_id, start_month, end_month, all_crops,
     )
+    key = _saved_key(db, field_id, crop, saved_calendar_key, key)
+    saved = _rows(db, field_id, crop, key)
+    if saved_calendar_key and saved:
+        start, duration = saved[0].start_date, (saved[0].end_date - saved[0].start_date).days
     years = list(range(_today().year - 1, _today().year - 7, -1))
     return {
         "crop": "field history (all crops)" if all_crops else crop,
@@ -264,12 +287,13 @@ def _aggregate(rows, selected_years):
 
 @router.post("/fields/{field_id}/seasonal-zones/combine")
 def combine_seasonal_zones(
-    field_id: UUID, request: CalculateRequest, db: DBSession, current_user: CurrentUser,
+    field_id: UUID, request: CombineRequest, db: DBSession, current_user: CurrentUser,
 ):
     _, _, _, crop, key, hash_ = _template(
         db, current_user, field_id, request.crop_cycle_id,
         request.start_month, request.end_month, request.all_crops,
     )
+    key = _saved_key(db, field_id, crop, request.saved_calendar_key, key)
     years = sorted(set(request.years))
     if not 1 <= len(years) <= 6:
         raise HTTPException(status_code=422, detail="Select one to six years.")
