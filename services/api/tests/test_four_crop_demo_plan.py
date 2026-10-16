@@ -44,7 +44,7 @@ def test_field_geometry_accepts_single_multipolygon(tmp_path:Path):
     path.write_text(json.dumps({
         "type":"FeatureCollection",
         "features":[{"type":"Feature","geometry":{
-            "type":"MultiPolygon","coordinates":[[[ring]]]
+            "type":"MultiPolygon","coordinates":[[ring]]
         },"properties":{"field_name":"demo"}}]
     }),encoding="utf-8")
     poly=load_field_polygon(path)
