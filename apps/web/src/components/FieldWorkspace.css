@@ -3814,3 +3814,68 @@
   .satellite-chart-latest strong {font-size:16px;}
   .satellite-chart-tooltip {max-width:75%;min-width:140px;}
 }
+
+
+/* Weather charts use the same value-card + exact-value-hover pattern as satellite trends. */
+.weather-metric-chart-card {
+  min-width:0;
+  margin-top:12px;
+  padding:12px;
+  border:1px solid #dce6e0;
+  border-radius:11px;
+  background:#fff;
+}
+.weather-metric-chart-heading {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.weather-metric-chart-heading > div:first-child {min-width:0;}
+.weather-metric-chart-heading strong {font-size:14px;color:#284e38;}
+.weather-metric-chart-heading p {font-size:11px;color:#667a6a;line-height:1.5;margin:5px 0;}
+.weather-metric-latest {
+  display:flex;
+  flex:0 0 auto;
+  flex-direction:column;
+  gap:3px;
+  min-width:122px;
+  border-radius:8px;
+  background:#f0f6f2;
+  border:1px solid #dceade;
+  padding:9px;
+}
+.weather-metric-latest span,.weather-metric-latest small{font-size:10px;color:#65766c;}
+.weather-metric-latest strong{font-size:17px;color:#245c3a;font-variant-numeric:tabular-nums;}
+.weather-metric-chart-card .weather-chart-scroll {position:relative;min-width:0;}
+.weather-metric-chart-card .weather-rainfall-chart {cursor:crosshair;touch-action:pan-y;}
+.weather-hover-line {stroke:#384d43;stroke-width:1.5;stroke-dasharray:6 4;pointer-events:none;}
+.weather-hover-readout {
+  position:absolute;
+  right:10px;
+  top:7px;
+  z-index:4;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  max-width:190px;
+  padding:9px 11px;
+  border-radius:8px;
+  background:#26382d;
+  color:white;
+  font-size:11px;
+  pointer-events:none;
+  box-shadow:0 3px 10px rgba(0,0,0,.12);
+  font-variant-numeric:tabular-nums;
+}
+.weather-hover-readout strong{font-size:12px;}
+.weather-hover-readout small {color:#c8d8cd;font-size:10px;}
+.weather-heat-note{font-size:10px;line-height:1.5;color:#657769;margin:8px 0 0;}
+@media(max-width:760px){
+  .weather-metric-chart-card{padding:8px;}
+  .weather-metric-chart-heading{gap:7px;}
+  .weather-metric-latest{min-width:90px;padding:7px;}
+  .weather-metric-latest strong{font-size:13px;}
+  .weather-hover-readout {max-width:155px;}
+}
