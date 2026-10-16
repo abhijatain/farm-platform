@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -13,6 +14,12 @@ import {
   auth,
 } from "../lib/firebase";
 
+
+type GrecaptchaWindow = Window & {
+  grecaptcha?: {
+    reset: (widgetId: number) => void;
+  };
+};
 
 export default function LoginPage() {
 
@@ -60,6 +67,17 @@ export default function LoginPage() {
       RecaptchaVerifier | null
     >(null);
 
+  // Use the same verifier for repeated attempts; clearing and recreating
+  // one inside the same element causes Google's "already rendered" error.
+  const recaptchaElementRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      verifierRef.current?.clear();
+      verifierRef.current = null;
+    };
+  }, []);
+
 
   async function sendOtp() {
 
@@ -69,25 +87,19 @@ export default function LoginPage() {
       setError(null);
 
 
-      verifierRef.current
-        ?.clear();
+      let verifier = verifierRef.current;
 
+      if (!verifier) {
+        const container = recaptchaElementRef.current;
+        if (!container) {
+          throw new Error("reCAPTCHA container is unavailable. Please reload.");
+        }
 
-      const verifier =
-        new RecaptchaVerifier(
-          auth,
-
-          "recaptcha-container",
-
-          {
-            size:
-              "invisible",
-          },
-        );
-
-
-      verifierRef.current =
-        verifier;
+        verifier = new RecaptchaVerifier(auth, container, {
+          size: "invisible",
+        });
+        verifierRef.current = verifier;
+      }
 
 
       const result =
@@ -110,6 +122,17 @@ export default function LoginPage() {
     } catch (
       error
     ) {
+
+      // Firebase recommends resetting the challenge after an SMS request
+      // fails. Keep the verifier and its DOM binding for the next attempt.
+      if (verifierRef.current) {
+        try {
+          const widgetId = await verifierRef.current.render();
+          (window as GrecaptchaWindow).grecaptcha?.reset(widgetId);
+        } catch {
+          // Do not replace the original Firebase error with a reset error.
+        }
+      }
 
       setError(
         error instanceof Error
@@ -315,14 +338,13 @@ export default function LoginPage() {
           Your phone number is
           processed by Firebase for
           authentication and abuse
-          prevention.
+          prevention. Use your real mobile number to link WhatsApp; Firebase
+          test numbers cannot prove ownership of a real WhatsApp account.
 
         </p>
 
 
-        <div
-          id="recaptcha-container"
-        />
+        <div ref={recaptchaElementRef} />
 
       </div>
 
