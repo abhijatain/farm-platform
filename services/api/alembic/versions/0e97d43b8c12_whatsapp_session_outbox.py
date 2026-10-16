@@ -36,6 +36,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_whatsapp_outbox")),
         sa.UniqueConstraint("inbound_message_id", name=op.f("uq_whatsapp_outbox_inbound_message_id")),
     )
+    op.create_index(op.f("ix_whatsapp_outbox_meta_message_id"), "whatsapp_outbox", ["meta_message_id"], unique=False)
     op.create_index(
         "ix_whatsapp_outbox_ready", "whatsapp_outbox",
         ["status", "available_at", "created_at"], unique=False,
@@ -44,4 +45,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index("ix_whatsapp_outbox_ready", table_name="whatsapp_outbox")
+    op.drop_index(op.f("ix_whatsapp_outbox_meta_message_id"), table_name="whatsapp_outbox")
     op.drop_table("whatsapp_outbox")

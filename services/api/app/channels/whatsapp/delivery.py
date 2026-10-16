@@ -22,10 +22,16 @@ def update_delivery_receipts(db: Session, payload: object) -> int:
     if not isinstance(payload, dict) or payload.get("object") != "whatsapp_business_account":
         return 0
     count = 0
-    for entry in payload.get("entry", []):
+    entries = payload.get("entry")
+    if not isinstance(entries, list):
+        return 0
+    for entry in entries:
         if not isinstance(entry, dict):
             continue
-        for change in entry.get("changes", []):
+        changes = entry.get("changes")
+        if not isinstance(changes, list):
+            continue
+        for change in changes:
             if not isinstance(change, dict) or change.get("field") != "messages":
                 continue
             value = change.get("value")
@@ -34,7 +40,10 @@ def update_delivery_receipts(db: Session, payload: object) -> int:
             metadata = value.get("metadata")
             if not isinstance(metadata, dict) or metadata.get("phone_number_id") != settings.whatsapp_phone_number_id:
                 continue
-            for event in value.get("statuses", []):
+            events = value.get("statuses")
+            if not isinstance(events, list):
+                continue
+            for event in events:
                 if not isinstance(event, dict):
                     continue
                 mid, state = event.get("id"), event.get("status")

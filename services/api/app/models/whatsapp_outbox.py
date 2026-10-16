@@ -36,7 +36,7 @@ class WhatsAppOutbox(UUIDPrimaryKeyMixin, Base):
     reply_before: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    meta_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    meta_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     last_error: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(),
