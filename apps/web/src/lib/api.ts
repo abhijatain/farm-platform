@@ -6,6 +6,9 @@ import type {
   CropCycle,
   CropGrowth,
   CropRadarScreening,
+  FieldSpatialHistory,
+  FieldObservationIntelligence,
+  CropPhenologyIntelligence,
   CropStageObservation,
   CurrentUser,
   Farm,
@@ -460,5 +463,27 @@ export function deleteCropGrowthStage(cropCycleId: string, stageCode: string) {
 export function getCropRadarScreening(cropCycleId: string) {
   return apiRequest<CropRadarScreening>(
     "/crop-cycles/" + encodeURIComponent(cropCycleId) + "/radar-screening",
+  );
+}
+
+/* Conservative field spatial zones and stage-aware sensor intelligence. */
+export function getFieldSpatialHistory(
+  fieldId: string, metricType: "ndvi" | "ndmi" | "ndre" = "ndvi", years = 10,
+) {
+  const params = new URLSearchParams({ metric_type: metricType, years: String(years) });
+  return apiRequest<FieldSpatialHistory>(
+    `/fields/${encodeURIComponent(fieldId)}/spatial-history?${params}`,
+  );
+}
+
+export function getFieldObservationIntelligence(fieldId: string, years = 2) {
+  return apiRequest<FieldObservationIntelligence>(
+    `/fields/${encodeURIComponent(fieldId)}/observation-intelligence?years=${years}`,
+  );
+}
+
+export function getCropPhenologyIntelligence(cropCycleId: string) {
+  return apiRequest<CropPhenologyIntelligence>(
+    `/crop-cycles/${encodeURIComponent(cropCycleId)}/phenology-intelligence`,
   );
 }
