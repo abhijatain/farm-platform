@@ -150,6 +150,35 @@ def test_independent_monthly_history_windows_never_enqueue_automatically(monkeyp
         assert winter_row.start_date == date(2024,11,1)
         assert winter_row.end_date == date(2025,1,31)
 
+        # Opening a saved window fetches the exact stored report, even when
+        # the currently selected month controls refer to another period.
+        historical = list_seasonal_zones(
+            field.id, cycle.id, db, user,
+            start_month=8, end_month=10,
+            saved_calendar_key="month-11-to-01",
+        )
+        assert historical["calendar_key"] == "month-11-to-01"
+        assert historical["reference_window"]["length_days"] == 91
+        assert [r["year"] for r in historical["seasons"]] == [2024]
+        with pytest.raises(HTTPException) as missing:
+            list_seasonal_zones(
+                field.id, cycle.id, db, user,
+                start_month=8, end_month=10,
+                saved_calendar_key="month-09-to-11",
+            )
+        assert missing.value.status_code == 404
+        with pytest.raises(HTTPException) as incomplete:
+            seasonal.combine_seasonal_zones(
+                field.id,
+                seasonal.CombineRequest(
+                    crop_cycle_id=cycle.id, years=[2024],
+                    start_month=8, end_month=10,
+                    saved_calendar_key="month-11-to-01",
+                ),
+                db, user,
+            )
+        assert incomplete.value.status_code == 409
+
         saved = list_saved_zone_windows(field.id, cycle.id, db, user)
         assert {item["calendar_key"] for item in saved} == {
             "month-08-to-10", "month-11-to-01",
