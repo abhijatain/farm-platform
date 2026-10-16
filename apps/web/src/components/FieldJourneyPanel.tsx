@@ -93,7 +93,7 @@ export default function FieldJourneyPanel({
     {name:"Prepare",complete:cycleActivities.some(a=>["tillage","land_preparation","ploughing","leveling"].includes(a.activity_type)),
       description:"Tractor work, leveling and soil preparation"},
     {name:"Plant",complete:cycle?.planted_on != null,description:"Record sowing or transplanting date"},
-    {name:"Grow",complete:cycle?.planted_on != null && cycle?.status === "active",
+    {name:"Grow",complete:cycle?.planted_on != null,
       description:"Daily field work, crop stages and satellite trends"},
     {name:"Harvest",complete:cycle?.harvested_on != null,description:"Record actual yield to close this cycle"},
   ];
