@@ -21,7 +21,7 @@ the responsive field UI. It does not add tables or data migrations.
     geodesic field area, and all outputs are **relative field comparisons**.
     They are NOT measured yield, crop disease, soil fertility or fertilizer
     prescriptions. 3857 cell grids can distort shapes at high latitudes.
-  - Requests are bounded: <=10 years, <=180 optical scenes and <=1200 stored
+  - Requests are bounded: <=10 years, at most one best-quality scene/month plus the four most recent qualifying scenes, and <=1200 stored
     anomaly polygons. If either data cap is reached the candidate zone output
     is suppressed to avoid presenting a partial history as complete.
 
@@ -45,7 +45,7 @@ the responsive field UI. It does not add tables or data migrations.
     Cultivar, photoperiod and regional calibration remain unvalidated; users
     must record real crop stage observations.
 
-## UI and testing
+The monthly sample preserves older calendar years rather than limiting the\nanalysis to the latest densely sampled season. Four recent passes are retained\nto show new/persistent/resolved transitions; this is not an unbiased\nper-date frequency estimate when observations are missing.\n\n## UI and testing
 
 The field Satellite tab provides a selectable NDVI/NDMI/NDRE historical zone
 and recent anomaly transition map, acreage, data completeness warnings,
