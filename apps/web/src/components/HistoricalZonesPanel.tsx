@@ -267,7 +267,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
             <p><strong>{(combined.selected_years ?? []).join(", ")}</strong> · Mean NDVI: {fmt(combined.mean_ndvi)}</p>
             <SeasonalBoundaryMap grid={combined} title="Combined season relative zones" mode={mapMode} relative />
             <ZoneBreakdown grid={combined} relative />
-            <p className="hz-explanation">This spatial map averages each year\'s deviations from its own seasonal field mean, preventing greener or wetter years from automatically dominating the zone boundaries.</p>
+            <p className="hz-explanation">This spatial map averages each year’s deviations from its own seasonal field mean, preventing greener or wetter years from automatically dominating the zone boundaries.</p>
             <p className="hz-stability"><strong>Cross-year spatial consistency:</strong> {combined.stable_relative_area_percent == null ? "Requires at least three comparable years" : combined.stable_relative_area_percent.toFixed(1) + "% of comparable cells"}</p>
             <p className="hz-explanation">{combined.notes}</p>
           </> : <p className="hz-explanation">Select completed seasons above and click “Show average” to produce the combined zone map.</p>}
