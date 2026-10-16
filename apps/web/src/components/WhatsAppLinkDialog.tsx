@@ -345,7 +345,7 @@ export default function WhatsAppLinkDialog({ onClose }: Props) {
         </div>
 
         <footer className="whatsapp-dialog-footer">
-          <span>Development feature · automated replies are not available yet</span>
+          <span>Development preview · replies require Meta access and a running outbox worker</span>
           <button type="button" className="secondary-action" onClick={onClose}>Close</button>
         </footer>
       </section>
