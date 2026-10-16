@@ -1,3 +1,80 @@
+# Farm Platform web: mobile reports and HTTPS development
+
+## Run the web app, FastAPI and satellite tiler behind one ngrok URL
+
+This is a development-only setup. Start FastAPI from `services/api`:
+
+```bash
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Start the web app from `apps/web`:
+
+```bash
+pnpm install
+pnpm dev --host 0.0.0.0
+```
+
+Set the following values in `apps/web/.env`, then **restart Vite**:
+
+```env
+VITE_API_URL=/api/v1
+VITE_TILER_URL=/tiler
+VITE_FIREBASE_TEST_PHONE_AUTH=false
+```
+
+Keep your existing `VITE_FIREBASE_*` project configuration and `VITE_MAPTILER_KEY`.
+Use real Firebase phone authentication only on a Firebase-authorized HTTPS domain.
+For satellite tiles, start the optional tiler on `127.0.0.1:8081`.
+
+In a separate terminal run:
+
+```bash
+ngrok http 5173
+```
+
+Open `https://stoneware-refining-flatfoot.ngrok-free.dev` on a phone or
+desktop. This branch's Vite `server.allowedHosts` explicitly permits that
+hostname; if your ngrok domain changes, update the allow-list to the new exact
+host (do not use `allowedHosts: true`). Add that domain in
+Firebase Authentication → Settings → Authorized domains as well.
+
+Routing from the **one public HTTPS origin**:
+- `/` → Vite UI on port 5173
+- `/api/v1/*` and `/health` → local FastAPI on port 8000
+- `/tiler/*` → optional local tiler on port 8081
+
+`curl -i https://stoneware-refining-flatfoot.ngrok-free.dev/health`
+should show a JSON 200 response from FastAPI. The bare
+`/api/v1/auth/me` endpoint without a Firebase token should reject as
+unauthorized: an authentication error indicates the route is reaching the API.
+After signing in, browser Network requests must use the HTTPS ngrok origin
+and `/api/v1/...` rather than `http://localhost:8000`; if they do not,
+check the actual `.env` value, restart Vite and hard-refresh.
+
+Do not expose Postgres, Firebase Admin credentials, Meta secrets, or the API
+directly through ngrok. A mobile phone can access the Vite URL over HTTPS.
+
+## Phone layout and field reports
+
+On narrow screens, use the bottom **Fields / Map** navigation. Selecting a field
+opens the map and its field details. Use the swipeable **Satellite / Activities /
+Yield / Report** tabs. The Report tab summarizes owner-authorized records for
+the selected field and season: actual crop/harvest entries, activity history,
+usable satellite NDVI/NDMI, comparative NDVI change and modeled rainfall.
+It never guesses absent observations or labels satellite anomalies as diseases.
+Use **Print / Save PDF** to create a browser PDF. Desktop layout remains
+three-column.
+
+Smoke test on a real phone at around 360–430px wide, plus an iPad/tablet and
+desktop: login, farm/season switching, selecting a field, drawing polygon,
+scrolling satellite tabs, editing an activity, report loading and printing.
+Also test portrait/landscape orientation. The API proxy is testable locally;
+end-to-end verification requires your running backend, Firebase credentials
+and ngrok session.
+
+---
+
 # Farm Platform Web
 
 The React/Vite frontend for mapping, farm records and field analysis.
