@@ -2492,7 +2492,9 @@ textarea.form-input {
   .maplibregl-ctrl-geocoder { min-width: 0 !important; width: min(250px, 58vw) !important; }
   .layer-switcher { left: 10px; top: 12px; border-radius: 10px; }
   .layer-button { padding: 10px 9px; font-size: 12px; }
-  .drawing-message { left: 8px; right: 8px; top: auto; bottom: 16px; width: auto; max-width: none; }
+  .drawing-message { left: 8px; right: 8px; top: auto; bottom: 16px; width: auto; max-width: none; transform: none; flex-wrap: wrap; justify-content: space-between; white-space: normal; } 
+  .drawing-message span { flex: 1 1 170px; min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
+  .drawing-message button { flex-shrink: 0; min-height: 38px; }
   .login-page { height: 100%; height: 100dvh; padding: 12px; overflow-y: auto; }
   .login-card { padding: 22px; width: 100%; max-width: 440px; }
   .login-card input { min-height: 44px; font-size: 16px; }
