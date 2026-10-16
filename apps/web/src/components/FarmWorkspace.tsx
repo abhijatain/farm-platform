@@ -185,6 +185,8 @@ export default function FarmWorkspace() {
   );
 
 
+  const [mobileView, setMobileView] = useState<"fields" | "map">("fields");
+
   const [
     mapMode,
     setMapMode,
@@ -802,6 +804,7 @@ export default function FarmWorkspace() {
       null,
     );
 
+    setMobileView("map");
     setDrawing(
       true,
     );
@@ -818,9 +821,13 @@ export default function FarmWorkspace() {
 
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-mobile-view={mobileView}>
 
-      <NavRail onOpenWhatsApp={() => setWhatsAppOpen(true)} />
+      <NavRail
+        onOpenWhatsApp={() => setWhatsAppOpen(true)}
+        mobileView={mobileView}
+        onMobileViewChange={setMobileView}
+      />
 
 
       <FieldsSidebar
@@ -872,6 +879,7 @@ export default function FarmWorkspace() {
           setSelectedFieldId(
             fieldId,
           );
+          setMobileView("map");
         }}
 
         onAddFarm={() =>
@@ -1032,11 +1040,10 @@ export default function FarmWorkspace() {
               await refreshSeasonCropCycles();
             }}
 
-            onClose={() =>
-              setSelectedFieldId(
-                null,
-              )
-            }
+            onClose={() => {
+              setSelectedFieldId(null);
+              setMobileView("fields");
+            }}
           />
 
         )}
