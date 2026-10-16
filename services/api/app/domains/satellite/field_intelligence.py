@@ -110,6 +110,11 @@ STAGE_NOTES = {
 
 
 def indices_for_stage(stage_code: str | None, crop_profile_key: str) -> dict:
+    if crop_profile_key in {"mango", "litchi", "guava", "sapota"}:
+        return {
+            "recommended_indices": ["ndvi", "ndre", "ndmi"],
+            "guidance": "Perennial tree canopy and understory change throughout the year; interpretation requires observed flowering, fruiting and pruning context.",
+        }
     if crop_profile_key == "other":
         return {
             "recommended_indices": [],
