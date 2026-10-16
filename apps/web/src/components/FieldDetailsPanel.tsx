@@ -641,13 +641,13 @@ export default function FieldDetailsPanel({
         </div>
 
         <div className="field-workspace-header-actions">
-          {season && (!viewCycle || viewCycle.status === "completed") && (
+          {season && (
             <button
               className="secondary-action"
               onClick={() => setCropForm(true)}
             >
               <Plus size={16} />
-              Start crop
+              New crop
             </button>
           )}
 
@@ -762,11 +762,11 @@ export default function FieldDetailsPanel({
           field={field}
           season={season}
           onClose={() => setCropForm(false)}
-          onSaved={async () => { setSelectedCycleId(null); await refreshAll(); }}
+          onSaved={async (created) => { await refreshAll(); setSelectedCycleId(created.id); setActiveTab("journey"); }}
         />
       )}
 
-      {viewCycle && viewCycle.status === "active" && activityForm && (
+      {viewCycle && activityForm && (
         <ActivityDialog
           field={field}
           cropCycle={viewCycle}
@@ -1454,7 +1454,7 @@ function ActivitiesTab({
           </p>
         </div>
 
-        {cropCycle?.status === "active" && (
+        {cropCycle && (
           <button className="primary-action" onClick={onAddActivity}>
             <Plus size={17} />
             Add activity
@@ -2045,7 +2045,7 @@ function StartCropDialog({
   field: Field;
   season: Season;
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  onSaved: (created: CropCycle) => Promise<void>;
 }) {
   const [cropName, setCropName] = useState("");
 
@@ -2071,7 +2071,7 @@ function StartCropDialog({
       setSaving(true);
       setError(null);
 
-      await createCropCycle(season.id, {
+      const created = await createCropCycle(season.id, {
         field_id: field.id,
         crop_name: cropName.trim(),
         variety: variety.trim() || null,
@@ -2081,7 +2081,7 @@ function StartCropDialog({
         notes: null,
       });
 
-      await onSaved();
+      await onSaved(created);
 
       onClose();
     } catch (error) {
@@ -2173,7 +2173,7 @@ function ActivityDialog({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const [activityType, setActivityType] = useState(cropCycle.planted_on ? "irrigation" : "tillage");
+  const [activityType, setActivityType] = useState(cropCycle.status === "completed" ? "post_harvest" : cropCycle.planted_on ? "irrigation" : "tillage");
 
   const [occurredAt, setOccurredAt] = useState(currentDateTime());
 
@@ -2254,7 +2254,7 @@ function ActivityDialog({
   return (
     <div className="modal-backdrop">
       <div className="dialog-card">
-        <h2>Record field work</h2>
+        <h2>{cropCycle.status === "completed" ? "Record past work / post-harvest" : "Record field work"}</h2>
 
         <p className="dialog-muted">
           {cropCycle.crop_name}
@@ -2262,6 +2262,7 @@ function ActivityDialog({
           {cropCycle.variety ? ` · ${cropCycle.variety}` : ""}
         </p>
 
+        {cropCycle.status === "completed" && <p className="dialog-muted">Completed crop: add an earlier missing activity or record drying, storage, transport, sale or post-harvest handling. Planting and new field work belong to a new crop.</p>}
         <label>Activity</label>
 
         <select
@@ -2292,6 +2293,11 @@ function ActivityDialog({
 
           <option value="incident">Incident</option>
 
+          <option value="drying">Crop drying</option>
+          <option value="storage">Storage</option>
+          <option value="transport">Transport</option>
+          <option value="sale">Sale</option>
+          <option value="post_harvest">Post-harvest handling</option>
           <option value="other">Other</option>
         </select>
 
