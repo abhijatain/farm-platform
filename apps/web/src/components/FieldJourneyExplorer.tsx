@@ -88,6 +88,12 @@ export default function FieldJourneyExplorer({
 
   const selected=eligible.find(item=>item.id===chosenObservation) ?? eligible.at(-1) ?? null;
   const hovered=eligible.find(item=>item.id===hoveredObservation) ?? null;
+  const selectedIndex = selected ? eligible.findIndex(item=>item.id===selected.id) : -1;
+  function stepObservation(direction:-1|1) {
+    const next=eligible[selectedIndex+direction];
+    if (next) setChosenObservation(next.id);
+  }
+
   const config=METRIC_CONFIG[metricType];
   const coords=useMemo(()=>shapePoints(field),[field]);
   const start=cycle?day(cycle.started_on):eligible.length?day(eligible[0].date):Date.now();
@@ -197,6 +203,21 @@ export default function FieldJourneyExplorer({
         <div className="journey-map-heading"><h4>Field boundary · {measurement.title}</h4>
           <span>{selected?showDate(selected.date):"No image"}</span>
         </div>
+        {eligible.length>0 && <div className="journey-map-date-picker">
+          <button type="button" onClick={()=>stepObservation(-1)} disabled={selectedIndex<=0}
+            aria-label="Previous satellite date">‹</button>
+          <label><span>Image date</span>
+            <select aria-label="Satellite image date" value={selected?.id ?? ""}
+              onChange={event=>setChosenObservation(event.target.value)}>
+              {eligible.map(item=><option value={item.id} key={item.id}>
+                {showDate(item.date)} · {sourceName(item.source)}
+              </option>)}
+            </select>
+          </label>
+          <button type="button" onClick={()=>stepObservation(1)}
+            disabled={selectedIndex>=eligible.length-1}
+            aria-label="Next satellite date">›</button>
+        </div>}
         {selected ? <>
           <FieldRasterImage key={selected.id+":"+metricType}
             fieldId={field.id} observationId={selected.id}
