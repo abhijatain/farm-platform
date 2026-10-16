@@ -147,6 +147,16 @@ export function createCropCycle(
   );
 }
 
+export function updateCropCyclePlan(
+  cropCycleId: string,
+  data: { planted_on?: string | null; expected_harvest_on?: string | null },
+) {
+  return apiRequest<CropCycle>(
+    `/crop-cycles/${encodeURIComponent(cropCycleId)}/plan`,
+    { method: "PATCH", body: JSON.stringify(data) },
+  );
+}
+
 export type HarvestResult = {
   crop_cycle_id: string;
 
