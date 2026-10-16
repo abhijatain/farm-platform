@@ -866,6 +866,9 @@ export type SeasonalZoneGrid = {
   mask: boolean[];
   pixels: Array<number | null>;
   mean_ndvi: number | null;
+  weak_area_acres?: number;
+  strong_area_acres?: number;
+  mapped_area_acres?: number;
   scene_count?: number;
   scene_dates?: string[];
   selected_years?: number[];
