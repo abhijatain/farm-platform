@@ -142,7 +142,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   const monthsDiff = (endMonth-startMonth+12)%12+1;
   const validPeriod = periodMode === "crop" || monthsDiff <= 8;
   const periodName = periodMode === "crop" ? "Same-crop growing calendar"
-    : `${monthNames[startMonth-1]}–${monthNames[endMonth-1]}${allCrops ? " · any crop" : " · same crop"}`;
+    : `${monthNames[startMonth-1]}–${monthNames[endMonth-1]}${allCrops ? " · any crop" : " · crop calendar reference"}`;
   const historyScopeLabel = periodMode === "custom" && allCrops
     ? "Field history (all crops)" : cropCycle?.crop_name ?? "Crop";
 
@@ -261,7 +261,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
           </label>
           <label className="hz-option-label">
             <input type="radio" checked={!allCrops} onChange={()=>setAllCrops(false)}/>
-            Same crop only ({cropCycle.crop_name}) — use crop-specific records
+            Use {cropCycle.crop_name} crop calendar as reference — unrecorded historical years remain estimates
           </label>
           {allCrops && <p className="hz-explanation">Vegetation comparisons describe this field, regardless of what was planted. A difference between years may reflect different crops, not lower productivity.</p>}
         </div>}
