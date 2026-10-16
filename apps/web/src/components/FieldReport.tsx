@@ -18,6 +18,7 @@ type Props = {
   timelineError: string | null;
   satelliteLoading: boolean;
   satelliteError: string | null;
+  onRefresh: () => Promise<void>;
 };
 
 const dateText = (value: string | null | undefined) => {
@@ -48,7 +49,7 @@ function latestUsableMetric(observations: SatelliteObservation[], kind: Satellit
 
 export default function FieldReport({
   farm, field, season, cropCycle, timeline, observations,
-  timelineLoading, timelineError, satelliteLoading, satelliteError,
+  timelineLoading, timelineError, satelliteLoading, satelliteError, onRefresh,
 }: Props) {
   const [weather, setWeather] = useState<FieldWeather | null>(null);
   const [weatherError, setWeatherError] = useState<string | null>(null);
@@ -57,6 +58,17 @@ export default function FieldReport({
   const [changeError, setChangeError] = useState<string | null>(null);
   const [changeLoading, setChangeLoading] = useState(false);
   const [reload, setReload] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  async function refreshReport() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setReload((v) => v + 1);
+      setRefreshing(false);
+    }
+  }
 
   const ndvi = useMemo(() => latestUsableMetric(observations, "ndvi"), [observations]);
   const ndmi = useMemo(() => latestUsableMetric(observations, "ndmi"), [observations]);
@@ -78,7 +90,10 @@ export default function FieldReport({
     let cancelled = false;
     setChange(null);
     setChangeError(null);
-    if (!ndvi) return;
+    if (!ndvi) {
+      setChangeLoading(false);
+      return;
+    }
     setChangeLoading(true);
     void getSatelliteChange(field.id, "ndvi", "previous")
       .then((result) => { if (!cancelled) setChange(result); })
@@ -131,8 +146,8 @@ export default function FieldReport({
           <p>{farm.name} · {season?.name ?? "All seasons"} · {numberText(field.area_acres)} acres</p>
         </div>
         <div className="report-actions">
-          <button type="button" className="secondary-action" onClick={() => setReload((v) => v + 1)}>
-            <RefreshCcw size={16} /> Refresh data
+          <button type="button" className="secondary-action" onClick={() => void refreshReport()} disabled={refreshing}>
+            <RefreshCcw size={16} /> {refreshing ? "Refreshing…" : "Refresh data"}
           </button>
           <button type="button" className="primary-action" onClick={() => window.print()}>
             <Printer size={16} /> Print / Save PDF
