@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import ActivityMediaSection from "./ActivityMediaSection";
+import FieldReport from "./FieldReport";
 import SatelliteChangePanel from "./SatelliteChangePanel";
 import SatelliteTrendCharts from "./SatelliteTrendCharts";
 import {
@@ -319,6 +320,7 @@ function getActivityDetailSummary(item: TimelineItem) {
 }
 
 export default function FieldDetailsPanel({
+  farm,
   field,
   season,
   cropCycle,
@@ -723,7 +725,20 @@ export default function FieldDetailsPanel({
           />
         )}
 
-        {activeTab === "report" && <ReportTab />}
+        {activeTab === "report" && (
+          <FieldReport
+            farm={farm}
+            field={field}
+            season={season}
+            cropCycle={cropCycle}
+            timeline={timeline}
+            observations={satelliteObservations}
+            timelineLoading={loading}
+            timelineError={timelineError}
+            satelliteLoading={satelliteLoading}
+            satelliteError={satelliteError}
+          />
+        )}
       </div>
 
       {season && cropForm && (
@@ -2109,22 +2124,6 @@ function YieldTab({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function ReportTab() {
-  return (
-    <div className="workspace-page report-page">
-      <div className="workspace-page-title">
-        <div>
-          <span>FIELD REPORT</span>
-
-          <h2>Report</h2>
-        </div>
-      </div>
-
-      <div className="report-empty" />
     </div>
   );
 }
