@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 
 import ActivityMediaSection from "./ActivityMediaSection";
 import FieldReport from "./FieldReport";
+import FieldRasterImage from "./FieldRasterImage";
 import SatelliteChangePanel from "./SatelliteChangePanel";
 import SatelliteTrendCharts from "./SatelliteTrendCharts";
 import {
@@ -240,26 +241,6 @@ function getObservationMetric(
     observation.metrics.find((metric) => metric.metric_type === metricType) ??
     null
   );
-}
-
-function buildRasterPreviewUrl(
-  metricType: SatelliteMetricType,
-  rasterUri: string,
-) {
-  const config = getMetricConfig(metricType);
-
-  const params = new URLSearchParams({
-    url: rasterUri,
-    rescale: `${config.displayMin},${config.displayMax}`,
-    colormap_name: config.colormap,
-    max_size: "600",
-  });
-
-  return `${TILER_URL}/cog/preview.png?` + params.toString();
-}
-
-function buildMetricPreviewUrl(metric: SatelliteMetric) {
-  return buildRasterPreviewUrl(metric.metric_type, metric.raster_uri);
 }
 
 function preferredMetricForActivity(activityType: string): SatelliteMetricType {
@@ -1312,38 +1293,18 @@ function MetricPreviewCard({
   observation: SatelliteObservation;
   metric: SatelliteMetric;
 }) {
-  const previewUrl = buildMetricPreviewUrl(metric);
-
-  const clipId = `field-${observation.id}-${metric.metric_type}`;
-
   const points = fieldPolygonPoints(field, 420, 230, 16);
 
   return (
     <article className="metric-preview-card">
       <div className="metric-preview-image">
-        <svg
-          viewBox="0 0 420 230"
-          role="img"
-          aria-label={`${metric.metric_type} ${observation.observed_on}`}
-        >
-          <defs>
-            <clipPath id={clipId}>
-              <polygon points={points} />
-            </clipPath>
-          </defs>
-
-          <image
-            href={previewUrl}
-            x="0"
-            y="0"
-            width="420"
-            height="230"
-            preserveAspectRatio="none"
-            clipPath={`url(#${clipId})`}
+        <FieldRasterImage
+            fieldId={field.id}
+            observationId={observation.id}
+            metricType={metric.metric_type}
+            points={points}
+            alt={`${metric.metric_type} ${observation.observed_on}`}
           />
-
-          <polygon className="metric-preview-boundary" points={points} />
-        </svg>
       </div>
 
       <div className="metric-preview-meta">
@@ -1930,10 +1891,6 @@ function ActivitySpatialCard({
   metricType: SatelliteMetricType;
   observation: ActivitySatelliteObservationMatch;
 }) {
-  const previewUrl = buildRasterPreviewUrl(metricType, observation.raster_uri);
-
-  const clipId = `activity-${title.toLowerCase()}-${observation.observation_id}-${metricType}`;
-
   const points = fieldPolygonPoints(field, 420, 230, 16);
 
   const config = getMetricConfig(metricType);
@@ -1951,29 +1908,13 @@ function ActivitySpatialCard({
       </div>
 
       <div className="activity-spatial-card-image">
-        <svg
-          viewBox="0 0 420 230"
-          role="img"
-          aria-label={`${title} ${config.label} ${observation.observed_on}`}
-        >
-          <defs>
-            <clipPath id={clipId}>
-              <polygon points={points} />
-            </clipPath>
-          </defs>
-
-          <image
-            href={previewUrl}
-            x="0"
-            y="0"
-            width="420"
-            height="230"
-            preserveAspectRatio="none"
-            clipPath={`url(#${clipId})`}
+        <FieldRasterImage
+            fieldId={field.id}
+            observationId={observation.observation_id}
+            metricType={metricType}
+            points={points}
+            alt={`${title} ${config.label} ${observation.observed_on}`}
           />
-
-          <polygon className="metric-preview-boundary" points={points} />
-        </svg>
       </div>
 
       <div className="activity-spatial-card-meta">
