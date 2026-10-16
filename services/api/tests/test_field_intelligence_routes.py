@@ -126,6 +126,15 @@ def test_owner_restricted_spatial_zone_history_and_maturity(monkeypatch):
         assert phen["stage_source"] == "provisional_calendar"
         assert phen["historical_comparisons"]
 
+        # Harvest is the final status; never keep suggesting a crop is flowering.
+        crop.harvested_on = date(2026, 10, 8)
+        crop.status = "completed"
+        db.flush()
+        finished = field_intelligence.phenology_intelligence(crop.id, db, owner)
+        assert finished["stage_code"] is None
+        assert finished["stage_source"] == "unknown"
+        assert any("harvested" in warning for warning in finished["warnings"])
+
         with pytest.raises(HTTPException) as denied:
             field_intelligence.spatial_history(
                 field.id, db, User(id=uuid4()), metric_type="ndvi", years=5,
