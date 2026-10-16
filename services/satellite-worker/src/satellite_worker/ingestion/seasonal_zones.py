@@ -69,7 +69,7 @@ def select_scenes(items, start_date):
         bucket = (item.datetime.date() - start_date).days // 10
         if bucket < 0:
             continue
-        cloud = float(item.properties.get("eo:cloud_cover") or 100)
+        cloud = float(item.properties.get("eo:cloud_cover") if item.properties.get("eo:cloud_cover") is not None else 100)
         current = buckets.get(bucket)
         if current is None or cloud < current[0]:
             buckets[bucket] = (cloud, item)
