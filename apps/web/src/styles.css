@@ -2570,3 +2570,14 @@ textarea.form-input {
  .farm-onboarding-guide h2{font-size:17px;}
  .farm-onboarding-guide p{font-size:12px;}
 }
+
+/* The rail remains above panels, with sign-out pinned at its bottom. */
+@media (min-width:761px) {
+  .app-shell > .nav-rail { height:100%; min-height:0; z-index:90; }
+  .app-shell > .nav-rail .rail-spacer { flex:1 1 0; min-height:0; }
+  .app-shell > .nav-rail .logout-rail-button {
+    display:grid; place-items:center; margin-top:auto;
+    flex:0 0 42px; visibility:visible;
+  }
+  .app-shell > .nav-rail .whatsapp-rail-button { flex:0 0 42px; }
+}
