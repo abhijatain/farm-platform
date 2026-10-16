@@ -372,6 +372,31 @@ function TrendChart({
   fixedMax,
   emptyMessage,
 }: TrendChartProps) {
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const validObservations = series.flatMap((item) =>
+    item.points.filter((point) => Number.isFinite(point.value)).map((point) => ({
+      ...point, label: item.label,
+    }))
+  );
+  const latest = validObservations.reduce<typeof validObservations[number] | null>(
+    (current, point) => !current || point.date > current.date ? point : current, null
+  );
+  const hoveredValues = hoveredDate
+    ? validObservations.filter((point) => point.date === hoveredDate)
+    : [];
+  function handleChartPointer(event: React.PointerEvent<SVGSVGElement>) {
+    if (!validObservations.length) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (!bounds.width) return;
+    const sx = (event.clientX - bounds.left) * width / bounds.width;
+    const timeAtPointer = start + (sx - margins.left) / innerWidth * (end - start);
+    const nearest = validObservations.reduce((best, point) =>
+      Math.abs(dateMs(point.date) - timeAtPointer) <
+      Math.abs(dateMs(best.date) - timeAtPointer) ? point : best
+    );
+    setHoveredDate(nearest.date);
+  }
+
   const width =
     940;
 
@@ -548,18 +573,14 @@ function TrendChart({
     <article className="satellite-trend-chart-card">
       <div className="satellite-trend-chart-heading">
         <div>
-          <h4>
-            {title}
-          </h4>
-
-          <p>
-            {subtitle}
-          </p>
+          <h4>{title}</h4>
+          <p>{subtitle}</p>
         </div>
-
-        <span>
-          {valueLabel}
-        </span>
+        <div className="satellite-chart-latest" aria-label={`Latest ${title} value`}>
+          <span>Latest {valueLabel}</span>
+          <strong>{latest ? latest.value.toFixed(Math.abs(latest.value) >= 10 ? 1 : 3) : "—"}</strong>
+          <small>{latest ? formatLongDate(latest.date) : "No data"}</small>
+        </div>
       </div>
 
       <div className="satellite-trend-legend">
@@ -607,14 +628,18 @@ function TrendChart({
           <div className="satellite-trend-svg-wrap">
             <svg
               className="satellite-trend-svg"
-              viewBox={
-                `0 0 ${width} ${height}`
-              }
+              viewBox={`0 0 ${width} ${height}`}
               role="img"
-              aria-label={
-                `${title} time series`
-              }
+              aria-label={`${title} time series. Point values available on pointer hover.`}
+              onPointerMove={handleChartPointer}
+              onPointerLeave={() => setHoveredDate(null)}
             >
+              {hoveredDate && (
+                <line className="satellite-trend-hover-line"
+                  x1={xForDate(hoveredDate)} x2={xForDate(hoveredDate)}
+                  y1={margins.top} y2={height - margins.bottom}
+                />
+              )}
               {horizontalTicks.map(
                 (
                   tick,
@@ -936,6 +961,18 @@ function TrendChart({
                 }
               />
             </svg>
+            {hoveredDate && hoveredValues.length > 0 && (
+              <div className="satellite-chart-tooltip" role="status"
+                style={{left: `${Math.max(9,Math.min(79,xForDate(hoveredDate)/width*100))}%`}}>
+                <strong>{formatLongDate(hoveredDate)}</strong>
+                {hoveredValues.map((point, index) => (
+                  <span key={point.label + index}>
+                    {point.label}: <b>{point.value.toFixed(Math.abs(point.value)>=10?1:3)} {valueLabel === "Index value" ? "" : valueLabel}</b>
+                  </span>
+                ))}
+                <small>Actual observation values · not interpolated</small>
+              </div>
+            )}
           </div>
         )}
     </article>
@@ -2313,25 +2350,51 @@ export default function SatelliteTrendCharts({
               onChanged={refreshGrowthStages}
             />
           )}
-          {section === "trends" && <TrendChart
-            title="Optical crop signals"
-            stageMarkers={growth?.observations ?? []}
-            subtitle="NDVI, NDRE and NDMI on one comparable index scale."
-            series={
-              opticalSeries
-            }
-            activities={
-              trends.activities
-            }
-            startDate={
-              trends.start_date
-            }
-            endDate={
-              trends.end_date
-            }
-            valueLabel="Index value"
-            emptyMessage="No NDVI, NDRE or NDMI observations are available in this period."
-          />}
+          {section === "trends" && <>
+            <div className="satellite-chart-group">
+              <header>
+                <span className="workspace-eyebrow">VEGETATION</span>
+                <h4>Canopy greenness & chlorophyll-sensitive signals</h4>
+                <p>NDVI estimates relative green canopy cover; NDRE uses the red-edge band to reveal a different part of canopy variation. Hover each graph to see actual readings and dates.</p>
+              </header>
+              <TrendChart
+                title="Vegetation greenness (NDVI)"
+                subtitle="Tracks relative green vegetation. A high reading alone does not prove the crop is healthy."
+                stageMarkers={growth?.observations ?? []}
+                series={opticalSeries.filter((item) => item.key === "ndvi")}
+                activities={trends.activities}
+                startDate={trends.start_date} endDate={trends.end_date}
+                valueLabel="Index value"
+                emptyMessage="No cloud-screened NDVI observations available."
+              />
+              <TrendChart
+                title="Red-edge canopy (NDRE)"
+                subtitle="A chlorophyll-sensitive canopy measure; most informative with crop and growth-stage context."
+                stageMarkers={growth?.observations ?? []}
+                series={opticalSeries.filter((item) => item.key === "ndre")}
+                activities={trends.activities}
+                startDate={trends.start_date} endDate={trends.end_date}
+                valueLabel="Index value"
+                emptyMessage="No cloud-screened NDRE observations available."
+              />
+            </div>
+            <div className="satellite-chart-group">
+              <header>
+                <span className="workspace-eyebrow">MOISTURE</span>
+                <h4>Vegetation water-content signal</h4>
+                <p>NDMI responds to vegetation moisture, but is not a soil-water measurement. Compare the pattern with recorded irrigation and rainfall in Crop & weather.</p>
+              </header>
+              <TrendChart
+                title="Canopy moisture response (NDMI)"
+                subtitle="Vegetation moisture-sensitive satellite index; not direct measured soil moisture."
+                series={opticalSeries.filter((item) => item.key === "ndmi")}
+                activities={trends.activities}
+                startDate={trends.start_date} endDate={trends.end_date}
+                valueLabel="Index value"
+                emptyMessage="No cloud-screened NDMI observations available."
+              />
+            </div>
+          </>}
 
           {section === "radar" && <RadarTrendPanel
             trends={trends}
