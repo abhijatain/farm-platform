@@ -4,6 +4,7 @@ import { Plus, X } from "lucide-react";
 
 import ActivityMediaSection from "./ActivityMediaSection";
 import FieldReport from "./FieldReport";
+import FieldJourneyPanel from "./FieldJourneyPanel";
 import FieldRasterImage from "./FieldRasterImage";
 import FieldIntelligencePanel from "./FieldIntelligencePanel";
 import HistoricalZonesPanel from "./HistoricalZonesPanel";
@@ -12,6 +13,7 @@ import SatelliteTrendCharts from "./SatelliteTrendCharts";
 import {
   createActivity,
   createCropCycle,
+  listFieldCropCycles,
   getActivitySatelliteContext,
   getFieldTimeline,
   getSatelliteIngestionStatus,
@@ -52,7 +54,7 @@ type Props = {
   onDataChanged: () => Promise<void>;
 };
 
-type FieldWorkspaceTab = "satellite" | "activities" | "yield" | "report" | "historical";
+type FieldWorkspaceTab = "journey" | "satellite" | "activities" | "yield" | "report" | "historical";
 
 type FarmerMetric = {
   metricType: SatelliteMetricType;
@@ -302,7 +304,11 @@ export default function FieldDetailsPanel({
   onClose,
   onDataChanged,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<FieldWorkspaceTab>("satellite");
+  const [activeTab, setActiveTab] = useState<FieldWorkspaceTab>("journey");
+  const [cycleOptions, setCycleOptions] = useState<CropCycle[]>([]);
+  const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
+  const [satelliteLanding, setSatelliteLanding] = useState<SatelliteSection>("overview");
+  const viewCycle = cycleOptions.find(item => item.id === selectedCycleId) ?? cropCycle;
 
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
 
@@ -425,6 +431,15 @@ export default function FieldDetailsPanel({
     }
   }
 
+  async function loadFieldCycles() {
+    try {
+      const result = await listFieldCropCycles(field.id);
+      setCycleOptions(result);
+    } catch (error) {
+      console.error("Could not load field crop cycles:", error);
+    }
+  }
+
   async function loadTimeline() {
     try {
       setLoading(true);
@@ -447,13 +462,17 @@ export default function FieldDetailsPanel({
   }
 
   useEffect(() => {
-    setActiveTab("satellite");
+    setActiveTab("journey");
+    setSelectedCycleId(null);
+    setCycleOptions([]);
+    setSatelliteLanding("overview");
     setSelectedActivityId(null);
     setSatelliteIngestion(null);
     setSatelliteTimeline(null);
 
     void loadTimeline();
     void loadSatelliteObservations();
+    void loadFieldCycles();
   }, [field.id]);
 
   useEffect(() => {
@@ -494,12 +513,12 @@ export default function FieldDetailsPanel({
     }
 
     return timeline
-      .filter((item) => item.season_id === season.id)
+      .filter((item) => viewCycle ? item.crop_cycle_id === viewCycle.id : item.season_id === season.id)
       .sort(
         (a, b) =>
           new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
       );
-  }, [timeline, season]);
+  }, [timeline, season, viewCycle?.id]);
 
   useEffect(() => {
     if (visibleTimeline.length === 0) {
@@ -582,19 +601,19 @@ export default function FieldDetailsPanel({
   async function refreshAll() {
     await onDataChanged();
 
-    await Promise.all([loadTimeline(), loadSatelliteObservations()]);
+    await Promise.all([loadTimeline(), loadSatelliteObservations(), loadFieldCycles()]);
   }
 
   const yieldPerAcre =
-    cropCycle?.yield_kg != null &&
-    cropCycle.harvested_area_acres != null &&
-    cropCycle.harvested_area_acres > 0
-      ? cropCycle.yield_kg / cropCycle.harvested_area_acres
+    viewCycle?.yield_kg != null &&
+    viewCycle.harvested_area_acres != null &&
+    viewCycle.harvested_area_acres > 0
+      ? viewCycle.yield_kg / viewCycle.harvested_area_acres
       : null;
 
   const estimatedValue =
-    cropCycle?.yield_kg != null && cropCycle.selling_price_per_kg != null
-      ? cropCycle.yield_kg * cropCycle.selling_price_per_kg
+    viewCycle?.yield_kg != null && viewCycle.selling_price_per_kg != null
+      ? viewCycle.yield_kg * viewCycle.selling_price_per_kg
       : null;
 
   return (
@@ -609,16 +628,16 @@ export default function FieldDetailsPanel({
             {field.area_acres.toFixed(2)}
             {" acres"}
 
-            {cropCycle
-              ? ` · ${cropCycle.crop_name}${
-                  cropCycle.variety ? ` · ${cropCycle.variety}` : ""
+            {viewCycle
+              ? ` · ${viewCycle.crop_name}${
+                  viewCycle.variety ? ` · ${viewCycle.variety}` : ""
                 }`
               : ""}
           </p>
         </div>
 
         <div className="field-workspace-header-actions">
-          {season && !cropCycle && (
+          {season && (!viewCycle || viewCycle.status === "completed") && (
             <button
               className="secondary-action"
               onClick={() => setCropForm(true)}
@@ -640,9 +659,10 @@ export default function FieldDetailsPanel({
 
       <nav className="field-workspace-tabs">
         {[
+          ["journey", "Journey"],
+          ["activities", "Field diary"],
           ["satellite", "Satellite"],
           ["historical", "Historical Zones"],
-          ["activities", "Activities"],
           ["yield", "Yield"],
           ["report", "Report"],
         ].map(([value, label]) => (
@@ -661,6 +681,18 @@ export default function FieldDetailsPanel({
       </nav>
 
       <div className="field-workspace-content">
+        {activeTab === "journey" && <FieldJourneyPanel
+          field={field} season={season} cycle={viewCycle} cycles={cycleOptions}
+          timeline={timeline} loading={loading}
+          onSelectCycle={setSelectedCycleId}
+          onStart={() => setCropForm(true)}
+          onActivity={() => setActivityForm(true)}
+          onHarvest={() => setHarvestForm(true)}
+          onGrowth={() => { setSatelliteLanding("growth"); setActiveTab("satellite"); }}
+          onTrends={() => { setSatelliteLanding("trends"); setActiveTab("satellite"); }}
+          onHistory={() => setActiveTab("historical")}
+          onSaved={refreshAll}
+        />}
         {activeTab === "satellite" && (
           <SatelliteTab
             field={field}
@@ -669,11 +701,12 @@ export default function FieldDetailsPanel({
             error={satelliteError}
             ingestion={satelliteIngestion}
             timeline={satelliteTimeline}
-            cropCycle={cropCycle}
+            cropCycle={viewCycle}
+            initialSection={satelliteLanding}
           />
         )}
 
-        {activeTab === "historical" && <HistoricalZonesPanel field={field} cropCycle={cropCycle} />}
+        {activeTab === "historical" && <HistoricalZonesPanel field={field} viewCycle={viewCycle} />}
 
         {activeTab === "activities" && (
           <ActivitiesTab
@@ -681,7 +714,7 @@ export default function FieldDetailsPanel({
             timeline={visibleTimeline}
             loading={loading}
             error={timelineError}
-            cropCycle={cropCycle}
+            cropCycle={viewCycle}
             selectedActivity={selectedActivity}
             selectedActivityId={selectedActivityId}
             activityMetricType={activityMetricType}
@@ -696,7 +729,7 @@ export default function FieldDetailsPanel({
 
         {activeTab === "yield" && (
           <YieldTab
-            cropCycle={cropCycle}
+            cropCycle={viewCycle}
             yieldPerAcre={yieldPerAcre}
             estimatedValue={estimatedValue}
             onRecordHarvest={() => setHarvestForm(true)}
@@ -708,7 +741,7 @@ export default function FieldDetailsPanel({
             farm={farm}
             field={field}
             season={season}
-            cropCycle={cropCycle}
+            viewCycle={viewCycle}
             timeline={timeline}
             observations={satelliteObservations}
             timelineLoading={loading}
@@ -729,19 +762,19 @@ export default function FieldDetailsPanel({
         />
       )}
 
-      {cropCycle && cropCycle.status === "active" && activityForm && (
+      {viewCycle && viewCycle.status === "active" && activityForm && (
         <ActivityDialog
           field={field}
-          cropCycle={cropCycle}
+          viewCycle={viewCycle}
           onClose={() => setActivityForm(false)}
           onSaved={refreshAll}
         />
       )}
 
-      {cropCycle && cropCycle.status === "active" && harvestForm && (
+      {viewCycle && viewCycle.status === "active" && harvestForm && (
         <HarvestDialog
           field={field}
-          cropCycle={cropCycle}
+          viewCycle={viewCycle}
           onClose={() => setHarvestForm(false)}
           onSaved={refreshAll}
         />
@@ -793,6 +826,7 @@ function SatelliteTab({
   ingestion,
   timeline,
   cropCycle,
+  initialSection = "overview",
 }: {
   field: Field;
   observations: SatelliteObservation[];
@@ -801,8 +835,10 @@ function SatelliteTab({
   ingestion: SatelliteIngestionJob | null;
   timeline: FieldSatelliteTimeline | null;
   cropCycle: CropCycle | null;
+  initialSection?: SatelliteSection;
 }) {
-  const [section, setSection] = useState<SatelliteSection>("overview");
+  const [section, setSection] = useState<SatelliteSection>(initialSection);
+  useEffect(() => setSection(initialSection), [initialSection, cropCycle?.id]);
   const [metricType, setMetricType] = useState<SatelliteMetricType>("ndvi");
 
   const sorted = useMemo(
