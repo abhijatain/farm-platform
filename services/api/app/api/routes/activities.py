@@ -59,12 +59,25 @@ def create_activity(
             )
 
     if crop_cycle is not None:
-        if crop_cycle.status != "active" or crop_cycle.harvested_on is not None:
+        activity_date = data.occurred_at.date()
+        kind = data.activity_type.strip().lower()
+        if kind == "harvest":
             raise HTTPException(
-                status_code=409,
-                detail="This crop cycle is finished; record work in a new cycle.",
+                status_code=422,
+                detail="Use Record harvest to enter measured harvest and close the cycle.",
             )
-        if data.occurred_at.date() < crop_cycle.started_on:
+        if crop_cycle.harvested_on is not None or crop_cycle.status == "completed":
+            # Completed crop cycles remain auditable. Permit old work entered
+            # retrospectively and genuine post-harvest handling, not new field work.
+            post_harvest = {"drying", "storage", "transport", "sale", "post_harvest"}
+            if (kind in {"sowing", "transplanting", "planting"} or
+                (crop_cycle.harvested_on is not None and
+                 activity_date > crop_cycle.harvested_on and kind not in post_harvest)):
+                raise HTTPException(
+                    status_code=409,
+                    detail="After harvest, only drying, storage, transport, sale or post-harvest handling may be dated later. Start a new crop for new field work.",
+                )
+        if activity_date < crop_cycle.started_on:
             raise HTTPException(
                 status_code=422,
                 detail="Activity cannot be earlier than the start of this crop cycle.",
