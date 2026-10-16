@@ -14,6 +14,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
+from math import ceil
 
 import numpy as np
 import rasterio
@@ -53,14 +54,15 @@ def canonical_grid(geometry):
     if right <= left or top <= bottom:
         raise ValueError("Invalid projected field boundary")
     span_x, span_y = right - left, top - bottom
-    longest = max(span_x, span_y)
-    width = max(8, round(MAX_DIM * span_x / longest))
-    height = max(8, round(MAX_DIM * span_y / longest))
+    # Do not upsample tiny farms to thousands of fictitiously independent
+    # 10 m pixels. Cap large farms to small, bounded summaries.
+    width = min(MAX_DIM, max(1, ceil(span_x / 10)))
+    height = min(MAX_DIM, max(1, ceil(span_y / 10)))
     transform = from_bounds(left, bottom, right, top, width, height)
     mask = geometry_mask([mapping(projected)], (height, width), transform,
                          invert=True, all_touched=False)
-    if mask.sum() < 16:
-        raise ValueError("Field has fewer than 16 aligned cells; insufficient spatial resolution")
+    if mask.sum() < 8:
+        raise ValueError("Field has fewer than eight 10 m cells; Sentinel-2 is too coarse for zones")
     return crs, transform, mask
 
 def select_scenes(items, start_date):
@@ -76,7 +78,12 @@ def select_scenes(items, start_date):
         current = buckets.get(bucket)
         if current is None or cloud < current[0]:
             buckets[bucket] = (cloud, item)
-    return [p[1] for _, p in sorted(buckets.items())][:MAX_SCENES]
+    ordered = [p[1] for _, p in sorted(buckets.items())]
+    if len(ordered) <= MAX_SCENES:
+        return ordered
+    # Keep the whole crop growing window, not just its first 180 days.
+    indexes = [round(k * (len(ordered) - 1) / (MAX_SCENES - 1)) for k in range(MAX_SCENES)]
+    return [ordered[i] for i in indexes]
 
 def compute_season(geometry, start, end):
     crs, aligned_transform, inside = canonical_grid(geometry)
@@ -120,7 +127,7 @@ def compute_season(geometry, start, end):
                 resampling=Resampling.nearest,
             )
             good = inside & np.isfinite(projected) & (projected != NODATA)
-            if good.sum() < 12:
+            if good.sum() < 8:
                 continue
             summed[good] += projected[good]
             counts[good] += 1
@@ -135,7 +142,7 @@ def compute_season(geometry, start, end):
     valid_final = inside & (counts >= 2)
     values = np.full((height, width), np.nan, dtype=np.float32)
     values[valid_final] = (summed[valid_final] / counts[valid_final]).astype("float32")
-    if valid_final.sum() < 16 or valid_final.sum() / inside.sum() < 0.5:
+    if valid_final.sum() < 8 or valid_final.sum() / inside.sum() < 0.5:
         raise ValueError("Final season has insufficient multi-date pixel coverage.")
     pixels = [round(float(x), 4) if np.isfinite(x) else None for x in values.ravel()]
     mask = [bool(x) for x in inside.ravel()]
@@ -147,6 +154,7 @@ def compute_season(geometry, start, end):
         "scene_count": len(used_dates), "scene_dates": used_dates,
         "failed_scene_attempts": failures,
         "quality": ">=80% clear field pixels per scene; >=2 readings per saved cell",
+        "display_resolution": "approximate 10 m; smaller field details cannot be inferred",
         "source": "sentinel-2-l2a", "method": "season_pixel_mean_v1",
     }
 
