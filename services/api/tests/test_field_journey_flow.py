@@ -172,3 +172,111 @@ def test_independent_monthly_history_windows_never_enqueue_automatically(monkeyp
         else:
             db.rollback()
         db.close()
+
+
+
+def test_two_crop_cycles_in_one_field_and_same_season():
+    from app.api.routes.crop_cycles import create_crop_cycle, list_field_crop_cycles
+    from app.schemas.crop_cycle import CropCycleCreate
+
+    db = SessionLocal()
+    user = None
+    try:
+        user, field, rice = _create_fixture(db)
+        maize = create_crop_cycle(
+            rice.season_id,
+            CropCycleCreate(
+                field_id=field.id,
+                crop_name="maize",
+                started_on=date(2026, 10, 11),
+                planted_on=None,
+                expected_harvest_on=None,
+            ),
+            db,
+            user,
+        )
+        assert maize.id != rice.id
+        assert maize.season_id == rice.season_id
+        assert maize.field_id == rice.field_id
+        assert {row.id for row in list_field_crop_cycles(field.id, db, user)} >= {rice.id, maize.id}
+    finally:
+        if user is not None:
+            db.delete(user)
+            db.commit()
+        else:
+            db.rollback()
+        db.close()
+
+
+def test_completed_cycle_accepts_past_corrections_and_postharvest_sales():
+    db = SessionLocal()
+    user = None
+    try:
+        user, field, cycle = _create_fixture(db)
+        cycle.harvested_on = date(2026, 10, 8)
+        cycle.status = "completed"
+        db.commit()
+
+        past_work = create_activity(
+            field.id, ActivityCreate(
+                crop_cycle_id=cycle.id, activity_type="tillage",
+                occurred_at=datetime.fromisoformat("2026-06-02T10:00:00+05:30"),
+                notes="Recorded retrospectively",
+            ), db, user,
+        )
+        drying = create_activity(
+            field.id, ActivityCreate(
+                crop_cycle_id=cycle.id, activity_type="drying",
+                occurred_at=datetime.fromisoformat("2026-10-09T09:00:00+05:30"),
+                notes="Post-harvest drying",
+            ), db, user,
+        )
+        assert past_work.id != drying.id
+        with pytest.raises(HTTPException) as wrong_cycle:
+            create_activity(
+                field.id, ActivityCreate(
+                    crop_cycle_id=cycle.id, activity_type="irrigation",
+                    occurred_at=datetime.fromisoformat("2026-10-12T11:00:00+05:30"),
+                ), db, user,
+            )
+        assert wrong_cycle.value.status_code == 409
+    finally:
+        if user is not None:
+            db.delete(user)
+            db.commit()
+        else:
+            db.rollback()
+        db.close()
+
+
+def test_field_wide_months_are_not_mislabeled_as_rice_seasons(monkeypatch):
+    import app.api.routes.seasonal_zones as zones
+
+    monkeypatch.setattr(zones, "_today", lambda: date(2026, 10, 16))
+    db = SessionLocal()
+    user = None
+    try:
+        user, field, cycle = _create_fixture(db)
+        rice = CalculateRequest(crop_cycle_id=cycle.id, years=[2024],start_month=8,end_month=10)
+        all_crops = CalculateRequest(crop_cycle_id=cycle.id, years=[2024],start_month=8,end_month=10,all_crops=True)
+        zones.calculate_seasonal_zones(field.id, rice, db, user)
+        zones.calculate_seasonal_zones(field.id, all_crops, db, user)
+        rows = list(db.scalars(select(SeasonalZoneComposite).where(
+            SeasonalZoneComposite.field_id == field.id,
+        )).all())
+        assert len(rows) == 2
+        assert {row.crop_key for row in rows} == {"rice", "__all_crops__"}
+        assert zones.list_seasonal_zones(
+            field.id, cycle.id, db, user, 8, 10, True,
+        )["crop"] == "field history (all crops)"
+        assert zones.list_saved_zone_windows(field.id,cycle.id,db,user,True)[0]["calendar_key"] == "month-08-to-10"
+        with pytest.raises(HTTPException) as invalid:
+            zones.list_seasonal_zones(field.id,cycle.id,db,user,all_crops=True)
+        assert invalid.value.status_code == 422
+    finally:
+        if user is not None:
+            db.delete(user)
+            db.commit()
+        else:
+            db.rollback()
+        db.close()
