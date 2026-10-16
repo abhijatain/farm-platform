@@ -5,8 +5,8 @@ created. This is an explicit, development-only demonstration of the outbound
 Meta interactive-list payload, NOT an end-to-end linking test.
 
 Run from services/api:
-  uv run python scripts/send_whatsapp_test_menu.py
-  uv run python scripts/send_whatsapp_test_menu.py --send
+  uv run python -m scripts.send_whatsapp_test_menu
+  uv run python -m scripts.send_whatsapp_test_menu --send
 """
 
 from __future__ import annotations
