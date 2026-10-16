@@ -29,7 +29,7 @@ from shapely.geometry import shape
 from shapely.ops import unary_union
 
 router = APIRouter(tags=["field intelligence"])
-MAX_MONTHS = 120
+MAX_MONTHS = 132
 MAX_RECENT = 4
 MAX_ANOMALIES = 1200
 
