@@ -20,9 +20,10 @@ from sqlalchemy import func, select
 
 from app.api.routes.whatsapp_webhook import receive_meta_webhook
 from app.channels.whatsapp.events import incoming_envelopes
+from app.channels.whatsapp.delivery import update_delivery_receipts
 from app.channels.whatsapp.handler import schedule_session_reply
 from app.channels.whatsapp.menus import list_message, main_menu, menu_reply
-from app.channels.whatsapp.outbox import _valid_consent, dispatch_one, _send_graph_message
+from app.channels.whatsapp.outbox import _valid_consent, dispatch_one, _send_graph_message, _graph_error, check_configuration
 from app.channels.whatsapp.linking import complete_link, request_link, stop_messaging
 from app.core.config import settings
 from app.db.session import SessionLocal
@@ -339,3 +340,102 @@ def test_dispatcher_sends_only_after_linked_consent(farmers, monkeypatch):
     db.commit()
     assert dispatch_one() == "cancelled"
     assert outgoing == [inbound_id]
+
+
+def _meta_receipt(msg_id, status, business_id="1234567890", errors=None):
+    event = {"id": msg_id, "status": status}
+    if errors is not None:
+        event["errors"] = errors
+    return {
+        "object": "whatsapp_business_account",
+        "entry": [{"changes": [{"field": "messages", "value": {
+            "metadata": {"phone_number_id": business_id},
+            "statuses": [event],
+        }}]}],
+    }
+
+
+def test_meta_delivery_receipts_respect_account_and_order(farmers):
+    db, ids = farmers
+    user = db.get(User, ids[0][0])
+    msg_id = "wamid.receipt-" + uuid4().hex
+    row = WhatsAppOutbox(
+        inbound_message_id="wamid.replied-" + uuid4().hex,
+        user_id=user.id, recipient_wa_id=user.phone_e164[1:],
+        phone_number_id="1234567890", payload=main_menu("pa"),
+        reply_before=datetime.now(timezone.utc) + timedelta(hours=1),
+        meta_message_id=msg_id, status="sent",
+    )
+    db.add(row)
+    db.commit()
+    assert update_delivery_receipts(db, _meta_receipt(msg_id, "read", "999")) == 0
+    assert row.status == "sent"
+    assert update_delivery_receipts(db, _meta_receipt(msg_id, "delivered")) == 1
+    assert row.status == "delivered"
+    assert update_delivery_receipts(db, _meta_receipt(msg_id, "sent")) == 0
+    assert update_delivery_receipts(db, _meta_receipt(msg_id, "read")) == 1
+    assert row.status == "read"
+    assert update_delivery_receipts(db, _meta_receipt(msg_id, "failed", errors=[{"code": 131026}])) == 0
+    assert row.status == "read"
+    db.commit()
+
+
+def test_meta_async_failure_records_only_safe_code(farmers):
+    db, ids = farmers
+    user = db.get(User, ids[0][0])
+    msg_id = "wamid.fail-" + uuid4().hex
+    job = WhatsAppOutbox(
+        inbound_message_id="wamid.sent-" + uuid4().hex,
+        user_id=user.id, recipient_wa_id=user.phone_e164[1:],
+        phone_number_id="1234567890", payload=main_menu("en"),
+        reply_before=datetime.now(timezone.utc) + timedelta(hours=1),
+        meta_message_id=msg_id, status="sent",
+    )
+    db.add(job)
+    db.commit()
+    event = _meta_receipt(msg_id, "failed", errors=[{
+        "code": 131047,
+        "message": "Private farmer data which must not be logged",
+    }])
+    assert update_delivery_receipts(db, event) == 1
+    assert job.status == "failed"
+    assert job.last_error == "Meta delivery code 131047"
+    db.commit()
+
+
+def test_outbox_check_mode_does_not_send_or_reveal_credentials(meta_config):
+    state = check_configuration()
+    assert state == {
+        "signature_secret": True,
+        "verify_token": bool(settings.whatsapp_verify_token),
+        "phone_number_id": True,
+        "access_token": True,
+        "outbound_enabled": False,
+    }
+    assert "not-a-real-access-token" not in str(state)
+
+
+def test_meta_sync_error_code_classifies_retry_safely():
+    import urllib.error
+    err = urllib.error.HTTPError(
+        "https://graph.facebook.com/example", 400, "bad request", {},
+        io.BytesIO(b'{"error":{"code":131056,"message":"private contact"}}'),
+    )
+    assert _graph_error(err) == (True, "Meta error 131056 (HTTP 400)")
+    err = urllib.error.HTTPError(
+        "https://graph.facebook.com/example", 400, "bad request", {},
+        io.BytesIO(b'{"error":{"code":131026,"message":"private contact"}}'),
+    )
+    assert _graph_error(err) == (False, "Meta error 131026 (HTTP 400)")
+
+
+def test_meta_receipt_parser_does_not_raise_on_malformed_envelopes():
+    for payload in (
+        None, "random", {"object": "whatsapp_business_account", "entry": None},
+        {"object": "whatsapp_business_account", "entry": [{}]},
+        {"object": "whatsapp_business_account", "entry": [{"changes": None}]},
+        {"object": "whatsapp_business_account", "entry": [{"changes": [
+            {"field": "messages", "value": {"metadata": {"phone_number_id": "1234567890"}, "statuses": None}}
+        ]}]},
+    ):
+        assert update_delivery_receipts(None, payload) == 0
