@@ -43,3 +43,6 @@
  .hz-map .hz-legend{gap:6px;}
  .hz-gradient-bar{min-width:45px;}
 }
+
+/* Explicit saved historical windows: multiple named periods per crop. */
+.hz-period-picker{display:grid;gap:8px}.hz-period-picker h3{margin:0}.hz-period-picker>p{max-width:860px}.hz-option-label{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:#3c5846}.hz-option-label input{accent-color:#24844a;width:17px;height:17px}.hz-month-range{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0}.hz-month-range label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:#596e5c}.hz-month-range select{padding:9px 12px;min-width:160px;max-width:100%;min-height:43px;border:1px solid #bed0c0;border-radius:8px;background:white;color:#32553e}.hz-saved-windows{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-top:10px;border-top:1px solid #e5eee5}.hz-saved-windows span{font-size:12px;font-weight:700;color:#617165}.hz-saved-windows button{border:1px solid #ceded1;border-radius:30px;background:#f2f9f3;color:#2f7349;padding:7px 10px;cursor:pointer;font-size:11px}.hz-saved-windows button:hover{background:#e4f2e7}@media(max-width:760px){.hz-month-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.hz-month-range select{min-width:0;width:100%}}
