@@ -2,7 +2,7 @@
 from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, Index, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
@@ -12,6 +12,7 @@ class SeasonalZoneComposite(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "seasonal_zone_composites"
     __table_args__ = (
         UniqueConstraint("field_id", "crop_key", "calendar_key", "year", name="uq_seasonal_zone_field_crop_calendar_year"),
+        Index("ix_seasonal_composites_pending", "status", "requested_at"),
     )
     field_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("fields.id", ondelete="CASCADE"), index=True, nullable=False)
     crop_key: Mapped[str] = mapped_column(String(100), nullable=False)
