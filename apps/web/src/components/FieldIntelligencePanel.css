@@ -26,6 +26,7 @@
 .intelligence-area.new { fill: #df665b; }
 .intelligence-area.persistent { fill: #c99241; }
 .intelligence-area.resolved { fill: #6b9ac9; }
+.intelligence-area.recurring { fill: #8d72ba; }
 .intelligence-no-zone { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-size: 12px; padding: 20px; color: #566b5d; pointer-events: none; }
 .intelligence-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
 .intelligence-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #57675c; }
@@ -35,6 +36,7 @@
 .intelligence-legend .new { background: #df665b; }
 .intelligence-legend .persistent { background: #c99241; }
 .intelligence-legend .resolved { background: #6b9ac9; }
+.intelligence-legend .recurring { background: #8d72ba; }
 .intelligence-zone-rows { margin-top: 9px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .intelligence-zone-rows > div { min-width: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border: 1px solid #e7eee8; padding: 10px; border-radius: 8px; font-size: 12px; }
 .intelligence-zone-rows strong { color: #3e5946; overflow-wrap: anywhere; text-transform: capitalize; }
