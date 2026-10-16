@@ -23,20 +23,36 @@ router = APIRouter(tags=["manual historical seasonal zones"])
 class CalculateRequest(BaseModel):
     crop_cycle_id: UUID
     years: list[int] = PydanticField(min_length=1, max_length=6)
+    start_month: int | None = PydanticField(default=None, ge=1, le=12)
+    end_month: int | None = PydanticField(default=None, ge=1, le=12)
 
-def _template(db, current_user, field_id: UUID, crop_cycle_id: UUID):
+def _template(
+    db, current_user, field_id: UUID, crop_cycle_id: UUID,
+    start_month: int | None = None, end_month: int | None = None,
+):
     get_owned_field(db=db, user_id=current_user.id, field_id=field_id)
     cycle = get_owned_crop_cycle(db=db, user_id=current_user.id, crop_cycle_id=crop_cycle_id)
     if cycle.field_id != field_id:
         raise HTTPException(status_code=404, detail="Crop cycle is not on this field.")
-    start = cycle.planted_on or cycle.started_on
-    end = cycle.harvested_on or cycle.expected_harvest_on or start + timedelta(days=120)
+    if (start_month is None) != (end_month is None):
+        raise HTTPException(status_code=422, detail="Select both the first and last month.")
+    custom = start_month is not None and end_month is not None
+    if custom:
+        assert start_month is not None and end_month is not None
+        start = date(cycle.started_on.year, start_month, 1)
+        end_year = start.year + int(end_month < start_month)
+        next_year = end_year + int(end_month == 12)
+        next_month = 1 if end_month == 12 else end_month + 1
+        end = date(next_year, next_month, 1) - timedelta(days=1)
+        calendar_key = f"month-{start_month:02d}-to-{end_month:02d}"
+    else:
+        start = cycle.planted_on or cycle.started_on
+        end = cycle.harvested_on or cycle.expected_harvest_on or start + timedelta(days=120)
+        calendar_key = f"{start.month:02d}-{start.day:02d}-{(end - start).days:03d}"
     duration = (end - start).days
-    if not 30 <= duration <= 240:
-        raise HTTPException(status_code=422, detail="A 30–240 day growing-season window is required. Set a realistic planting and harvest window.")
+    if not 20 <= duration <= 240:
+        raise HTTPException(status_code=422, detail="Select a historical window of 20–240 days (up to roughly eight months).")
     crop = " ".join(cycle.crop_name.strip().lower().split())
-    # Same crop, same planting/harvest calendar is a comparable cohort.
-    calendar_key = f"{start.month:02d}-{start.day:02d}-{duration:03d}"
     boundary = db.scalar(select(func.ST_AsEWKB(Field.boundary)).where(Field.id == field_id))
     if boundary is None:
         raise HTTPException(status_code=404, detail="Field boundary not found.")
@@ -64,17 +80,46 @@ def _rows(db, field_id, crop, key):
         SeasonalZoneComposite.calendar_key == key,
     ).order_by(SeasonalZoneComposite.year.desc())).all())
 
+@router.get("/fields/{field_id}/seasonal-zone-windows")
+def list_saved_zone_windows(
+    field_id: UUID, crop_cycle_id: UUID,
+    db: DBSession, current_user: CurrentUser,
+) -> list[dict]:
+    """Previously calculated time periods; stored results are never auto-regenerated."""
+    _, _, _, crop, _, _ = _template(db, current_user, field_id, crop_cycle_id)
+    rows = db.scalars(select(SeasonalZoneComposite).where(
+        SeasonalZoneComposite.field_id == field_id,
+        SeasonalZoneComposite.crop_key == crop,
+    ).order_by(SeasonalZoneComposite.calendar_key, SeasonalZoneComposite.year.desc())).all()
+    grouped: dict[str, dict] = {}
+    for row in rows:
+        group = grouped.setdefault(row.calendar_key, {
+            "calendar_key": row.calendar_key,
+            "years": [], "completed_years": [],
+            "is_custom": row.calendar_key.startswith("month-"),
+        })
+        group["years"].append(row.year)
+        if row.status == "completed":
+            group["completed_years"].append(row.year)
+    return list(grouped.values())
+
+
 @router.get("/fields/{field_id}/seasonal-zones")
 def list_seasonal_zones(
     field_id: UUID, crop_cycle_id: UUID, db: DBSession, current_user: CurrentUser,
+    start_month: int | None = None, end_month: int | None = None,
 ) -> dict:
-    cycle, start, duration, crop, key, hash_ = _template(db, current_user, field_id, crop_cycle_id)
+    cycle, start, duration, crop, key, hash_ = _template(
+        db, current_user, field_id, crop_cycle_id, start_month, end_month,
+    )
     years = list(range(_today().year - 1, _today().year - 7, -1))
     return {
         "crop": crop, "crop_cycle_id": str(cycle.id), "field_id": str(field_id),
         "calendar_key": key, "reference_window": {
             "start": start.strftime("%d %b"), "length_days": duration,
-            "basis": "Selected crop cycle calendar projected onto prior years; not verified historical sowing dates.",
+            "basis": ("Farmer-selected month window; no historical sowing dates inferred."
+                      if start_month is not None else
+                      "Selected crop cycle calendar projected onto prior years; historical dates are estimates unless recorded."),
         },
         "available_years": years,
         "seasons": [_data(r, hash_) for r in _rows(db, field_id, crop, key)],
@@ -84,7 +129,10 @@ def list_seasonal_zones(
 def calculate_seasonal_zones(
     field_id: UUID, request: CalculateRequest, db: DBSession, current_user: CurrentUser,
 ) -> dict:
-    cycle, start, duration, crop, key, hash_ = _template(db, current_user, field_id, request.crop_cycle_id)
+    cycle, start, duration, crop, key, hash_ = _template(
+        db, current_user, field_id, request.crop_cycle_id,
+        request.start_month, request.end_month,
+    )
     years = sorted(set(request.years))
     allowed = set(range(_today().year - 6, _today().year))
     if not years or not set(years).issubset(allowed):
@@ -99,14 +147,14 @@ def calculate_seasonal_zones(
         except ValueError:
             start_date = date(year, 2, 28)
         end_date = start_date + timedelta(days=duration)
-        window_source = "reference_calendar"
+        window_source = "user_selected_months" if request.start_month is not None else "reference_calendar"
         # Use the actual recorded crop cycle when one exists for this field,
         # crop and starting year. Otherwise be explicit that dates are inferred.
         previous_cycles = db.scalars(select(CropCycle).where(
             CropCycle.field_id == field_id,
             CropCycle.started_on >= date(year, 1, 1),
             CropCycle.started_on <= date(year, 12, 31),
-        ).order_by(CropCycle.started_on)).all()
+        ).order_by(CropCycle.started_on)).all() if request.start_month is None else []
         for prior in previous_cycles:
             if " ".join(prior.crop_name.strip().lower().split()) != crop:
                 continue
@@ -206,7 +254,10 @@ def _aggregate(rows, selected_years):
 def combine_seasonal_zones(
     field_id: UUID, request: CalculateRequest, db: DBSession, current_user: CurrentUser,
 ):
-    _, _, _, crop, key, hash_ = _template(db, current_user, field_id, request.crop_cycle_id)
+    _, _, _, crop, key, hash_ = _template(
+        db, current_user, field_id, request.crop_cycle_id,
+        request.start_month, request.end_month,
+    )
     years = sorted(set(request.years))
     if not 1 <= len(years) <= 6:
         raise HTTPException(status_code=422, detail="Select one to six years.")
