@@ -145,12 +145,19 @@ def compute_season(geometry, start, end):
     if valid_final.sum() < 8 or valid_final.sum() / inside.sum() < 0.5:
         raise ValueError("Final season has insufficient multi-date pixel coverage.")
     pixels = [round(float(x), 4) if np.isfinite(x) else None for x in values.ravel()]
+    field_mean = float(np.nanmean(values))
+    pixel_area_acres = abs(aligned_transform.a * aligned_transform.e) / 4046.8564224
+    low_cells = int(np.sum(valid_final & (values < field_mean - 0.08)))
+    high_cells = int(np.sum(valid_final & (values > field_mean + 0.08)))
     mask = [bool(x) for x in inside.ravel()]
     return {
         "width": width, "height": height, "projection": crs.to_string(),
         "transform": [round(float(v), 7) for v in tuple(aligned_transform)[:6]],
         "mask": mask, "pixels": pixels,
-        "mean_ndvi": round(float(np.nanmean(values)), 4),
+        "mean_ndvi": round(field_mean, 4),
+        "weak_area_acres": round(low_cells * pixel_area_acres, 3),
+        "strong_area_acres": round(high_cells * pixel_area_acres, 3),
+        "mapped_area_acres": round(int(valid_final.sum()) * pixel_area_acres, 3),
         "scene_count": len(used_dates), "scene_dates": used_dates,
         "failed_scene_attempts": failures,
         "quality": ">=80% clear field pixels per scene; >=2 readings per saved cell",
