@@ -73,7 +73,8 @@ def preview(geojson:Path) -> Polygon:
 def seed(*,polygon:Polygon,firebase_uid:str,phone:str,confirm_db_name:str) -> None:
     from firebase_admin import auth
     from geoalchemy2.shape import from_shape
-    from sqlalchemy import func,select
+    from geoalchemy2 import Geography
+    from sqlalchemy import cast,func,select
     from sqlalchemy.engine import make_url
     from app.core.config import settings
     from app.core.firebase import get_firebase_app
@@ -133,7 +134,7 @@ def seed(*,polygon:Polygon,firebase_uid:str,phone:str,confirm_db_name:str) -> No
                     boundary=from_shape(polygon,srid=4326))
         db.add(field)
         db.flush()
-        area_m2=db.scalar(select(func.ST_Area(func.Geography(field.boundary))))  # PostGIS
+        area_m2=db.scalar(select(func.ST_Area(cast(Field.boundary, Geography(geometry_type="POLYGON", srid=4326)))).where(Field.id == field.id))
         if area_m2 is None or area_m2 <= 0:
             raise RuntimeError("PostGIS did not return a valid field area")
         area_acres=float(area_m2)/4046.8564224
