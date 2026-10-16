@@ -58,6 +58,35 @@ def create_activity(
                 detail=("The selected crop cycle does not " "belong to this field."),
             )
 
+    if crop_cycle is not None:
+        if crop_cycle.status != "active" or crop_cycle.harvested_on is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="This crop cycle is finished; record work in a new cycle.",
+            )
+        if data.occurred_at.date() < crop_cycle.started_on:
+            raise HTTPException(
+                status_code=422,
+                detail="Activity cannot be earlier than the start of this crop cycle.",
+            )
+        # A recorded planting operation establishes the crop's actual age.
+        # Never move an existing planting date silently on a later activity.
+        if data.activity_type.strip().lower() in {"sowing", "transplanting", "planting"}:
+            planted_date = data.occurred_at.date()
+            if crop_cycle.planted_on is None:
+                if (crop_cycle.expected_harvest_on is not None
+                        and planted_date > crop_cycle.expected_harvest_on):
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Planting occurs after the planned harvest; correct the plan first.",
+                    )
+                crop_cycle.planted_on = planted_date
+            elif crop_cycle.planted_on != planted_date:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Planting date already recorded; use Edit crop plan to correct it.",
+                )
+
     activity = Activity(
         field_id=field.id,
         crop_cycle_id=(crop_cycle.id if crop_cycle is not None else None),
