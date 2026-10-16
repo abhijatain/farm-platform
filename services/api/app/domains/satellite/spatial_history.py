@@ -84,7 +84,8 @@ def summarize_spatial_history(
         "date_range": [dates[-1].isoformat(), dates[0].isoformat()] if dates else None,
         "minimum_valid_percent": 80,
         "cell_size_m": None,
-        "zone_model": "relative_anomaly_frequency_grid_v1",
+        "zone_model": "relative_anomaly_frequency_grid_v2",
+        "recent_dates": [d.isoformat() for d in dates[:3]],
         "zones": [],
         "tracking": [],
         "warnings": [
@@ -119,8 +120,8 @@ def summarize_spatial_history(
 
     evidence: dict[str, list[Any]] = defaultdict(list)
     tracks: dict[str, list[Any]] = defaultdict(list)
-    latest = dates[0]
-    previous = dates[1] if len(dates) > 1 else None
+    recent_dates = dates[:3]
+    latest = recent_dates[0]
     stable_enough = len(scenes) >= 6 and len(years) >= 2
     for cell in _cell_grid(field, cell_size):
         appearances: dict[str, list[date]] = {"below_field_baseline": [], "above_field_baseline": []}
@@ -142,10 +143,19 @@ def summarize_spatial_history(
                 key = f"{label}:{'persistent' if frequency >= 0.6 else 'variable'}"
                 evidence[key].append(cell)
             if len(scenes) >= 3:
-                new = latest in hits
-                old = previous in hits if previous is not None else False
-                status = "persistent" if new and old else "new" if new else "resolved" if old else "historical"
-                # Historical-only cells are excluded from a last-two-date transition map.
+                active_now = latest in hits
+                earlier_recent_count = sum(day in hits for day in recent_dates[1:])
+                if active_now and earlier_recent_count == len(recent_dates) - 1:
+                    status = "persistent"
+                elif active_now and earlier_recent_count:
+                    status = "recurring"
+                elif active_now:
+                    status = "new"
+                elif earlier_recent_count:
+                    status = "resolved"
+                else:
+                    status = "historical"
+                # Only classify zones using the three most recent qualifying dates.
                 if status != "historical":
                     tracks[f"{anomaly_type}:{status}"].append(cell)
     for key, cells in sorted(evidence.items()):
@@ -168,6 +178,7 @@ def summarize_spatial_history(
             "transition": status,
             "area_acres": _area_acres(merged, projected_area, field_area_sqm),
             "geometry": _unproject_geometry(merged),
+            "recent_dates": result["recent_dates"],
         })
     if stable_enough:
         result["status"] = "candidate_zones"
