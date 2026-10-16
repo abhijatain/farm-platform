@@ -1,7 +1,6 @@
 import {
   Plus,
   Search,
-  SlidersHorizontal,
 } from "lucide-react";
 
 import {
@@ -324,7 +323,6 @@ export default function FieldsSidebar({
           }
         />
 
-        <SlidersHorizontal size={16} aria-hidden="true" />
 
       </div>
 
