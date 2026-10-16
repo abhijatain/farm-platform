@@ -859,6 +859,28 @@ export type CropPhenologyIntelligence = {
   }[];
   warnings: string[];
 };
+/** Derived on read from compact NDVI cells; not measured yield. */
+export type SeasonalZoneAnalysis = {
+  status: "zones_available" | "low_spatial_contrast" | "insufficient_data";
+  display: { min: number; max: number; mean: number; mode: string } | null;
+  zones: {
+    method: string;
+    status: "qualified" | "low_spatial_contrast";
+    mapped_area_acres: number;
+    low_area_acres: number;
+    medium_area_acres: number;
+    high_area_acres: number;
+    low_percent: number;
+    medium_percent: number;
+    high_percent: number;
+    p10_p90_spread: number;
+    threshold_low: number | null;
+    threshold_high: number | null;
+  } | null;
+  zone_classes: Array<"low" | "medium" | "high" | null>;
+  notes: string[];
+};
+
 /* Compact seasonal NDVI means; source images are never returned. */
 export type SeasonalZoneGrid = {
   width: number;
@@ -866,6 +888,11 @@ export type SeasonalZoneGrid = {
   mask: boolean[];
   pixels: Array<number | null>;
   mean_ndvi: number | null;
+  spatial_analysis?: SeasonalZoneAnalysis;
+  relative_pixels?: Array<number | null>;
+  relative_analysis?: SeasonalZoneAnalysis;
+  stable_relative_area_percent?: number | null;
+  stability_basis?: string;
   weak_area_acres?: number;
   strong_area_acres?: number;
   mapped_area_acres?: number;
