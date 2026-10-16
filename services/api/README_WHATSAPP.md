@@ -257,6 +257,53 @@ currently selected WhatsApp Phone Number ID is registered/active and the
 sending access token has `whatsapp_business_messaging` permission, then do
 the single-recipient live test below.
 
+## Test while the Meta app is unpublished
+
+Meta's current WhatsApp Configuration warning states that an unpublished app
+receives dashboard-generated test webhooks, **not live inbound message
+webhooks**, even from app admins/testers. A `hello_world` message arriving
+on a whitelisted phone verifies outbound sending, but does not prove incoming
+`LINK` or interactive selection callbacks can reach the backend.
+
+You can still validate three separate layers without publishing:
+
+1. In Meta's **WhatsApp → Configuration → Webhook fields**, choose
+   `messages` → **Test**. The ngrok/Vite proxy should forward the signed
+   synthetic event to `/api/v1/webhooks/whatsapp` and FastAPI should
+   acknowledge it. This is a transport test, not a real farmer identity proof.
+2. Exercise the real HMAC-verified webhook handler, owner checks, LINK
+   parsing, menu selection and outbox using isolated synthetic users/fixtures:
+
+   ```bash
+   cd services/api
+   uv run --with pytest python -m pytest -q tests/test_whatsapp_linking.py tests/test_whatsapp_menus.py
+   ```
+
+3. Preview the exact **interactive list** on your own verified Meta test
+   recipient. This development-only CLI uses the configured phone ID and token,
+   asks for an explicit recipient and confirmation, sends one menu, and neither
+   writes the DB nor claims to link the recipient.
+
+   ```bash
+   cd services/api
+   uv run python -m scripts.send_whatsapp_test_menu
+   uv run python -m scripts.send_whatsapp_test_menu --send --language en
+   ```
+
+   Test only with the Meta API Setup test sender and an explicitly verified
+   **To** recipient. Meta may reject an interactive session reply if no active
+   customer-service window exists; sending the template alone is not proof
+   that the interactive menu can be sent. Test messages are still real
+   WhatsApp messages and must not be sent to arbitrary recipients.
+   Menu selections on your phone will **not** flow back into the unpublished
+   app's webhook, so this is a visual/outbound smoke test.
+
+Before eventually testing live inbound, also check the WABA's
+`/{WABA-ID}/subscribed_apps` entry with an authorized Meta token and
+ensure `messages` is subscribed. Those settings are necessary but do not
+override the unpublished-app restriction. A synthetic callback must never
+be treated as proof of WhatsApp account ownership or production readiness.
+
 ## Next milestones
 
 1. Signed live delivery, error receipts, throttling and number-account verification.
