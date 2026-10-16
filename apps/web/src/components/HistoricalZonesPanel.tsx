@@ -133,15 +133,18 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   const [periodMode, setPeriodMode] = useState<"crop" | "custom">("crop");
   const [startMonth, setStartMonth] = useState(8);
   const [endMonth, setEndMonth] = useState(10);
+  const [allCrops, setAllCrops] = useState(true);
   const [savedWindows, setSavedWindows] = useState<SavedHistoricalWindow[]>([]);
   const period = useMemo<HistoryWindow | undefined>(() => periodMode === "custom"
-    ? {start_month:startMonth,end_month:endMonth} : undefined,
-    [periodMode,startMonth,endMonth]);
+    ? {start_month:startMonth,end_month:endMonth,all_crops:allCrops} : undefined,
+    [periodMode,startMonth,endMonth,allCrops]);
   const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const monthsDiff = (endMonth-startMonth+12)%12+1;
   const validPeriod = periodMode === "crop" || monthsDiff <= 8;
-  const periodName = periodMode === "crop" ? "Full crop-cycle window"
-    : `${monthNames[startMonth-1]}–${monthNames[endMonth-1]}`;
+  const periodName = periodMode === "crop" ? "Same-crop growing calendar"
+    : `${monthNames[startMonth-1]}–${monthNames[endMonth-1]}${allCrops ? " · any crop" : " · same crop"}`;
+  const historyScopeLabel = periodMode === "custom" && allCrops
+    ? "Field history (all crops)" : cropCycle?.crop_name ?? "Crop";
 
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -176,11 +179,11 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   useEffect(() => {
     if (!cropCycle) { setSavedWindows([]); return; }
     let active = true;
-    void listSavedHistoricalWindows(field.id, cropCycle.id)
+    void listSavedHistoricalWindows(field.id, cropCycle.id, periodMode === "custom" && allCrops)
       .then(windows => { if (active) setSavedWindows(windows); })
       .catch(() => { if (active) setSavedWindows([]); });
     return () => { active = false; };
-  }, [field.id, cropCycle?.id, data?.seasons.length]);
+  }, [field.id, cropCycle?.id, data?.seasons.length, periodMode, allCrops]);
 
   // Poll status only; never calculate or queue jobs automatically.
   useEffect(() => {
@@ -235,7 +238,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
       <header className="hz-heading">
         <div>
           <span className="workspace-eyebrow">ON-DEMAND HISTORICAL INTELLIGENCE</span>
-          <h2>Historical Zones · {cropCycle.crop_name}</h2>
+          <h2>Historical Zones · {historyScopeLabel}</h2>
           <p>Choose a crop-season window, calculate it once per year, then compare matching periods without keeping raw imagery.</p>
         </div>
         <button type="button" onClick={() => void refresh().catch((e) => setError(String(e)))} disabled={loading || busy}>Refresh status</button>
@@ -251,6 +254,17 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
           <input type="radio" checked={periodMode === "custom"} onChange={()=>setPeriodMode("custom")}/>
           Choose calendar months
         </label>
+        {periodMode === "custom" && <div className="hz-crop-scope" role="group" aria-label="Compare crop or field">
+          <label className="hz-option-label">
+            <input type="radio" checked={allCrops} onChange={()=>setAllCrops(true)}/>
+            Field history (any crop) — same months across years
+          </label>
+          <label className="hz-option-label">
+            <input type="radio" checked={!allCrops} onChange={()=>setAllCrops(false)}/>
+            Same crop only ({cropCycle.crop_name}) — use crop-specific records
+          </label>
+          {allCrops && <p className="hz-explanation">Vegetation comparisons describe this field, regardless of what was planted. A difference between years may reflect different crops, not lower productivity.</p>}
+        </div>}
         {periodMode === "custom" && <div className="hz-month-range">
           <label>From
             <select value={startMonth} onChange={e=>setStartMonth(Number(e.target.value))}>
@@ -285,14 +299,14 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
       </section>
       {data && <p className="hz-explanation">
         Reference growing window: {data.reference_window.start}, {data.reference_window.length_days} days.
-        { " " }Older years use the selected crop-cycle calendar as a proxy, not verified planting dates.
+        {" "}{data.reference_window.basis}
       </p>}
       {error && <p className="hz-error" role="alert">{error}</p>}
       {info && <p className="hz-info" role="status">{info}</p>}
       {loading && <p>Loading available seasons…</p>}
       {data && <>
         <section className="hz-section">
-          <h3>2. Select {cropCycle.crop_name} years ({periodName})</h3>
+          <h3>2. Select years · {historyScopeLabel} ({periodName})</h3>
           <p>Select years, calculate any missing ones manually, then view their combined average.</p>
           <div className="hz-years">
             {data.available_years.map((year) => {
@@ -344,7 +358,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
           <div className="hz-season-grid">
             {data.seasons.filter((r) => r.status === "completed" && r.result).map((r) => (
               <article className="hz-season-card" key={r.id}>
-                <h4>{cropCycle.crop_name} {r.year}</h4>
+                <h4>{historyScopeLabel} {r.year}</h4>
                 <p>{r.start_date} to {r.end_date}</p>
                 <p>{r.window_source === "recorded_crop_cycle" ? "Actual saved crop-cycle dates" : r.window_source === "user_selected_months" ? "Calendar months you selected" : "Projected crop calendar · estimated dates"}</p>
                 <p>Season mean NDVI: <strong>{fmt(r.result?.mean_ndvi)}</strong> · {r.result?.scene_count} clear dates</p>
