@@ -741,7 +741,7 @@ export default function FieldDetailsPanel({
           <FieldReport
             farm={farm}
             field={field}
-            season={season}
+            season={viewCycle && viewCycle.season_id !== season?.id ? null : season}
             cropCycle={viewCycle}
             timeline={timeline}
             observations={satelliteObservations}
