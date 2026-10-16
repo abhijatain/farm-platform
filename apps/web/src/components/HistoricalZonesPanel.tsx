@@ -249,11 +249,19 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
     return () => window.clearInterval(interval);
   }, [cropCycle?.id, data?.seasons, refresh]);
 
-  // One click opens the results without another "show average" action.
+  // Scroll only the field dialog's own content. scrollIntoView() also moves
+  // ancestors (the map workspace), which shifted the entire floating panel
+  // beyond the top edge and left its header inaccessible.
   useEffect(() => {
-    if (screen === "saved" && openedSaved && data) {
-      resultsRef.current?.scrollIntoView({block:"start",behavior:"smooth"});
-    }
+    if (screen !== "saved" || !openedSaved || !data || !resultsRef.current) return;
+    const scroller = resultsRef.current.closest<HTMLElement>(".field-workspace-content");
+    if (!scroller) return;
+    const resultTop = resultsRef.current.getBoundingClientRect().top;
+    const scrollerTop = scroller.getBoundingClientRect().top;
+    scroller.scrollTo({
+      top: Math.max(0, scroller.scrollTop + resultTop - scrollerTop - 12),
+      behavior: "smooth",
+    });
   }, [openedSaved, screen, data?.calendar_key]);
 
   function openSaved(item: SavedOption) {
