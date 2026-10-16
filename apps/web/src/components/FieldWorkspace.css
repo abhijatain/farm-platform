@@ -3722,3 +3722,95 @@
   .field-workspace-panel .workspace-page-title {margin-bottom:10px;}
   .field-workspace-panel .workspace-page-title h2 {font-size:18px;}
 }
+
+
+/* Interactive trend cards: vegetation, moisture, radar and heat each have
+   an independent value box and show the exact observed value on hover/tap. */
+.satellite-chart-group {
+  display:grid;
+  gap:13px;
+  min-width:0;
+  padding:14px;
+  border:1px solid #dce6de;
+  border-radius:13px;
+  background:#f4f8f5;
+}
+.satellite-chart-group>header {padding:0 4px 2px;}
+.satellite-chart-group>header h4 {
+  margin:5px 0;
+  font-size:17px;
+  color:#254733;
+}
+.satellite-chart-group>header p {
+  margin:0;
+  font-size:12px;
+  color:#66796b;
+  line-height:1.5;
+  max-width:760px;
+}
+.satellite-chart-group .satellite-trend-chart-card {
+  background:white;
+  border:1px solid #dee6e1;
+  border-radius:11px;
+  min-width:0;
+}
+.satellite-trend-chart-heading {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:15px;
+}
+.satellite-trend-chart-heading>div:first-child {min-width:0;}
+.satellite-chart-latest {
+  flex:0 0 auto;
+  min-width:120px;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  padding:9px 12px;
+  background:#eff6f0;
+  border:1px solid #dce8df;
+  border-radius:9px;
+}
+.satellite-chart-latest span,
+.satellite-chart-latest small {font-size:10px;color:#617969;}
+.satellite-chart-latest strong {font-size:21px;color:#245e3d;font-variant-numeric:tabular-nums;}
+.satellite-trend-svg-wrap {position:relative; min-width:0;}
+.satellite-trend-svg {touch-action:pan-y;cursor:crosshair;}
+.satellite-trend-hover-line {
+  stroke:#2b5d47;
+  stroke-dasharray:5 4;
+  stroke-width:1.4;
+  pointer-events:none;
+}
+.satellite-chart-tooltip {
+  position:absolute;
+  top:6px;
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:160px;
+  max-width:min(225px,80%);
+  transform:translateX(-30%);
+  padding:9px 12px;
+  color:white;
+  background:rgba(25,39,34,.96);
+  border-radius:9px;
+  box-shadow:0 3px 12px rgba(0,0,0,.12);
+  font-size:11px;
+  pointer-events:none;
+  font-variant-numeric:tabular-nums;
+}
+.satellite-chart-tooltip strong {font-size:12px;}
+.satellite-chart-tooltip span {display:flex;justify-content:space-between;gap:10px;}
+.satellite-chart-tooltip small {font-size:9px;color:#cbded1;}
+@media(max-width:760px){
+  .satellite-chart-group {padding:8px;gap:9px;}
+  .satellite-chart-group>header {padding:5px;}
+  .satellite-chart-group>header h4 {font-size:15px;}
+  .satellite-trend-chart-heading {gap:7px;}
+  .satellite-chart-latest {min-width:88px;padding:7px;}
+  .satellite-chart-latest strong {font-size:16px;}
+  .satellite-chart-tooltip {max-width:75%;min-width:140px;}
+}
