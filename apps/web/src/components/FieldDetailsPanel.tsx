@@ -750,6 +750,41 @@ export default function FieldDetailsPanel({
   );
 }
 
+type SatelliteSection = "overview" | "trends" | "radar" | "growth" | "changes" | "history";
+
+const SATELLITE_SECTIONS: Array<{ id: SatelliteSection; label: string; description: string }> = [
+  {
+    id: "overview",
+    label: "Latest imagery",
+    description: "Choose a satellite measurement to see its latest usable field images. Different indices describe different aspects of the crop.",
+  },
+  {
+    id: "trends",
+    label: "Trends",
+    description: "Compare canopy greenness, moisture-sensitive signals, surface temperature and anomaly acreage over time. Activity dates provide context, not proof of causation.",
+  },
+  {
+    id: "radar",
+    label: "Radar",
+    description: "Sentinel-1 observations work through clouds. Compare compatible passes and read the crop-stage warnings before interpreting radar changes.",
+  },
+  {
+    id: "growth",
+    label: "Crop & weather",
+    description: "Record observed crop stages and explore weather around field work. Calendar-based growth estimates must be confirmed in the field.",
+  },
+  {
+    id: "changes",
+    label: "Changes",
+    description: "Compare satellite readings and spatial differences between dates. A change is an observation, not a confirmed disease or irrigation problem.",
+  },
+  {
+    id: "history",
+    label: "Data history",
+    description: "See when each satellite observed the field, which dates were unusable and how clouds affected the measurements. This is for understanding data availability.",
+  },
+];
+
 function SatelliteTab({
   field,
   observations,
@@ -767,87 +802,56 @@ function SatelliteTab({
   timeline: FieldSatelliteTimeline | null;
   cropCycle: CropCycle | null;
 }) {
+  const [section, setSection] = useState<SatelliteSection>("overview");
+  const [metricType, setMetricType] = useState<SatelliteMetricType>("ndvi");
+
   const sorted = useMemo(
-    () =>
-      [...observations].sort((a, b) =>
-        b.observed_on.localeCompare(a.observed_on),
-      ),
+    () => [...observations].sort((a, b) => b.observed_on.localeCompare(a.observed_on)),
     [observations],
   );
-
   const usableObservations = useMemo(
-    () =>
-      sorted.filter(
-        (observation) =>
-          observation.metrics.length > 0,
-      ),
+    () => sorted.filter((observation) => observation.metrics.length > 0),
     [sorted],
   );
-
   const skippedObservations = useMemo(
-    () =>
-      sorted.filter((observation) => {
-        const status =
-          observation.metadata_json
-            ?.processing_status;
-
-        return (
-          typeof status === "string"
-          && status.startsWith(
-            "skipped_",
-          )
-        );
-      }),
+    () => sorted.filter((observation) => {
+      const status = observation.metadata_json?.processing_status;
+      return typeof status === "string" && status.startsWith("skipped_");
+    }),
     [sorted],
   );
+  const selectedMetric = FARMER_METRICS.find((metric) => metric.metricType === metricType)
+    ?? FARMER_METRICS[0];
+  const currentSection = SATELLITE_SECTIONS.find((entry) => entry.id === section)
+    ?? SATELLITE_SECTIONS[0];
 
   return (
     <div className="workspace-page satellite-first-page">
-      <div className="workspace-page-title">
+      <header className="workspace-page-title">
         <div>
-          <span>FIELD CONDITION</span>
-
-          <h2>Latest satellite views</h2>
-
-          <p>
-            The latest usable observations for the selected field. Compare
-            recent dates visually before opening more detailed analysis.
-          </p>
+          <span>SATELLITE EXPLORER</span>
+          <h2>{currentSection.label}</h2>
+          <p>{currentSection.description}</p>
         </div>
+      </header>
 
-        <div className="satellite-source-badge">
-          Sentinel-2 · Sentinel-1 · Landsat
-        </div>
-      </div>
-
-      {!loading && !error && timeline && timeline.events.length > 0 && (
-        <CrossSatelliteTimeline
-          timeline={timeline}
-        />
-      )}
-
-      {!loading && !error && <FieldIntelligencePanel field={field} cropCycle={cropCycle} />}
-
-      {!loading && !error && usableObservations.length > 0 && (
-        <>
-          <SatelliteTrendCharts
-            fieldId={field.id}
-            cropCycle={cropCycle}
-          />
-
-          <SatelliteChangePanel
-            fieldId={field.id}
-            cropCycle={cropCycle}
-          />
-        </>
-      )}
+      <nav className="satellite-section-tabs" aria-label="Satellite analysis sections">
+        {SATELLITE_SECTIONS.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className={section === entry.id ? "satellite-section-tab active" : "satellite-section-tab"}
+            aria-current={section === entry.id ? "page" : undefined}
+            onClick={() => setSection(entry.id)}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </nav>
 
       {loading && (
-        <div className="workspace-empty-card">
-          Loading satellite observations…
-        </div>
+        <div className="workspace-empty-card">Loading satellite observations…</div>
       )}
-
       {!loading && error && (
         <div className="workspace-empty-card">
           <h3>Unable to load satellite data</h3>
@@ -855,71 +859,98 @@ function SatelliteTab({
         </div>
       )}
 
-      {!loading && !error && usableObservations.length === 0 && (
-        <SatelliteIngestionEmptyState
-          ingestion={ingestion}
-        />
-      )}
-
-      {!loading && !error && usableObservations.length > 0 && (
-        <div className="farmer-metric-stack">
-          {FARMER_METRICS.map((metric) => (
-            <MetricImageryStrip
-              key={metric.metricType}
-              field={field}
-              observations={usableObservations}
-              metric={metric}
-            />
-          ))}
-        </div>
-      )}
-
-      {!loading && !error && skippedObservations.length > 0 && (
-        <section className="metric-imagery-section">
-          <div className="metric-imagery-heading">
-            <div>
-              <h3>Unavailable satellite dates</h3>
-
-              <p>
-                These optical scenes were recorded but skipped because
-                cloud or quality masking left no useful field imagery.
-                Sentinel-1 radar can still provide all-weather observations.
-              </p>
-            </div>
-          </div>
-
-          <div className="metric-imagery-empty">
-            {skippedObservations.slice(0, 8).map((observation) => {
-              const status =
-                observation.metadata_json
-                  ?.processing_status;
-
-              const fieldCloud =
-                observation.metadata_json
-                  ?.field_cloud_cover_percent;
-
-              const cloudPercent =
-                typeof fieldCloud === "number"
-                  ? fieldCloud
-                  : observation.cloud_cover_percent;
-
-              return (
-                <div key={observation.id}>
-                  <strong>{formatDate(observation.observed_on)}</strong>
-                  {" · "}
-                  {formatObservationSource(observation.source)}
-                  {" · "}
-                  {status === "skipped_scene_cloud_cover"
-                    ? "Cloud covered"
-                    : "No usable field pixels"}
-                  {cloudPercent != null
-                    ? ` · ${cloudPercent.toFixed(0)}% cloud/shadow`
-                    : ""}
+      {!loading && !error && section === "overview" && (
+        <>
+          {usableObservations.length === 0
+            ? <SatelliteIngestionEmptyState ingestion={ingestion} />
+            : <>
+              <section className="satellite-metric-selector">
+                <div>
+                  <h3>What would you like to examine?</h3>
+                  <p>One measurement at a time makes it easier to compare images without confusing different satellite scales.</p>
                 </div>
-              );
-            })}
-          </div>
-        </section>
+                <label>
+                  <span>Satellite measurement</span>
+                  <select
+                    value={metricType}
+                    onChange={(event) => setMetricType(event.target.value as SatelliteMetricType)}
+                  >
+                    {FARMER_METRICS.map((metric) => (
+                      <option value={metric.metricType} key={metric.metricType}>
+                        {metric.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="satellite-metric-help">{selectedMetric.subtitle}</p>
+              </section>
+              <MetricImageryStrip
+                key={selectedMetric.metricType}
+                field={field}
+                observations={usableObservations}
+                metric={selectedMetric}
+              />
+            </>}
+        </>
+      )}
+
+      {!loading && !error && section === "trends" && (
+        <SatelliteTrendCharts fieldId={field.id} cropCycle={cropCycle} section="trends" />
+      )}
+      {!loading && !error && section === "radar" && (
+        <>
+          <FieldIntelligencePanel field={field} cropCycle={cropCycle} section="radar" />
+          <SatelliteTrendCharts fieldId={field.id} cropCycle={cropCycle} section="radar" />
+        </>
+      )}
+      {!loading && !error && section === "growth" && (
+        <>
+          <FieldIntelligencePanel field={field} cropCycle={cropCycle} section="growth" />
+          <SatelliteTrendCharts fieldId={field.id} cropCycle={cropCycle} section="growth" />
+        </>
+      )}
+      {!loading && !error && section === "changes" && (
+        <SatelliteChangePanel fieldId={field.id} cropCycle={cropCycle} />
+      )}
+      {!loading && !error && section === "history" && (
+        <>
+          {timeline && timeline.events.length > 0
+            ? <CrossSatelliteTimeline timeline={timeline} />
+            : <div className="workspace-empty-card">
+                <h3>No acquisition history yet</h3>
+                <p>When satellite observations are ingested, their dates and availability will appear here.</p>
+              </div>}
+          <SatelliteTrendCharts fieldId={field.id} cropCycle={cropCycle} section="quality" />
+          {skippedObservations.length > 0 && (
+            <section className="metric-imagery-section">
+              <div className="metric-imagery-heading">
+                <div>
+                  <h3>Dates without usable imagery</h3>
+                  <p>Clouds and insufficient valid pixels can prevent optical indices from being calculated. Sentinel-1 radar may still be available.</p>
+                </div>
+              </div>
+              <div className="metric-imagery-empty">
+                {skippedObservations.slice(0, 8).map((observation) => {
+                  const status = observation.metadata_json?.processing_status;
+                  const fieldCloud = observation.metadata_json?.field_cloud_cover_percent;
+                  const cloudPercent = typeof fieldCloud === "number"
+                    ? fieldCloud
+                    : observation.cloud_cover_percent;
+                  return (
+                    <div key={observation.id}>
+                      <strong>{formatDate(observation.observed_on)}</strong>
+                      {" · "}
+                      {formatObservationSource(observation.source)}
+                      {" · "}
+                      {status === "skipped_scene_cloud_cover" ? "Cloud covered" : "No usable field pixels"}
+                      {cloudPercent != null ? ` · ${cloudPercent.toFixed(0)}% cloud/shadow` : ""}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </>
       )}
     </div>
   );
@@ -1379,8 +1410,7 @@ function ActivitiesTab({
           <h2>Activities</h2>
 
           <p>
-            Record what happened in the field and compare nearby satellite
-            observations.
+            Record field work, photos and notes. Compare the available satellite measurements before and after an activity without a distracting chart.
           </p>
         </div>
 
@@ -1574,19 +1604,11 @@ function ActivityResponsePanel({
           <div>
             <span>{config.label}</span>
 
-            <h4>Before / after response</h4>
+            <h4>Satellite before & after</h4>
           </div>
 
           <p>{config.description}</p>
         </div>
-
-        <BeforeAfterChart
-          beforeValue={before.median}
-          afterValue={after.median}
-          beforeDate={before.observed_on}
-          afterDate={after.observed_on}
-          metricType={metricType}
-        />
 
         <div className="activity-response-stats">
           <div>
@@ -1685,154 +1707,6 @@ function ActivityResponsePanel({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function BeforeAfterChart({
-  beforeValue,
-  afterValue,
-  beforeDate,
-  afterDate,
-  metricType,
-}: {
-  beforeValue: number | null;
-  afterValue: number | null;
-  beforeDate: string;
-  afterDate: string;
-  metricType: SatelliteMetricType;
-}) {
-  const config = getMetricConfig(metricType);
-
-  const width = 720;
-  const height = 250;
-  const left = 70;
-  const right = 50;
-  const top = 28;
-  const bottom = 58;
-
-  const innerHeight = height - top - bottom;
-
-  function yForValue(value: number | null) {
-    if (value == null || !Number.isFinite(value)) {
-      return top + innerHeight / 2;
-    }
-
-    const denominator = config.displayMax - config.displayMin;
-
-    const normalized =
-      denominator === 0
-        ? 0.5
-        : Math.max(0, Math.min(1, (value - config.displayMin) / denominator));
-
-    return top + (1 - normalized) * innerHeight;
-  }
-
-  const xBefore = left + 90;
-  const xAfter = width - right - 90;
-
-  const yBefore = yForValue(beforeValue);
-
-  const yAfter = yForValue(afterValue);
-
-  return (
-    <div className="before-after-chart">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={`${config.label} before and after`}
-      >
-        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
-          const y = top + fraction * innerHeight;
-
-          return (
-            <line
-              key={fraction}
-              className="activity-chart-grid"
-              x1={left}
-              x2={width - right}
-              y1={y}
-              y2={y}
-            />
-          );
-        })}
-
-        <line
-          className="activity-chart-line"
-          x1={xBefore}
-          x2={xAfter}
-          y1={yBefore}
-          y2={yAfter}
-        />
-
-        <circle
-          className="activity-chart-point"
-          cx={xBefore}
-          cy={yBefore}
-          r="7"
-        />
-
-        <circle
-          className="activity-chart-point"
-          cx={xAfter}
-          cy={yAfter}
-          r="7"
-        />
-
-        <text
-          className="activity-chart-value"
-          x={xBefore}
-          y={yBefore - 14}
-          textAnchor="middle"
-        >
-          {formatMetricValue(beforeValue)}
-        </text>
-
-        <text
-          className="activity-chart-value"
-          x={xAfter}
-          y={yAfter - 14}
-          textAnchor="middle"
-        >
-          {formatMetricValue(afterValue)}
-        </text>
-
-        <text
-          className="activity-chart-label"
-          x={xBefore}
-          y={height - 28}
-          textAnchor="middle"
-        >
-          BEFORE
-        </text>
-
-        <text
-          className="activity-chart-label"
-          x={xAfter}
-          y={height - 28}
-          textAnchor="middle"
-        >
-          AFTER
-        </text>
-
-        <text
-          className="activity-chart-date"
-          x={xBefore}
-          y={height - 10}
-          textAnchor="middle"
-        >
-          {formatDate(beforeDate)}
-        </text>
-
-        <text
-          className="activity-chart-date"
-          x={xAfter}
-          y={height - 10}
-          textAnchor="middle"
-        >
-          {formatDate(afterDate)}
-        </text>
-      </svg>
     </div>
   );
 }
