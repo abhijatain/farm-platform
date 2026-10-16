@@ -3,6 +3,12 @@
 Default is a READ-ONLY inventory:
   uv run python -m app.cli.reset_test_data
 
+If Firebase/GCS will be cleaned manually, inventory and reset only the DB:
+  uv run python -m app.cli.reset_test_data --database-only
+  uv run python -m app.cli.reset_test_data --database-only --apply \\
+    --confirm-db-host "POSTGRES_HOST" --confirm-db-name "DB_NAME" \\
+    --acknowledge "PERMANENTLY ERASE FARM PLATFORM DATABASE DATA"
+
 To execute, all three *actual* resource names and the literal acknowledgement
 must be supplied. Never run for a shared Firebase project, shared GCS bucket
 or a DB that contains non-Farm-Platform tables.
@@ -24,6 +30,7 @@ import argparse
 from dataclasses import dataclass
 
 ACKNOWLEDGEMENT = "PERMANENTLY ERASE ALL DEMO USERS DATA AND OBJECTS"
+DATABASE_ACKNOWLEDGEMENT = "PERMANENTLY ERASE FARM PLATFORM DATABASE DATA"
 ALLOWED_ENVIRONMENTS = frozenset({"development", "test", "testing", "demo", "staging"})
 PROTECTED_TABLES = frozenset({"alembic_version", "spatial_ref_sys"})
 
@@ -80,6 +87,20 @@ def validate_apply_targets(target: ResetTargets, args) -> None:
         raise RuntimeError("Resource identifiers missing or mismatched: " + ", ".join(mismatched))
     if args.acknowledge != ACKNOWLEDGEMENT:
         raise RuntimeError("Irreversible erase acknowledgement is missing or incorrect.")
+
+
+def validate_database_only_targets(target: ResetTargets, args) -> None:
+    """Authorize JUST the known nonproduction PostgreSQL database."""
+    if target.environment not in ALLOWED_ENVIRONMENTS:
+        raise RuntimeError("Refusing database reset outside a nonproduction environment.")
+    if not args.confirm_db_host or args.confirm_db_host != target.db_host:
+        raise RuntimeError("Database host confirmation missing or mismatched.")
+    if not args.confirm_db_name or args.confirm_db_name != target.db_name:
+        raise RuntimeError("Database name confirmation missing or mismatched.")
+    if args.acknowledge != DATABASE_ACKNOWLEDGEMENT:
+        raise RuntimeError("Database-only irreversible erase acknowledgement is incorrect.")
+    if args.confirm_firebase_project or args.confirm_gcs_bucket:
+        raise RuntimeError("Database-only mode does not accept cloud deletion arguments.")
 
 
 def verify_legacy_whatsapp_outbox(inspector) -> bool:
@@ -211,6 +232,29 @@ def truncate_application_data(engine,tables) -> None:
         conn.exec_driver_sql(f"TRUNCATE TABLE {names} RESTART IDENTITY")
 
 
+def run_database_only(args, target: ResetTargets, engine) -> int:
+    """Inventory or delete ONLY PostgreSQL app rows. Never contact Firebase/GCS."""
+    if args.apply:
+        validate_database_only_targets(target, args)
+    tables = application_tables(engine)
+    counts = db_inventory(engine, tables)
+    print("DATABASE application rows:", counts)
+    print("Firebase Auth users: NOT checked or changed (manual cleanup).")
+    print("GCS objects: NOT checked or changed (manual cleanup).")
+    print("Database schema, PostGIS and Alembic history will be preserved.")
+    if not args.apply:
+        print("DRY RUN ONLY. No data was deleted.")
+        return 0
+
+    truncate_application_data(engine, tables)
+    after = db_inventory(engine, tables)
+    if any(after.values()):
+        raise RuntimeError(f"Database-only reset verification failed: {after}")
+    print("PASS: 0 Farm Platform application rows in PostgreSQL.")
+    print("Firebase users and GCS must be verified/deleted separately.")
+    return 0
+
+
 def run(args) -> int:
     from app.core.config import settings
     from app.db.session import engine
@@ -222,6 +266,9 @@ def run(args) -> int:
     print("  Firebase project:",targets.firebase_project)
     print("  GCS bucket:",targets.gcs_bucket)
     print("  Environment:",targets.environment)
+
+    if args.database_only:
+        return run_database_only(args, targets, engine)
 
     # On --apply, validate all identifiers BEFORE talking to Firebase or GCS.
     if args.apply:
@@ -270,6 +317,7 @@ def run(args) -> int:
 def main() -> None:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply",action="store_true",help="Erase confirmed targets; default is read-only.")
+    parser.add_argument("--database-only",action="store_true",help="Skip all Firebase/GCS calls; inventory/erase PostgreSQL application rows only.")
     parser.add_argument("--confirm-db-host")
     parser.add_argument("--confirm-db-name")
     parser.add_argument("--confirm-firebase-project")
