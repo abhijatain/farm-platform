@@ -119,10 +119,11 @@ def summarize_spatial_history(
         return result
 
     evidence: dict[str, list[Any]] = defaultdict(list)
+    frequencies: dict[str, list[float]] = defaultdict(list)
     tracks: dict[str, list[Any]] = defaultdict(list)
     recent_dates = dates[:3]
     latest = recent_dates[0]
-    stable_enough = len(scenes) >= 6 and len(years) >= 2
+    stable_enough = len(scenes) >= 6 and len(years) >= 3
     for cell in _cell_grid(field, cell_size):
         appearances: dict[str, list[date]] = {"below_field_baseline": [], "above_field_baseline": []}
         for scene in scenes:
@@ -142,6 +143,7 @@ def summarize_spatial_history(
                 label = "repeated_relative_low" if anomaly_type == "below_field_baseline" else "repeated_relative_high"
                 key = f"{label}:{'persistent' if frequency >= 0.6 else 'variable'}"
                 evidence[key].append(cell)
+                frequencies[key].append(frequency)
             if len(scenes) >= 3:
                 active_now = latest in hits
                 earlier_recent_count = sum(day in hits for day in recent_dates[1:])
@@ -165,6 +167,9 @@ def summarize_spatial_history(
             "id": key,
             "classification": label,
             "stability": persistence,
+            "stability_score": round(sum(frequencies[key]) / len(frequencies[key]), 3),
+            "centroid": _unproject_geometry(merged.centroid)["coordinates"],
+            "visit_point": _unproject_geometry(merged.representative_point())["coordinates"],
             "area_acres": _area_acres(merged, projected_area, field_area_sqm),
             "geometry": _unproject_geometry(merged),
             "interpretation": "Repeated field-relative signal; candidate scouting/soil sample zone, not yield.",
@@ -188,6 +193,6 @@ def summarize_spatial_history(
     else:
         result["status"] = "short_history"
         result["warnings"].append(
-            "Historical management zones require at least six optical observations across two calendar years. No stable productivity map is inferred."
+            "Historical management zones require at least six optical observations across three calendar years. No stable productivity map is inferred."
         )
     return result
