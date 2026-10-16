@@ -12,7 +12,6 @@ import {
 
 import WeatherContextPanel from "./WeatherContextPanel";
 import CropGrowthStagePanel from "./CropGrowthStagePanel";
-import FieldIntelligencePanel from "./FieldIntelligencePanel";
 import RadarScreeningPanel from "./RadarScreeningPanel";
 
 import {
@@ -21,7 +20,6 @@ import {
 
 import type {
   CropCycle,
-  Field,
   CropGrowth,
   CropStageObservation,
   FieldSatelliteTrends,
@@ -33,7 +31,6 @@ import type {
 
 
 type Props = {
-  field: Field;
   fieldId: string;
   cropCycle: CropCycle | null;
 };
@@ -1883,7 +1880,6 @@ function RadarTrendPanel({
 
 
 export default function SatelliteTrendCharts({
-  field,
   fieldId,
   cropCycle,
 }: Props) {
@@ -2302,7 +2298,6 @@ export default function SatelliteTrendCharts({
         && !error
         && trends && (
         <div className="satellite-trends-grid">
-          <FieldIntelligencePanel field={field} cropCycle={cropCycle} />
           {cropCycle && (
             <CropGrowthStagePanel
               cropCycle={cropCycle}
