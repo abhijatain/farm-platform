@@ -10,6 +10,7 @@ from app.models.activity import Activity
 from app.models.crop_cycle import CropCycle
 from app.schemas.crop_cycle import (
     CropCycleCreate,
+    CropCyclePlanUpdate,
     CropCycleResponse,
     HarvestCropCycleRequest,
     HarvestCropCycleResponse,
@@ -140,6 +141,39 @@ def get_crop_cycle(
         user_id=current_user.id,
         crop_cycle_id=crop_cycle_id,
     )
+
+
+@router.patch(
+    "/crop-cycles/{crop_cycle_id}/plan",
+    response_model=CropCycleResponse,
+)
+def update_crop_cycle_plan(
+    crop_cycle_id: UUID,
+    data: CropCyclePlanUpdate,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> CropCycle:
+    """Correct sowing date or expected harvest; don't overwrite harvest history."""
+    cycle = get_owned_crop_cycle(
+        db=db, user_id=current_user.id, crop_cycle_id=crop_cycle_id,
+    )
+    if cycle.status != "active" or cycle.harvested_on is not None:
+        raise HTTPException(status_code=409, detail="Completed crop cycles cannot be rescheduled.")
+    planted = data.planted_on if "planted_on" in data.model_fields_set else cycle.planted_on
+    expected = (
+        data.expected_harvest_on
+        if "expected_harvest_on" in data.model_fields_set
+        else cycle.expected_harvest_on
+    )
+    if planted is not None and planted < cycle.started_on:
+        raise HTTPException(status_code=422, detail="Planting cannot precede field preparation.")
+    if expected is not None and expected < (planted or cycle.started_on):
+        raise HTTPException(status_code=422, detail="Expected harvest must follow planting/start.")
+    cycle.planted_on = planted
+    cycle.expected_harvest_on = expected
+    db.commit()
+    db.refresh(cycle)
+    return cycle
 
 
 @router.post(
