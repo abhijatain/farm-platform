@@ -70,6 +70,42 @@ def _send_graph_message(job: WhatsAppOutbox) -> str:
     return message_id
 
 
+def _graph_error(error: urllib.error.HTTPError) -> tuple[bool, str]:
+    """Extract only Meta's numeric error code for safe local troubleshooting.
+
+    A JSON Graph error may be a 400 with transient rate-limit code 131056.
+    Never persist verbose error messages, phone numbers or access tokens.
+    """
+    retryable = error.code in {408, 429} or error.code >= 500
+    reason = f"Meta HTTP {error.code}"
+    try:
+        data = json.loads(error.read(8192))
+        info = data.get("error") if isinstance(data, dict) else None
+        code = info.get("code") if isinstance(info, dict) else None
+        if type(code) is int and 0 <= code <= 999999:
+            reason = f"Meta error {code} (HTTP {error.code})"
+            if code in {80007, 130429, 131048, 131056}:
+                retryable = True
+            if code in {100, 190, 131026, 131047, 131051, 133010}:
+                retryable = False
+    except (ValueError, TypeError, OSError):
+        pass
+    return retryable, reason
+
+
+def check_configuration() -> dict[str, bool]:
+    """Report non-sensitive readiness flags without contacting Meta or sending."""
+    return {
+        "signature_secret": bool(settings.whatsapp_app_secret),
+        "verify_token": bool(settings.whatsapp_verify_token),
+        "phone_number_id": bool(
+            settings.whatsapp_phone_number_id and settings.whatsapp_phone_number_id.isdigit()
+        ),
+        "access_token": bool(settings.whatsapp_access_token),
+        "outbound_enabled": settings.whatsapp_outbound_enabled,
+    }
+
+
 def _claim(db: Session) -> WhatsAppOutbox | None:
     """Lease a job transactionally, including timed-out abandoned leases."""
     now = _utcnow()
@@ -141,9 +177,8 @@ def dispatch_one() -> str:
         try:
             message_id = _send_graph_message(job)
         except urllib.error.HTTPError as error:
-            # Do not persist or print Meta's error body: it may contain PII.
-            retryable = error.code in {408, 429} or error.code >= 500
-            return _record_failure(db, job, retryable, "Meta HTTP response")
+            retryable, reason = _graph_error(error)
+            return _record_failure(db, job, retryable, reason)
         except (urllib.error.URLError, TimeoutError, OSError):
             return _record_failure(db, job, True, "Meta connectivity")
         except (ValueError, RuntimeError, KeyError, IndexError, TypeError):
@@ -177,7 +212,12 @@ def main() -> None:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--once", action="store_true", help="Process at most one message")
     mode.add_argument("--loop", action="store_true", help="Poll the outbox until stopped")
+    mode.add_argument("--check", action="store_true", help="Show safe configuration readiness flags")
     args = parser.parse_args()
+    if args.check:
+        for name, ready in check_configuration().items():
+            print(f"{name}: {'yes' if ready else 'no'}")
+        return
     if args.once:
         print(dispatch_one())
         return
