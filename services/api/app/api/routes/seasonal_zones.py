@@ -62,7 +62,7 @@ def list_seasonal_zones(
     field_id: UUID, crop_cycle_id: UUID, db: DBSession, current_user: CurrentUser,
 ) -> dict:
     cycle, start, duration, crop, key, hash_ = _template(db, current_user, field_id, crop_cycle_id)
-    years = list(range(_today().year - 1, max(_today().year - 7, 2016), -1))
+    years = list(range(_today().year - 1, _today().year - 7, -1))
     return {
         "crop": crop, "crop_cycle_id": str(cycle.id), "field_id": str(field_id),
         "calendar_key": key, "reference_window": {
