@@ -62,6 +62,9 @@ class Settings(BaseSettings):
 
     satellite_initial_backfill_days: int = 90
 
+    # Private loopback raster service; never expose its raw endpoint in ngrok.
+    satellite_tiler_internal_url: str = "http://127.0.0.1:8081"
+
     # Commercial installations must supply a licensed Open-Meteo key.
     weather_api_key: SecretStr | None = None
 

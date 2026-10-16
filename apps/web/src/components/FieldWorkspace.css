@@ -3401,3 +3401,173 @@
   .radar-screen-heading { flex-direction: column; }
   .radar-screen-orbit-facts { grid-template-columns: 1fr; }
 }
+
+
+/* Phone field details occupy the complete workspace above the bottom bar.
+   Keep tabs reachable and avoid nested fixed-width cards clipping the view. */
+@media (max-width: 760px) {
+  .app-shell .field-workspace-panel {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .field-workspace-header { padding: 14px 14px 10px; align-items: center; gap: 8px; }
+  .field-workspace-header > div:first-child { min-width: 0; }
+  .field-workspace-header h1 { font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
+  .field-workspace-header p { font-size: 11px; line-height: 1.45; }
+  .field-workspace-header-actions { flex-shrink: 0; gap: 4px; }
+  .field-workspace-header-actions .secondary-action { padding: 7px; font-size: 11px; }
+  .field-workspace-close { width: 44px; height: 44px; flex-shrink: 0; }
+  .field-workspace-tabs {
+    width: 100%;
+    min-height: 46px;
+    gap: 20px;
+    padding: 0 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .field-workspace-tabs::-webkit-scrollbar { display:none; }
+  .field-workspace-tab { white-space: nowrap; min-height: 44px; flex-shrink: 0; font-size: 13px; }
+  .field-workspace-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .workspace-page { width: calc(100% - 24px); padding: 16px 0 32px; }
+  .workspace-page-title { flex-wrap: wrap; gap: 10px; }
+  .workspace-page-title h2 { font-size: 21px; }
+  .metric-imagery-section, .latest-activity-card { padding: 13px; }
+  .metric-preview-image { height: min(180px, 50vw); }
+  .activity-response-stats, .yield-active-meta { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .activity-spatial-card-meta { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .cross-satellite-timeline-heading, .metric-imagery-heading,
+  .activity-spatial-section-heading { flex-direction: column; gap: 8px; }
+  .cross-satellite-timeline-heading .satellite-recommendation { width: 100%; min-width: 0; }
+  .activity-response-layout { grid-template-columns:minmax(0,1fr); }
+  .activity-response-chart-card, .activity-response-summary { padding: 12px; min-width: 0; }
+  .before-after-chart { overflow-x: auto; }
+  .activity-spatial-pair { grid-template-columns:1fr; }
+  .past-activities-scroll { scroll-snap-type:x proximity; }
+  .past-activity-card { scroll-snap-align:start; }
+}
+@media (max-width: 380px) {
+  .field-workspace-header-actions .secondary-action { max-width: 100px; font-size: 10px; line-height: 1.2; }
+  .activity-response-stats,.yield-active-meta,.activity-spatial-card-meta { grid-template-columns:1fr; }
+}
+
+
+/* Local scroll, NOT viewport-wide overflow, for dense agronomic diagrams. */
+.field-raster-image {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.field-raster-image > img,
+.field-raster-image > svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.field-raster-image > img { object-fit: fill; }
+.field-raster-image > svg { pointer-events: none; }
+.field-raster-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #52635a;
+}
+@media (max-width: 760px) {
+  .field-workspace-panel,
+  .field-workspace-content,
+  .workspace-page,
+  .satellite-first-page,
+  .satellite-trends-panel,
+  .satellite-trends-grid,
+  .satellite-trend-chart-card,
+  .satellite-change-panel,
+  .satellite-change-spatial,
+  .satellite-change-raster-card,
+  .crop-growth-panel,
+  .crop-growth-summary,
+  .metric-imagery-section,
+  .metric-imagery-grid,
+  .weather-context-panel,
+  .radar-screen-panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .satellite-first-page > *,
+  .satellite-trends-grid > *,
+  .satellite-change-spatial > *,
+  .crop-growth-heading > *,
+  .crop-growth-summary > *,
+  .metric-imagery-grid > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .satellite-trends-panel,
+  .satellite-change-panel,
+  .crop-growth-panel,
+  .weather-context-panel,
+  .radar-screen-panel {
+    width: 100%;
+    padding: 12px;
+    overflow-x: clip;
+  }
+  /* The chart is intentionally scrollable INSIDE its own card. */
+  .satellite-trend-svg-wrap,
+  .weather-chart-scroll,
+  .crop-growth-stage-track,
+  .radar-screen-table-scroll {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .satellite-trend-svg {
+    width: max(100%, 540px);
+    max-width: none;
+    min-width: 540px;
+  }
+  .satellite-trend-chart-heading,
+  .crop-growth-heading,
+  .weather-context-heading,
+  .radar-interpretation-heading,
+  .radar-screen-heading {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .crop-growth-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .crop-growth-summary strong,
+  .crop-growth-heading p,
+  .satellite-trend-chart-heading p,
+  .satellite-trends-heading p {
+    overflow-wrap: anywhere;
+  }
+  .crop-growth-stage-track > * { flex: 0 0 133px; }
+  .activity-spatial-card-image,
+  .metric-preview-image { position: relative; width: 100%; max-width: 100%; }
+  .satellite-change-gradient {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 5px;
+  }
+}
+@media (max-width: 390px) {
+  .crop-growth-summary { grid-template-columns: minmax(0, 1fr); }
+  .satellite-trend-svg { min-width: 500px; width: 500px; }
+}

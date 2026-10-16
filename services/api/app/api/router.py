@@ -12,6 +12,7 @@ from app.api.routes import (
     weather,
     media,
     satellite_observations,
+    private_satellite_previews,
     radar_screening,
     whatsapp_webhook,
     whatsapp_link,
@@ -38,6 +39,7 @@ api_router.include_router(activities.router)
 api_router.include_router(media.router)
 
 api_router.include_router(satellite_observations.router)
+api_router.include_router(private_satellite_previews.router)
 
 api_router.include_router(radar_screening.router)
 
