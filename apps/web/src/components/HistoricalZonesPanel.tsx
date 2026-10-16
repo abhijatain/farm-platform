@@ -7,6 +7,12 @@ import "./HistoricalZonesPanel.css";
 type Props = { field: Field; cropCycle: CropCycle | null };
 
 type MapMode = "contrast" | "zones";
+type SavedOption = SavedHistoricalWindow & { all_crops: boolean };
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function savedName(key: string): string {
+  const match = /^month-(\d{2})-to-(\d{2})$/.exec(key);
+  return match ? `${MONTH_NAMES[Number(match[1])-1]}–${MONTH_NAMES[Number(match[2])-1]}` : "Crop-cycle window";
+}
 
 const CONTINUOUS: Array<[number, number, number]> = [
   [159, 31, 65], [226, 69, 50], [243, 157, 46],
@@ -130,15 +136,18 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   const [selected, setSelected] = useState<number[]>([]);
   const [combined, setCombined] = useState<SeasonalZoneGrid | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>("contrast");
-  const [periodMode, setPeriodMode] = useState<"crop" | "custom">("crop");
+  const [screen, setScreen] = useState<"saved" | "new">("saved");
+  const [openedSaved, setOpenedSaved] = useState<SavedOption | null>(null);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [periodMode, setPeriodMode] = useState<"crop" | "custom">("custom");
   const [startMonth, setStartMonth] = useState(8);
   const [endMonth, setEndMonth] = useState(10);
   const [allCrops, setAllCrops] = useState(true);
-  const [savedWindows, setSavedWindows] = useState<SavedHistoricalWindow[]>([]);
+  const [savedWindows, setSavedWindows] = useState<SavedOption[]>([]);
   const period = useMemo<HistoryWindow | undefined>(() => periodMode === "custom"
     ? {start_month:startMonth,end_month:endMonth,all_crops:allCrops} : undefined,
     [periodMode,startMonth,endMonth,allCrops]);
-  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthNames = MONTH_NAMES;
   const monthsDiff = (endMonth-startMonth+12)%12+1;
   const validPeriod = periodMode === "crop" || monthsDiff <= 8;
   const periodName = periodMode === "crop" ? "Same-crop growing calendar"
@@ -150,49 +159,101 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  // Reading and combining completed compact composites never starts a new
+  // satellite calculation. Only the explicit Calculate button queues work.
+  const savedKey = screen === "saved" ? openedSaved?.calendar_key : undefined;
   const refresh = useCallback(async () => {
-    if (!cropCycle) return;
-    const response = await getSeasonalZones(field.id, cropCycle.id, period);
+    if (!cropCycle || (screen === "saved" && !openedSaved)) return;
+    const response = await getSeasonalZones(field.id, cropCycle.id, period, savedKey);
     setData(response);
     return response;
-  }, [cropCycle?.id, field.id, period]);
+  }, [cropCycle?.id, field.id, period, savedKey, screen, openedSaved]);
 
+  useEffect(() => {
+    let active = true;
+    setSavedLoading(true);
+    setSavedWindows([]);
+    setOpenedSaved(null);
+    if (!cropCycle) { setSavedLoading(false); return; }
+    void Promise.all([
+      listSavedHistoricalWindows(field.id, cropCycle.id, false),
+      listSavedHistoricalWindows(field.id, cropCycle.id, true),
+    ]).then(([cropWindows, fieldWindows]) => {
+      if (!active) return;
+      const items: SavedOption[] = [
+        ...cropWindows.map(item => ({...item, all_crops:false})),
+        ...fieldWindows.map(item => ({...item, all_crops:true})),
+      ];
+      setSavedWindows(items.sort((a,b) =>
+        Number(b.completed_years.length > 0)-Number(a.completed_years.length > 0) ||
+        b.years.length-a.years.length || a.calendar_key.localeCompare(b.calendar_key)));
+    }).catch((e: unknown) => {
+      if (active) setError(e instanceof Error ? e.message : "Could not load saved analyses.");
+    }).finally(() => { if (active) setSavedLoading(false); });
+    return () => { active = false; };
+  }, [field.id, cropCycle?.id]);
+
+  // When a saved report is opened, load its exact stored key and select every
+  // completed year automatically. New reports default to two recent years.
   useEffect(() => {
     let active = true;
     setData(null);
     setSelected([]);
     setCombined(null);
-    setLoading(true);
+    setInfo(null);
+    setLoading(false);
     setError(null);
-    if (!cropCycle || !validPeriod) { setLoading(false); return; }
-    void getSeasonalZones(field.id, cropCycle.id, period).then((r) => {
-      if (active) {
-        setData(r);
-        setSelected(r.seasons.filter((s) => s.status === "completed").slice(0, 6).map((s) => s.year));
-      }
+    if (!cropCycle || !validPeriod || (screen === "saved" && !openedSaved)) return;
+    setLoading(true);
+    void getSeasonalZones(field.id, cropCycle.id, period, savedKey).then(result => {
+      if (!active) return;
+      setData(result);
+      const completed = result.seasons.filter(item => item.status === "completed").map(item => item.year).slice(0,6);
+      setSelected(screen === "saved" ? completed : completed.length ? completed : result.available_years.slice(0,2));
     }).catch((e: unknown) => {
       if (active) setError(e instanceof Error ? e.message : "Unable to load historical seasons.");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [field.id, cropCycle?.id, period, validPeriod]);
+  }, [field.id, cropCycle?.id, period, validPeriod, screen, openedSaved, savedKey]);
 
+  // Combine the SAVED averages on read; no worker or raw imagery is requested.
   useEffect(() => {
-    if (!cropCycle) { setSavedWindows([]); return; }
     let active = true;
-    void listSavedHistoricalWindows(field.id, cropCycle.id, periodMode === "custom" && allCrops)
-      .then(windows => { if (active) setSavedWindows(windows); })
-      .catch(() => { if (active) setSavedWindows([]); });
+    setCombined(null);
+    if (!cropCycle || !data || !selected.length || busy) return;
+    const completed = data.seasons.filter(row => selected.includes(row.year) && row.status === "completed");
+    if (completed.length !== selected.length) return;
+    void combineSeasonalZones(field.id, cropCycle.id, selected, period, savedKey)
+      .then(result => { if (active) setCombined(result); })
+      .catch((e: unknown) => {
+        if (active) setError(e instanceof Error ? e.message : "Unable to combine saved years.");
+      });
     return () => { active = false; };
-  }, [field.id, cropCycle?.id, data?.seasons.length, periodMode, allCrops]);
+  }, [field.id, cropCycle?.id, data, selected, period, savedKey, busy]);
 
-  // Poll status only; never calculate or queue jobs automatically.
+  // Status polling is read-only and only relevant to an opened/active period.
   useEffect(() => {
-    if (!cropCycle || !data?.seasons.some((s) => s.status === "pending" || s.status === "running")) return;
-    const handle = window.setInterval(() => {
+    if (!cropCycle || !data?.seasons.some(row => row.status === "pending" || row.status === "running")) return;
+    const interval = window.setInterval(() => {
       void refresh().catch(() => undefined);
     }, 10000);
-    return () => window.clearInterval(handle);
+    return () => window.clearInterval(interval);
   }, [cropCycle?.id, data?.seasons, refresh]);
+
+  function openSaved(item: SavedOption) {
+    const match = /^month-(\\d{2})-to-(\\d{2})$/.exec(item.calendar_key);
+    if (match) {
+      setStartMonth(Number(match[1]));
+      setEndMonth(Number(match[2]));
+      setPeriodMode("custom");
+    } else {
+      setPeriodMode("crop");
+    }
+    setAllCrops(item.all_crops);
+    setOpenedSaved(item);
+    setScreen("saved");
+  }
 
   const toggle = (year: number) => {
     setCombined(null);
@@ -216,15 +277,6 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
         : "Selected seasons have already been calculated or queued.");
       await refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to queue calculations."); }
-    finally { setBusy(false); }
-  }
-  async function combine() {
-    if (!cropCycle || busy || !selected.length || finished.length !== selected.length) return;
-    setBusy(true); setCombined(null); setError(null); setInfo(null);
-    try {
-      setCombined(await combineSeasonalZones(field.id, cropCycle.id, selected, period));
-      setInfo("Combined from saved seasonal averages only. No satellite source download was needed.");
-    } catch (e) { setError(e instanceof Error ? e.message : "Cannot combine these seasons."); }
     finally { setBusy(false); }
   }
   if (!cropCycle) return (
