@@ -268,7 +268,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
         {savedWindows.length > 0 && <div className="hz-saved-windows">
           <span>Saved analyses</span>
           {savedWindows.map(item => {
-            const match = /^month-(\\d{2})-to-(\\d{2})$/.exec(item.calendar_key);
+            const match = /^month-(\d{2})-to-(\d{2})$/.exec(item.calendar_key);
             return <button type="button" key={item.calendar_key}
               onClick={()=>{
                 if (match) {
