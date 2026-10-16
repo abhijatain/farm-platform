@@ -2581,3 +2581,17 @@ textarea.form-input {
   }
   .app-shell > .nav-rail .whatsapp-rail-button { flex:0 0 42px; }
 }
+
+@media (min-width:761px) {
+  /* Fixed rail slots prevent a tall fields list or overlay from pushing
+     WhatsApp and Sign out outside the viewport. */
+  .app-shell > .nav-rail { position: relative; padding-bottom: 112px; }
+  .app-shell > .nav-rail .logout-rail-button {
+    position: absolute; bottom: 10px; left: 8px;
+    margin: 0; height: 42px; width: 42px;
+  }
+  .app-shell > .nav-rail .whatsapp-rail-button {
+    position: absolute; bottom: 59px; left: 8px;
+    margin: 0; height: 42px; width: 42px;
+  }
+}
