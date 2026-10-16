@@ -111,6 +111,69 @@ real Firebase phone verification**, which creates a new Auth user/UID;
 do not manually invent a verified identity. Use that UID + E.164 number
 with the separate seed command below.
 
+## Alternative: manually erase Firebase and Cloud Storage
+
+If Cloud Storage inventory fails with HTTP **403** because the Firebase
+Admin service account cannot read `storage.buckets.get`, you do **not** need
+to grant that service account broader cloud roles merely to reset demo data.
+
+In your own Google Cloud Console, first check that `jatain-farm` belongs
+exclusively to the disposable Farm Platform demo. Navigate to **Cloud Storage
+→ Buckets → jatain-farm → Objects**, select and delete only the demo objects.
+Review bucket versioning and soft-delete/retention rules and check noncurrent
+generations before considering the deletion complete. Keep the bucket itself,
+its IAM policy and application configuration. If the bucket contains any
+non-demo objects, delete only the owned object prefixes instead of everything.
+
+In Firebase Console, open **Authentication → Users** for the confirmed
+project `farm-ef16c`. Delete only the disposable demo users. If you want to
+keep the already verified test login for seeding, **leave that user in
+Firebase Auth** and obtain its UID. If all are deleted, sign in via the normal
+Firebase phone-auth flow once more to recreate the test account before
+running the seed. Do not delete the Firebase project or disable Phone login.
+
+For PostgreSQL you can now run a **separate database-only inventory** with
+*no Firebase or GCS calls whatsoever*:
+
+```bash
+cd services/api
+uv run python -m app.cli.reset_test_data --database-only
+```
+
+The returned database host and name must match the intended disposable
+database. Stop FastAPI and all workers before erasing, and take a backup if
+there's anything you wish to recover. For the currently confirmed local
+development database, run:
+
+```bash
+uv run python -m app.cli.reset_test_data \
+  --database-only --apply \
+  --confirm-db-host "localhost" \
+  --confirm-db-name "farmdb" \
+  --acknowledge "PERMANENTLY ERASE FARM PLATFORM DATABASE DATA"
+```
+
+The command verifies the exact database name and host plus the nonproduction
+environment, accepts only known Farm Platform application tables and the
+structurally verified abandoned `whatsapp_outbox` table, and truncates those
+tables without `CASCADE`. It **does not contact or delete** Firebase users
+or Cloud Storage objects, and verifies that application rows are zero.
+The database schema, PostGIS system tables and `alembic_version` are
+preserved.
+
+**Important migration caveat:** An old WhatsApp-only branch may have left
+an `alembic_version` revision that does not exist in `main`.
+After the data reset, inspect `SELECT version_num FROM alembic_version;`
+and reconcile the migration graph *before* blindly running
+`alembic upgrade head` or `alembic stamp`. Truncating rows alone does
+not repair an orphaned migration revision.
+
+**Subsequent ingestion caveat:** Manually deleting old GCS objects does not
+give the satellite ingestion worker permission to upload fresh rasters.
+Ensure the worker's *separate* GCS identity has correctly scoped object
+write/read privileges before starting historical backfill. Avoid
+granting broad bucket-admin permissions to Firebase Auth identities.
+
 ## Seed commands (from services/api)
 
 Preview with your local boundary file (no DB or cloud I/O):
