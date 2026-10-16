@@ -46,6 +46,7 @@ def _data(row, boundary_hash: str):
         "id": str(row.id), "year": row.year, "status": row.status if row.boundary_hash == boundary_hash else "stale_boundary",
         "start_date": row.start_date.isoformat(), "end_date": row.end_date.isoformat(),
         "season_label": row.season_label, "crop_key": row.crop_key,
+        "window_source": row.window_source,
         "error": row.error if row.boundary_hash == boundary_hash else "Field boundary has changed. Recalculate explicitly.",
         "result": row.result_json if row.boundary_hash == boundary_hash and row.status == "completed" else None,
     }
@@ -92,6 +93,23 @@ def calculate_seasonal_zones(
         except ValueError:
             start_date = date(year, 2, 28)
         end_date = start_date + timedelta(days=duration)
+        window_source = "reference_calendar"
+        # Use the actual recorded crop cycle when one exists for this field,
+        # crop and starting year. Otherwise be explicit that dates are inferred.
+        previous_cycles = db.scalars(select(CropCycle).where(
+            CropCycle.field_id == field_id,
+            CropCycle.started_on >= date(year, 1, 1),
+            CropCycle.started_on <= date(year, 12, 31),
+        ).order_by(CropCycle.started_on)).all()
+        for prior in previous_cycles:
+            if " ".join(prior.crop_name.strip().lower().split()) != crop:
+                continue
+            prior_start = prior.planted_on or prior.started_on
+            prior_end = prior.harvested_on or prior.expected_harvest_on
+            if prior_end and 30 <= (prior_end - prior_start).days <= 240:
+                start_date, end_date = prior_start, prior_end
+                window_source = "recorded_crop_cycle"
+                break
         if end_date >= _today():
             raise HTTPException(status_code=422, detail="A selected growing season has not finished.")
         row = existing.get(year)
@@ -109,11 +127,13 @@ def calculate_seasonal_zones(
             row.boundary_hash = hash_
             row.status = "pending"
             row.start_date, row.end_date = start_date, end_date
+            row.window_source = window_source
         else:
             row = SeasonalZoneComposite(
                 field_id=field_id, crop_key=crop, calendar_key=key,
                 season_label=f"{cycle.crop_name} {year}", year=year,
                 start_date=start_date, end_date=end_date,
+                window_source=window_source,
                 boundary_hash=hash_, status="pending",
             )
             db.add(row)
