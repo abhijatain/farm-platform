@@ -778,6 +778,9 @@ export type RelativeZone = {
   id: string;
   classification: string;
   stability: string;
+  stability_score: number;
+  centroid: number[];
+  visit_point: number[];
   area_acres: number;
   geometry: { type: "Polygon" | "MultiPolygon"; coordinates: number[][][] | number[][][][] };
   interpretation: string;
