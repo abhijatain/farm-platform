@@ -3,10 +3,10 @@ import { getCropPhenologyIntelligence, getFieldObservationIntelligence } from ".
 import type { CropCycle, CropPhenologyIntelligence, Field, FieldObservationIntelligence } from "../types/api";
 import "./FieldIntelligencePanel.css";
 
-type Props = { field: Field; cropCycle: CropCycle | null };
+type Props = { field: Field; cropCycle: CropCycle | null; section: "radar" | "growth" };
 const fmt = (v: number | null) => v == null ? "—" : v.toFixed(3);
 
-export default function FieldIntelligencePanel({ field, cropCycle }: Props) {
+export default function FieldIntelligencePanel({ field, cropCycle, section }: Props) {
   const [sensors, setSensors] = useState<FieldObservationIntelligence | null>(null);
   const [sensorError, setSensorError] = useState<string | null>(null);
   const [phenology, setPhenology] = useState<CropPhenologyIntelligence | null>(null);
@@ -15,17 +15,18 @@ export default function FieldIntelligencePanel({ field, cropCycle }: Props) {
   useEffect(() => {
     let active = true;
     setSensors(null); setSensorError(null);
+    if (section !== "radar") return;
     void getFieldObservationIntelligence(field.id).then(v => {
       if (active) setSensors(v);
     }).catch((e: unknown) => {
       if (active) setSensorError(e instanceof Error ? e.message : "Unavailable");
     });
     return () => { active = false; };
-  }, [field.id, refresh]);
+  }, [field.id, refresh, section]);
   useEffect(() => {
     let active = true;
     setPhenology(null); setPhenologyError(null);
-    if (cropCycle) {
+    if (cropCycle && section === "growth") {
       void getCropPhenologyIntelligence(cropCycle.id).then(v => {
         if (active) setPhenology(v);
       }).catch((e: unknown) => {
@@ -33,20 +34,19 @@ export default function FieldIntelligencePanel({ field, cropCycle }: Props) {
       });
     }
     return () => { active = false; };
-  }, [cropCycle?.id, refresh]);
+  }, [cropCycle?.id, refresh, section]);
 
   return (
     <section className="intelligence-panel">
       <div className="intelligence-heading">
         <div>
-          <span className="workspace-eyebrow">SATELLITE INTELLIGENCE</span>
-          <h3>Comparable optical, radar & crop growth</h3>
-          <p>Two-pass comparisons use existing recent observations. Multi-year
-            analysis has moved to the separate Historical Zones tab and never starts automatically.</p>
+          <span className="workspace-eyebrow">{section === "radar" ? "SATELLITE COMPARISONS" : "CROP INTELLIGENCE"}</span>
+          <h3>{section === "radar" ? "Compare observations on separate dates" : "Which growth stage is the crop in?"}</h3>
+          <p>{section === "radar" ? "Compare usable Sentinel-1 passes from the same orbit. Optical measurements are also shown as context. Values alone do not diagnose crop problems." : "Farmer-confirmed stages are preferred. Approximate calendars and comparisons with earlier seasons are estimates, not verified growth stages."}</p>
         </div>
-        <button type="button" onClick={() => setRefresh(n => n + 1)}>Refresh comparisons</button>
+        <button type="button" onClick={() => setRefresh(n => n + 1)}>Refresh information</button>
       </div>
-      <section className="intelligence-block">
+      {section === "radar" && <section className="intelligence-block">
         <h4>Radar and optical date comparisons</h4>
         {sensorError && <p className="intelligence-error" role="alert">{sensorError}</p>}
         {!sensors && !sensorError && <p className="intelligence-muted">Loading comparisons…</p>}
@@ -63,8 +63,8 @@ export default function FieldIntelligencePanel({ field, cropCycle }: Props) {
             </tr>)}</tbody>
           </table></div>)}
         {sensors?.notes.map(note => <p className="intelligence-muted" key={note}>{note}</p>)}
-      </section>
-      {cropCycle && <section className="intelligence-block">
+      </section>}
+      {section === "growth" && cropCycle && <section className="intelligence-block">
         <h4>Growth-stage interpretation</h4>
         {phenologyError && <p className="intelligence-error" role="alert">{phenologyError}</p>}
         {!phenology && !phenologyError && <p className="intelligence-muted">Loading crop context…</p>}
