@@ -501,7 +501,7 @@ export function getCropPhenologyIntelligence(cropCycleId: string) {
 }
 
 /* Historical season processing is strictly user-triggered. */
-export type HistoryWindow = {start_month: number; end_month: number};
+export type HistoryWindow = {start_month: number; end_month: number; all_crops?: boolean};
 export type SavedHistoricalWindow = {
   calendar_key: string;
   years: number[];
@@ -511,9 +511,9 @@ export type SavedHistoricalWindow = {
 function historyWindowParams(window?: HistoryWindow) {
   return window ? { start_month: window.start_month, end_month: window.end_month } : {};
 }
-export function listSavedHistoricalWindows(fieldId: string, cropCycleId: string) {
+export function listSavedHistoricalWindows(fieldId: string, cropCycleId: string, allCrops = false) {
   return apiRequest<SavedHistoricalWindow[]>(
-    `/fields/${encodeURIComponent(fieldId)}/seasonal-zone-windows?crop_cycle_id=${encodeURIComponent(cropCycleId)}`,
+    `/fields/${encodeURIComponent(fieldId)}/seasonal-zone-windows?crop_cycle_id=${encodeURIComponent(cropCycleId)}&all_crops=${allCrops}`,
   );
 }
 export function getSeasonalZones(fieldId: string, cropCycleId: string, window?: HistoryWindow) {
@@ -522,6 +522,7 @@ export function getSeasonalZones(fieldId: string, cropCycleId: string, window?: 
     ...(window ? {
       start_month: String(window.start_month),
       end_month: String(window.end_month),
+      all_crops: String(window.all_crops ?? false),
     } : {}),
   });
   return apiRequest<SeasonalZonesResponse>(
