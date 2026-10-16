@@ -143,16 +143,17 @@ export default function FieldIntelligencePanel({ field, cropCycle }: Props) {
           spatialError ? <p className="intelligence-error" role="alert">{spatialError}</p> :
           spatial ? <>
             <p className="intelligence-muted">
-              {spatial.observation_count} usable optical dates across {spatial.year_count} years
+              {spatial.observation_count} sampled usable optical dates across {spatial.year_count} years
               {spatial.date_range ? " · " + formatDate(spatial.date_range[0]) + " – " + formatDate(spatial.date_range[1]) : ""}
               {spatial.cell_size_m != null ? " · " + spatial.cell_size_m + " m analysis cells" : ""}
             </p>
+            {display === "tracking" && spatial.recent_dates.length > 0 && <p className="intelligence-muted">Latest three qualifying dates: {spatial.recent_dates.map(formatDate).join(" · ")}</p>}
             <ZoneMap field={field} zones={spatial.zones} tracks={spatial.tracking} show={display} />
             <div className="intelligence-legend">
               {display === "history" ? <>
                 <span><i className="low"/>Repeated relative low</span><span><i className="high"/>Repeated relative high</span>
               </> : <>
-                <span><i className="new"/>New</span><span><i className="persistent"/>Persistent</span><span><i className="resolved"/>Resolved</span>
+                <span><i className="new"/>New</span><span><i className="persistent"/>Persistent</span><span><i className="recurring"/>Recurring</span><span><i className="resolved"/>Resolved</span>
               </>}
             </div>
             {selected.length > 0 && <div className="intelligence-zone-rows">
