@@ -2541,7 +2541,7 @@ textarea.form-input {
 }
 .field-thumbnail-unavailable { font-size: 8px; color: #8b958e; text-align: center; }
 .nav-rail .desktop-rail-button.active { color: #177d47; background:#dff3e5; }
-.nav-rail .logout-rail-button { margin-top: auto; flex: 0 0 auto; }
+.nav-rail .logout-rail-button { flex: 0 0 auto; }
 .nav-rail .rail-button:focus-visible { outline: 3px solid #7fbba0; outline-offset: 1px; }
 @media (max-width: 760px) {
   .app-shell { grid-template-columns:minmax(0,1fr) !important; }
@@ -2571,27 +2571,45 @@ textarea.form-input {
  .farm-onboarding-guide p{font-size:12px;}
 }
 
-/* The rail remains above panels, with sign-out pinned at its bottom. */
-@media (min-width:761px) {
-  .app-shell > .nav-rail { height:100%; min-height:0; z-index:90; }
-  .app-shell > .nav-rail .rail-spacer { flex:1 1 0; min-height:0; }
-  .app-shell > .nav-rail .logout-rail-button {
-    display:grid; place-items:center; margin-top:auto;
-    flex:0 0 42px; visibility:visible;
-  }
-  .app-shell > .nav-rail .whatsapp-rail-button { flex:0 0 42px; }
-}
 
-@media (min-width:761px) {
-  /* Fixed rail slots prevent a tall fields list or overlay from pushing
-     WhatsApp and Sign out outside the viewport. */
-  .app-shell > .nav-rail { position: relative; padding-bottom: 112px; }
-  .app-shell > .nav-rail .logout-rail-button {
-    position: absolute; bottom: 10px; left: 8px;
-    margin: 0; height: 42px; width: 42px;
+
+/* Desktop account controls live near the TOP of the rail. No bottom-based
+   positioning: that could fall below or be clipped by the screen's viewport. */
+@media (min-width: 761px) {
+  .app-shell > .nav-rail { z-index: 90; height: 100%; min-height: 0; }
+  .app-shell > .nav-rail .rail-account-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-top: 7px;
+    padding-top: 10px;
+    width: 100%;
+    border-top: 1px solid #dbe3dd;
   }
-  .app-shell > .nav-rail .whatsapp-rail-button {
-    position: absolute; bottom: 59px; left: 8px;
-    margin: 0; height: 42px; width: 42px;
+  .app-shell > .nav-rail .rail-account-actions > .rail-button {
+    position: static;
+    display: flex;
+    flex: 0 0 58px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 48px;
+    height: 58px;
+    margin: 0;
+    color: #405b47;
+    font-size: 10px;
+    font-weight: 650;
   }
+  .app-shell > .nav-rail .rail-account-actions > .logout-rail-button {
+    color: #80504c;
+  }
+  .nav-rail .desktop-nav-label { display: block; font-size: 9px; line-height: 1.1; }
+}
+/* The same account actions remain two items of the bottom nav on phones. */
+@media (max-width: 760px) {
+  .app-shell > .nav-rail .rail-account-actions { display: contents; }
+  .nav-rail .desktop-nav-label { display: none; }
 }
