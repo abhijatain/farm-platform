@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { calculateSeasonalZones, combineSeasonalZones, getSeasonalZones } from "../lib/api";
+import { calculateSeasonalZones, combineSeasonalZones, getSeasonalZones, listFieldCropCycles } from "../lib/api";
 import type { CropCycle, Field, SeasonalZoneGrid, SeasonalZonesResponse } from "../types/api";
 import "./HistoricalZonesPanel.css";
 
@@ -44,7 +44,7 @@ function SeasonalBoundaryMap({ grid, title }: { grid: SeasonalZoneGrid; title: s
 function fmt(value: number | null | undefined) {
   return value == null ? "—" : value.toFixed(3);
 }
-export default function HistoricalZonesPanel({ field, cropCycle }: Props) {
+function HistoricalZonesContent({ field, cropCycle }: Props) {
   const [data, setData] = useState<SeasonalZonesResponse | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [combined, setCombined] = useState<SeasonalZoneGrid | null>(null);
@@ -204,4 +204,46 @@ export default function HistoricalZonesPanel({ field, cropCycle }: Props) {
       <p className="hz-disclaimer">Zones are relative NDVI differences (±0.08 around each map’s field average), not measured yield, soil tests or evidence of disease. Each selected year contributes equally to the combined map. A field with fewer than three usable scenes is marked failed rather than given a fabricated seasonal average.</p>
     </section>
   );
+}
+
+
+/** Choose which crop and reference growing-season calendar should anchor history. */
+export default function HistoricalZonesPanel({ field, cropCycle }: Props) {
+  const [options, setOptions] = useState<CropCycle[]>([]);
+  const [chosenId, setChosenId] = useState(cropCycle?.id ?? "");
+  const [optionError, setOptionError] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    setOptions([]);
+    setChosenId(cropCycle?.id ?? "");
+    setOptionError(null);
+    void listFieldCropCycles(field.id).then((rows) => {
+      if (!active) return;
+      setOptions(rows);
+      setChosenId((previous) =>
+        rows.some((row) => row.id === previous) ? previous :
+        (cropCycle && rows.some((row) => row.id === cropCycle.id) ? cropCycle.id : rows[0]?.id ?? "")
+      );
+    }).catch((e: unknown) => {
+      if (active) setOptionError(e instanceof Error ? e.message : "Unable to load field crop cycles.");
+    });
+    return () => { active = false; };
+  }, [field.id, cropCycle?.id]);
+  const current = options.find((cycle) => cycle.id === chosenId)
+    ?? (cropCycle && chosenId === cropCycle.id ? cropCycle : null);
+  return <>
+    {options.length > 0 && <div className="workspace-page hz-reference-select">
+      <label>
+        <span>Crop and reference growing season</span>
+        <select value={chosenId} onChange={(event) => setChosenId(event.target.value)}>
+          {options.map((cycle) => <option value={cycle.id} key={cycle.id}>
+            {cycle.crop_name} {cycle.variety ? "· " + cycle.variety : ""}
+            {" · " + (cycle.planted_on ?? cycle.started_on)}
+          </option>)}
+        </select>
+      </label>
+    </div>}
+    {optionError && <p className="hz-error" role="alert">{optionError}</p>}
+    <HistoricalZonesContent field={field} cropCycle={current} />
+  </>;
 }
