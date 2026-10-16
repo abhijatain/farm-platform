@@ -10,6 +10,7 @@ from app.api.routes import (
     farms,
     fields,
     field_intelligence,
+    seasonal_zones,
     weather,
     media,
     satellite_observations,
@@ -41,6 +42,7 @@ api_router.include_router(media.router)
 
 api_router.include_router(satellite_observations.router)
 api_router.include_router(field_intelligence.router)
+api_router.include_router(seasonal_zones.router)
 api_router.include_router(private_satellite_previews.router)
 
 api_router.include_router(radar_screening.router)
