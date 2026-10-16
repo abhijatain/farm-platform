@@ -508,7 +508,7 @@ export default function FieldDetailsPanel({
   ]);
 
   const visibleTimeline = useMemo(() => {
-    if (!season) {
+    if (!season && !viewCycle) {
       return [];
     }
 
@@ -706,7 +706,7 @@ export default function FieldDetailsPanel({
           />
         )}
 
-        {activeTab === "historical" && <HistoricalZonesPanel field={field} viewCycle={viewCycle} />}
+        {activeTab === "historical" && <HistoricalZonesPanel field={field} cropCycle={viewCycle} />}
 
         {activeTab === "activities" && (
           <ActivitiesTab
@@ -741,7 +741,7 @@ export default function FieldDetailsPanel({
             farm={farm}
             field={field}
             season={season}
-            viewCycle={viewCycle}
+            cropCycle={viewCycle}
             timeline={timeline}
             observations={satelliteObservations}
             timelineLoading={loading}
@@ -765,7 +765,7 @@ export default function FieldDetailsPanel({
       {viewCycle && viewCycle.status === "active" && activityForm && (
         <ActivityDialog
           field={field}
-          viewCycle={viewCycle}
+          cropCycle={viewCycle}
           onClose={() => setActivityForm(false)}
           onSaved={refreshAll}
         />
@@ -774,7 +774,7 @@ export default function FieldDetailsPanel({
       {viewCycle && viewCycle.status === "active" && harvestForm && (
         <HarvestDialog
           field={field}
-          viewCycle={viewCycle}
+          cropCycle={viewCycle}
           onClose={() => setHarvestForm(false)}
           onSaved={refreshAll}
         />
