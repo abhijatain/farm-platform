@@ -33,6 +33,7 @@ import type {
 type Props = {
   fieldId: string;
   cropCycle: CropCycle | null;
+  section?: "trends" | "radar" | "growth" | "quality";
 };
 
 
@@ -1882,6 +1883,7 @@ function RadarTrendPanel({
 export default function SatelliteTrendCharts({
   fieldId,
   cropCycle,
+  section = "trends",
 }: Props) {
   const [
     trends,
@@ -2254,18 +2256,22 @@ export default function SatelliteTrendCharts({
       <div className="satellite-trends-heading">
         <div>
           <span className="workspace-eyebrow">
-            FIELD TRENDS
+            {section === "trends" ? "SATELLITE TRENDS"
+              : section === "radar" ? "ALL-WEATHER OBSERVATIONS"
+              : section === "growth" ? "GROWTH & WEATHER"
+              : "DATA QUALITY"}
           </span>
-
-          <h3>
-            Satellite trends and farm activities
-          </h3>
-
-          <p>
-            Satellite observations use their actual acquisition dates.
-            Activity markers show when irrigation, fertilizer, spraying
-            and other field work occurred.
-          </p>
+          <h3>{section === "trends" ? "How the field changes over time"
+            : section === "radar" ? "Radar observations and screening"
+            : section === "growth" ? "Crop development and weather"
+            : "Are these satellite observations reliable?"}</h3>
+          <p>{section === "trends"
+            ? "NDVI measures relative green canopy, NDRE is red-edge sensitive, and NDMI responds to canopy water content. Look for trends, not instant diagnoses."
+            : section === "radar"
+              ? "Sentinel-1 sees through clouds. Compare the same orbit and interpret radar changes in crop-stage context."
+              : section === "growth"
+                ? "Record the stages you actually observe. Weather and estimated crop calendars provide context, not proof of crop health."
+                : "Clouds, missing pixels and scene availability affect how confidently satellite measurements can be compared."}</p>
         </div>
 
         {trends && (
@@ -2298,7 +2304,7 @@ export default function SatelliteTrendCharts({
         && !error
         && trends && (
         <div className="satellite-trends-grid">
-          {cropCycle && (
+          {section === "growth" && cropCycle && (
             <CropGrowthStagePanel
               cropCycle={cropCycle}
               growth={growth}
@@ -2307,7 +2313,7 @@ export default function SatelliteTrendCharts({
               onChanged={refreshGrowthStages}
             />
           )}
-          <TrendChart
+          {section === "trends" && <TrendChart
             title="Optical crop signals"
             stageMarkers={growth?.observations ?? []}
             subtitle="NDVI, NDRE and NDMI on one comparable index scale."
@@ -2325,16 +2331,16 @@ export default function SatelliteTrendCharts({
             }
             valueLabel="Index value"
             emptyMessage="No NDVI, NDRE or NDMI observations are available in this period."
-          />
+          />}
 
-          <RadarTrendPanel
+          {section === "radar" && <RadarTrendPanel
             trends={trends}
             weather={weather}
             stageMarkers={growth?.observations ?? []}
             selectedOrbitKey={selectedRadarOrbit}
             onSelectOrbit={setSelectedRadarOrbit}
-          />
-          {cropCycle && !growthLoading && (
+          />}
+          {section === "radar" && cropCycle && !growthLoading && (
             <RadarScreeningPanel
               selectedOrbitKey={selectedRadarOrbit}
               cropCycleId={cropCycle.id}
@@ -2345,16 +2351,16 @@ export default function SatelliteTrendCharts({
               }
             />
           )}
-          <WeatherContextPanel
+          {section === "growth" && <WeatherContextPanel
             weather={weather}
             loading={weatherLoading}
             error={weatherError}
             activities={trends.activities}
             startDate={trends.start_date}
             endDate={trends.end_date}
-          />
+          />}
 
-          <TrendChart
+          {section === "trends" && <TrendChart
             title="Surface temperature"
             subtitle="Landsat land-surface temperature trend."
             series={
@@ -2373,7 +2379,7 @@ export default function SatelliteTrendCharts({
             emptyMessage="No Landsat surface-temperature observations are available in this period."
           />
 
-          <article className="satellite-trend-chart-with-control">
+          {section === "trends" && <article className="satellite-trend-chart-with-control">
             <div className="satellite-trend-inline-control">
               <label>
                 <span>
@@ -2433,9 +2439,9 @@ export default function SatelliteTrendCharts({
               }
               emptyMessage="No anomaly history is available for this metric in this period."
             />
-          </article>
+          </article>}
 
-          <article className="satellite-trend-chart-with-control">
+          {section === "quality" && <article className="satellite-trend-chart-with-control">
             <div className="satellite-trend-inline-control">
               <label>
                 <span>
@@ -2498,7 +2504,7 @@ export default function SatelliteTrendCharts({
               }
               emptyMessage="No coverage history is available for this metric in this period."
             />
-          </article>
+          </article>}
         </div>
       )}
     </section>
