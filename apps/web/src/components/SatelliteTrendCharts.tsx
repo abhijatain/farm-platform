@@ -2377,7 +2377,7 @@ export default function SatelliteTrendCharts({
             }
             valueLabel="°C"
             emptyMessage="No Landsat surface-temperature observations are available in this period."
-          />
+           />}
 
           {section === "trends" && <article className="satellite-trend-chart-with-control">
             <div className="satellite-trend-inline-control">
