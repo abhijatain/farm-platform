@@ -6,6 +6,8 @@ import {
   Sprout,
 } from "lucide-react";
 
+import { whatsappEnabled } from "../lib/featureFlags";
+
 import {
   useAuth,
 } from "../providers/AuthProvider";
@@ -58,17 +60,19 @@ export default function NavRail({ onOpenWhatsApp, mobileView, onMobileViewChange
       </button>
 
       <div className="rail-account-actions" aria-label="Account actions">
-        <button
-          type="button"
-          className="rail-button whatsapp-rail-button"
-          onClick={onOpenWhatsApp}
-          title="WhatsApp linking"
-          aria-label="Connect WhatsApp account"
-        >
-          <MessageCircle size={22} />
-          <span className="mobile-nav-label">WhatsApp</span>
-          <span className="desktop-nav-label">WhatsApp</span>
-        </button>
+        {whatsappEnabled && (
+          <button
+            type="button"
+            className="rail-button whatsapp-rail-button"
+            onClick={onOpenWhatsApp}
+            title="WhatsApp linking"
+            aria-label="Connect WhatsApp account"
+          >
+            <MessageCircle size={22} />
+            <span className="mobile-nav-label">WhatsApp</span>
+            <span className="desktop-nav-label">WhatsApp</span>
+          </button>
+        )}
         <button
           type="button"
           className="rail-button logout-rail-button"

@@ -56,6 +56,8 @@ import type {
   MapMode,
 } from "../types/map";
 
+import { whatsappEnabled } from "../lib/featureFlags";
+
 
 function chooseDefaultSeason(
   seasons: Season[],
@@ -1077,7 +1079,7 @@ export default function FarmWorkspace() {
       </main>
 
 
-      {whatsAppOpen && (
+      {whatsappEnabled && whatsAppOpen && (
         <WhatsAppLinkDialog onClose={() => setWhatsAppOpen(false)} />
       )}
 

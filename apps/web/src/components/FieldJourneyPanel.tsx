@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CropCycle, CropGrowth, Field, Season, TimelineItem } from "../types/api";
+import FieldJourneyExplorer from "./FieldJourneyExplorer";
+import type { CropCycle, CropGrowth, Field, Season, TimelineItem, SatelliteObservation } from "../types/api";
 import { getCropGrowthStages, updateCropCyclePlan } from "../lib/api";
 import { localDateInputValue } from "../lib/dates";
 import "./FieldJourneyPanel.css";
@@ -11,6 +12,9 @@ type Props = {
   cycles: CropCycle[];
   timeline: TimelineItem[];
   loading: boolean;
+  satelliteObservations: SatelliteObservation[];
+  satelliteLoading: boolean;
+  satelliteError: string | null;
   onSelectCycle: (id: string) => void;
   onStart: () => void;
   onActivity: () => void;
@@ -44,7 +48,8 @@ function activityName(code: string) {
 }
 
 export default function FieldJourneyPanel({
-  field,season,cycle,cycles,timeline,loading,onSelectCycle,
+  field,season,cycle,cycles,timeline,loading,
+  satelliteObservations,satelliteLoading,satelliteError,onSelectCycle,
   onStart,onActivity,onHarvest,onGrowth,onTrends,onHistory,onSaved,
 }: Props) {
   const [growth, setGrowth] = useState<CropGrowth | null>(null);
@@ -144,6 +149,11 @@ export default function FieldJourneyPanel({
         "Create a farm season from the field list first. Each crop cycle belongs to that farm season."}</p>
       {season && <button type="button" className="primary-action" onClick={onStart}>Start crop plan</button>}
     </div> : <>
+      <FieldJourneyExplorer
+        field={field} cycle={cycle} observations={satelliteObservations}
+        activities={cycleActivities} loading={satelliteLoading}
+        error={satelliteError}
+      />
       <div className="journey-progress" aria-label="Crop cycle progress">
         {milestones.map((step,index)=><div className={"journey-step "+(step.complete?"done":"")} key={step.name}>
           <span className="journey-step-number">{step.complete?"✓":index+1}</span>

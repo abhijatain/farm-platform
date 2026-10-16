@@ -7,6 +7,12 @@ import "./HistoricalZonesPanel.css";
 type Props = { field: Field; cropCycle: CropCycle | null };
 
 type MapMode = "contrast" | "zones";
+type SavedOption = SavedHistoricalWindow & { all_crops: boolean };
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function savedName(key: string): string {
+  const match = /^month-(\d{2})-to-(\d{2})$/.exec(key);
+  return match ? `${MONTH_NAMES[Number(match[1])-1]}–${MONTH_NAMES[Number(match[2])-1]}` : "Crop-cycle window";
+}
 
 const CONTINUOUS: Array<[number, number, number]> = [
   [159, 31, 65], [226, 69, 50], [243, 157, 46],
@@ -130,15 +136,19 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   const [selected, setSelected] = useState<number[]>([]);
   const [combined, setCombined] = useState<SeasonalZoneGrid | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>("contrast");
-  const [periodMode, setPeriodMode] = useState<"crop" | "custom">("crop");
+  const [screen, setScreen] = useState<"saved" | "new">("saved");
+  const [openedSaved, setOpenedSaved] = useState<SavedOption | null>(null);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const [periodMode, setPeriodMode] = useState<"crop" | "custom">("custom");
   const [startMonth, setStartMonth] = useState(8);
   const [endMonth, setEndMonth] = useState(10);
   const [allCrops, setAllCrops] = useState(true);
-  const [savedWindows, setSavedWindows] = useState<SavedHistoricalWindow[]>([]);
+  const [savedWindows, setSavedWindows] = useState<SavedOption[]>([]);
   const period = useMemo<HistoryWindow | undefined>(() => periodMode === "custom"
     ? {start_month:startMonth,end_month:endMonth,all_crops:allCrops} : undefined,
     [periodMode,startMonth,endMonth,allCrops]);
-  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthNames = MONTH_NAMES;
   const monthsDiff = (endMonth-startMonth+12)%12+1;
   const validPeriod = periodMode === "crop" || monthsDiff <= 8;
   const periodName = periodMode === "crop" ? "Same-crop growing calendar"
@@ -148,62 +158,137 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
 
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [combining, setCombining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const refresh = useCallback(async () => {
-    if (!cropCycle) return;
-    const response = await getSeasonalZones(field.id, cropCycle.id, period);
-    setData(response);
-    return response;
-  }, [cropCycle?.id, field.id, period]);
 
+  // Reading and combining completed compact composites never starts a new
+  // satellite calculation. Only the explicit Calculate button queues work.
+  const savedKey = screen === "saved" ? openedSaved?.calendar_key : undefined;
+  const refresh = useCallback(async () => {
+    if (!cropCycle || (screen === "saved" && !openedSaved)) return;
+    const response = await getSeasonalZones(field.id, cropCycle.id, period, savedKey);
+    setData(response);
+    if (screen === "saved") {
+      const next = response.seasons.filter(row => row.status === "completed").slice(0,6).map(row=>row.year);
+      setSelected(previous => previous.join(",") === next.join(",") ? previous : next);
+    }
+    return response;
+  }, [cropCycle?.id, field.id, period, savedKey, screen, openedSaved]);
+
+  useEffect(() => {
+    let active = true;
+    setSavedLoading(true);
+    setSavedWindows([]);
+    setOpenedSaved(null);
+    if (!cropCycle) { setSavedLoading(false); return; }
+    void Promise.all([
+      listSavedHistoricalWindows(field.id, cropCycle.id, false),
+      listSavedHistoricalWindows(field.id, cropCycle.id, true),
+    ]).then(([cropWindows, fieldWindows]) => {
+      if (!active) return;
+      const items: SavedOption[] = [
+        ...cropWindows.map(item => ({...item, all_crops:false})),
+        ...fieldWindows.map(item => ({...item, all_crops:true})),
+      ];
+      setSavedWindows(items.sort((a,b) =>
+        Number(b.completed_years.length > 0)-Number(a.completed_years.length > 0) ||
+        b.years.length-a.years.length || a.calendar_key.localeCompare(b.calendar_key)));
+    }).catch((e: unknown) => {
+      if (active) setError(e instanceof Error ? e.message : "Could not load saved analyses.");
+    }).finally(() => { if (active) setSavedLoading(false); });
+    return () => { active = false; };
+  }, [field.id, cropCycle?.id]);
+
+  // When a saved report is opened, load its exact stored key and select every
+  // completed year automatically. New reports default to two recent years.
   useEffect(() => {
     let active = true;
     setData(null);
     setSelected([]);
     setCombined(null);
-    setLoading(true);
+    setInfo(null);
+    setLoading(false);
     setError(null);
-    if (!cropCycle || !validPeriod) { setLoading(false); return; }
-    void getSeasonalZones(field.id, cropCycle.id, period).then((r) => {
-      if (active) {
-        setData(r);
-        setSelected(r.seasons.filter((s) => s.status === "completed").slice(0, 6).map((s) => s.year));
-      }
+    if (!cropCycle || !validPeriod || (screen === "saved" && !openedSaved)) return;
+    setLoading(true);
+    void getSeasonalZones(field.id, cropCycle.id, period, savedKey).then(result => {
+      if (!active) return;
+      setData(result);
+      const completed = result.seasons.filter(item => item.status === "completed").map(item => item.year).slice(0,6);
+      setSelected(screen === "saved" ? completed : completed.length ? completed : result.available_years.slice(0,2));
     }).catch((e: unknown) => {
       if (active) setError(e instanceof Error ? e.message : "Unable to load historical seasons.");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [field.id, cropCycle?.id, period, validPeriod]);
+  }, [field.id, cropCycle?.id, period, validPeriod, screen, openedSaved, savedKey]);
 
+  // Combine the SAVED averages on read; no worker or raw imagery is requested.
   useEffect(() => {
-    if (!cropCycle) { setSavedWindows([]); return; }
     let active = true;
-    void listSavedHistoricalWindows(field.id, cropCycle.id, periodMode === "custom" && allCrops)
-      .then(windows => { if (active) setSavedWindows(windows); })
-      .catch(() => { if (active) setSavedWindows([]); });
+    setCombined(null);
+    setCombining(false);
+    if (!cropCycle || !data || !selected.length || busy) return;
+    const completed = data.seasons.filter(row => selected.includes(row.year) && row.status === "completed");
+    if (completed.length !== selected.length) return;
+    setCombining(true);
+    void combineSeasonalZones(field.id, cropCycle.id, selected, period, savedKey)
+      .then(result => { if (active) setCombined(result); })
+      .catch((e: unknown) => {
+        if (active) setError(e instanceof Error ? e.message : "Unable to combine saved years.");
+      }).finally(() => { if (active) setCombining(false); });
     return () => { active = false; };
-  }, [field.id, cropCycle?.id, data?.seasons.length, periodMode, allCrops]);
+  }, [field.id, cropCycle?.id, data, selected, period, savedKey, busy]);
 
-  // Poll status only; never calculate or queue jobs automatically.
+  // Status polling is read-only and only relevant to an opened/active period.
   useEffect(() => {
-    if (!cropCycle || !data?.seasons.some((s) => s.status === "pending" || s.status === "running")) return;
-    const handle = window.setInterval(() => {
+    if (!cropCycle || !data?.seasons.some(row => row.status === "pending" || row.status === "running")) return;
+    const interval = window.setInterval(() => {
       void refresh().catch(() => undefined);
     }, 10000);
-    return () => window.clearInterval(handle);
+    return () => window.clearInterval(interval);
   }, [cropCycle?.id, data?.seasons, refresh]);
+
+  // Scroll only the field dialog's own content. scrollIntoView() also moves
+  // ancestors (the map workspace), which shifted the entire floating panel
+  // beyond the top edge and left its header inaccessible.
+  useEffect(() => {
+    if (screen !== "saved" || !openedSaved || !data || !resultsRef.current) return;
+    const scroller = resultsRef.current.closest<HTMLElement>(".field-workspace-content");
+    if (!scroller) return;
+    const resultTop = resultsRef.current.getBoundingClientRect().top;
+    const scrollerTop = scroller.getBoundingClientRect().top;
+    scroller.scrollTo({
+      top: Math.max(0, scroller.scrollTop + resultTop - scrollerTop - 12),
+      behavior: "smooth",
+    });
+  }, [openedSaved, screen, data?.calendar_key]);
+
+  function openSaved(item: SavedOption) {
+    const match = /^month-(\d{2})-to-(\d{2})$/.exec(item.calendar_key);
+    if (match) {
+      setStartMonth(Number(match[1]));
+      setEndMonth(Number(match[2]));
+      setPeriodMode("custom");
+    } else {
+      setPeriodMode("crop");
+    }
+    setAllCrops(item.all_crops);
+    setOpenedSaved(item);
+    setScreen("saved");
+  }
 
   const toggle = (year: number) => {
     setCombined(null);
-    setSelected((prev) => prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year].sort());
+    setSelected(prev => prev.includes(year)
+      ? prev.filter(y => y !== year)
+      : prev.length < 6 ? [...prev, year].sort() : prev);
   };
   const rows = (data?.seasons ?? []).filter((s) => selected.includes(s.year));
-  const finished = rows.filter((r) => r.status === "completed");
   const missing = selected.filter((year) => !data?.seasons.some((s) =>
     s.year === year && ["completed", "pending", "running"].includes(s.status)
   ));
-  const pending = rows.some((r) => r.status === "pending" || r.status === "running");
+  const pending = (data?.seasons ?? []).some((r) => r.status === "pending" || r.status === "running");
 
   async function calculate() {
     if (!cropCycle || !missing.length || busy) return;
@@ -218,15 +303,6 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to queue calculations."); }
     finally { setBusy(false); }
   }
-  async function combine() {
-    if (!cropCycle || busy || !selected.length || finished.length !== selected.length) return;
-    setBusy(true); setCombined(null); setError(null); setInfo(null);
-    try {
-      setCombined(await combineSeasonalZones(field.id, cropCycle.id, selected, period));
-      setInfo("Combined from saved seasonal averages only. No satellite source download was needed.");
-    } catch (e) { setError(e instanceof Error ? e.message : "Cannot combine these seasons."); }
-    finally { setBusy(false); }
-  }
   if (!cropCycle) return (
     <section className="workspace-page hz-panel">
       <h2>Historical Zones</h2>
@@ -237,77 +313,98 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
     <section className="workspace-page hz-panel">
       <header className="hz-heading">
         <div>
-          <span className="workspace-eyebrow">ON-DEMAND HISTORICAL INTELLIGENCE</span>
-          <h2>Historical Zones · {historyScopeLabel}</h2>
-          <p>Choose a crop-season window, calculate it once per year, then compare matching periods without keeping raw imagery.</p>
+          <span className="workspace-eyebrow">HISTORICAL FIELD ANALYSIS</span>
+          <h2>Historical Zones</h2>
+          <p>Open a saved report or calculate a new time period. Raw satellite images are not kept.</p>
         </div>
-        <button type="button" onClick={() => void refresh().catch((e) => setError(String(e)))} disabled={loading || busy}>Refresh status</button>
+        <button type="button" className="hz-new-action" onClick={() => {
+          if (screen === "new") {
+            setScreen("saved");
+          } else {
+            setPeriodMode("custom");
+            setAllCrops(true);
+            setStartMonth(8);
+            setEndMonth(10);
+            setScreen("new");
+          }
+        }}>{screen === "new" ? "← Saved reports" : "+ New analysis"}</button>
       </header>
-      <section className="hz-section hz-period-picker">
-        <h3>1. What period do you want to compare?</h3>
-        <p>Create separate saved analyses, for example August–October or November–January. Nothing calculates automatically.</p>
-        <label className="hz-option-label">
-          <input type="radio" checked={periodMode === "crop"} onChange={()=>setPeriodMode("crop")}/>
-          Use the crop-cycle growing window
-        </label>
-        <label className="hz-option-label">
-          <input type="radio" checked={periodMode === "custom"} onChange={()=>setPeriodMode("custom")}/>
-          Choose calendar months
-        </label>
-        {periodMode === "custom" && <div className="hz-crop-scope" role="group" aria-label="Compare crop or field">
-          <label className="hz-option-label">
-            <input type="radio" checked={allCrops} onChange={()=>setAllCrops(true)}/>
-            Field history (any crop) — same months across years
-          </label>
-          <label className="hz-option-label">
-            <input type="radio" checked={!allCrops} onChange={()=>setAllCrops(false)}/>
-            Use {cropCycle.crop_name} crop calendar as reference — unrecorded historical years remain estimates
-          </label>
-          {allCrops && <p className="hz-explanation">Vegetation comparisons describe this field, regardless of what was planted. A difference between years may reflect different crops, not lower productivity.</p>}
-        </div>}
-        {periodMode === "custom" && <div className="hz-month-range">
-          <label>From
-            <select value={startMonth} onChange={e=>setStartMonth(Number(e.target.value))}>
-              {monthNames.map((name,i)=><option key={name} value={i+1}>{name}</option>)}
-            </select>
-          </label>
-          <label>Through
-            <select value={endMonth} onChange={e=>setEndMonth(Number(e.target.value))}>
-              {monthNames.map((name,i)=><option key={name} value={i+1}>{name}</option>)}
-            </select>
-          </label>
-        </div>}
-        {!validPeriod && <p className="hz-error" role="alert">Choose at most eight consecutive months. Divide longer periods into separate reports.</p>}
-        <p className="hz-explanation">Period: <strong>{periodName}</strong>. The same months will be compared across earlier calendar years.</p>
-        {savedWindows.length > 0 && <div className="hz-saved-windows">
-          <span>Saved analyses</span>
+      {screen === "saved" && <section className="hz-section hz-library">
+        <h3>Saved analyses</h3>
+        <p>Click a report to see its combined map and each year's average immediately.</p>
+        {savedLoading && <p>Loading saved analyses…</p>}
+        {!savedLoading && savedWindows.length === 0 &&
+          <div className="hz-empty-library">
+            <p>No historical reports have been calculated yet.</p>
+            <button type="button" className="hz-primary" onClick={() => setScreen("new")}>
+              Create your first analysis
+            </button>
+          </div>}
+        {savedWindows.length > 0 && <div className="hz-saved-grid">
           {savedWindows.map(item => {
-            const match = /^month-(\d{2})-to-(\d{2})$/.exec(item.calendar_key);
-            return <button type="button" key={item.calendar_key}
-              onClick={()=>{
-                if (match) {
-                  setStartMonth(Number(match[1]));
-                  setEndMonth(Number(match[2]));
-                  setPeriodMode("custom");
-                } else setPeriodMode("crop");
-              }}>
-              {match ? `${monthNames[Number(match[1])-1]}–${monthNames[Number(match[2])-1]}` : "Full crop cycle"}
-              {" · "}{item.completed_years.length} years saved
+            const isOpen = screen === "saved" && openedSaved?.calendar_key === item.calendar_key &&
+              openedSaved.all_crops === item.all_crops;
+            return <button key={item.calendar_key + ":" + item.all_crops}
+              type="button" className={"hz-saved-card" + (isOpen ? " active" : "")}
+              aria-pressed={isOpen} onClick={() => openSaved(item)}>
+              <strong>{savedName(item.calendar_key)}</strong>
+              <span>{item.all_crops ? "Whole field · any crop" : cropCycle.crop_name + " crop calendar"}</span>
+              <small>{item.completed_years.length
+                ? item.completed_years.length + " year" + (item.completed_years.length > 1 ? "s" : "") +
+                  " ready · " + [...item.completed_years].sort().join(", ")
+                : item.years.length + " year(s) queued or incomplete"}</small>
+              <span className="hz-open-report">{isOpen ? "Viewing report" : "View report →"}</span>
             </button>;
           })}
         </div>}
-      </section>
-      {data && <p className="hz-explanation">
-        Reference growing window: {data.reference_window.start}, {data.reference_window.length_days} days.
-        {" "}{data.reference_window.basis}
-      </p>}
+      </section>}
+      {screen === "new" && <section className="hz-section hz-create">
+        <h3>Create a new analysis</h3>
+        <p>Choose the months and the years. Calculation only starts when you press Calculate.</p>
+        <div className="hz-simple-form">
+          <label>Time period
+            <select value={periodMode} onChange={event => setPeriodMode(event.target.value as "crop" | "custom")}>
+              <option value="custom">Choose calendar months</option>
+              <option value="crop">Use the crop cycle's growing dates</option>
+            </select>
+          </label>
+          {periodMode === "custom" && <>
+            <label>From
+              <select value={startMonth} onChange={event => setStartMonth(Number(event.target.value))}>
+                {monthNames.map((name,i) => <option key={name} value={i+1}>{name}</option>)}
+              </select>
+            </label>
+            <label>Through
+              <select value={endMonth} onChange={event => setEndMonth(Number(event.target.value))}>
+                {monthNames.map((name,i) => <option key={name} value={i+1}>{name}</option>)}
+              </select>
+            </label>
+            <label>Compare
+              <select value={allCrops ? "field" : "crop"} onChange={event => setAllCrops(event.target.value === "field")}>
+                <option value="field">Whole field (any crops)</option>
+                <option value="crop">{cropCycle.crop_name} crop calendar</option>
+              </select>
+            </label>
+          </>}
+        </div>
+        {!validPeriod && <p className="hz-error" role="alert">
+          Select at most eight consecutive months; make a second report for a longer period.
+        </p>}
+        {validPeriod && <p className="hz-explanation">
+          {periodName}. {allCrops && periodMode === "custom" ?
+            "Different crops may have grown in these months; this compares field vegetation, not the same crop." :
+            "Unrecorded historical planting dates are estimates."}
+        </p>}
+      </section>}
+      {screen === "saved" && !openedSaved && !savedLoading && savedWindows.length > 0 &&
+        <p className="hz-choose-hint">Select a saved analysis above to open its maps and results.</p>}
       {error && <p className="hz-error" role="alert">{error}</p>}
       {info && <p className="hz-info" role="status">{info}</p>}
-      {loading && <p>Loading available seasons…</p>}
+      {loading && <p>Opening historical results…</p>}
       {data && <>
-        <section className="hz-section">
-          <h3>2. Select years · {historyScopeLabel} ({periodName})</h3>
-          <p>Select years, calculate any missing ones manually, then view their combined average.</p>
+        {screen === "new" && <section className="hz-section">
+          <h3>Choose years to calculate</h3>
+          <p>Choose up to six years. Already calculated years can be viewed without recalculation.</p>
           <div className="hz-years">
             {data.available_years.map((year) => {
               const row = data.seasons.find((r) => r.year === year);
@@ -325,13 +422,25 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
               onClick={() => void calculate()}>
               {busy ? "Working…" : missing.length ? "Calculate " + missing.length + " missing season" + (missing.length > 1 ? "s" : "") : "Selected seasons calculated"}
             </button>
-            <button type="button" disabled={busy || !selected.length || finished.length !== selected.length}
-              onClick={() => void combine()}>Show average of {selected.length} selected seasons</button>
           </div>
           {pending && <p className="hz-info">Calculations are queued or running. The page checks job status automatically; computation only begins from your Calculate request.</p>}
           {rows.filter((r) => r.status === "failed").map((r) =>
             <p className="hz-error" key={r.year}>{r.year}: {r.error}. Select Calculate to retry.</p>)}
-        </section>
+        </section>}
+        {screen === "saved" && pending && <p className="hz-info" role="status">
+          Some years are still queued or running. Completed maps will appear as the worker finishes; no new calculation is started here.
+        </p>}
+        {(screen === "new" || openedSaved) && <div className="hz-results" ref={resultsRef}>
+          <div className="hz-results-heading">
+            <div>
+              <span className="workspace-eyebrow">SAVED SATELLITE AVERAGES</span>
+              <h3>{savedName(data.calendar_key)} · {historyScopeLabel}</h3>
+              <p>{data.reference_window.basis}</p>
+            </div>
+            {screen === "saved" && <button type="button" onClick={() =>
+              void refresh().catch((err:unknown)=>setError(String(err))
+            )}>Refresh results</button>}
+          </div>
         <section className="hz-section">
           <div className="hz-view-selector">
             <span>Zone-map display</span>
@@ -342,7 +451,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
                 aria-pressed={mapMode === "zones"} onClick={() => setMapMode("zones")}>Low / medium / high</button>
             </div>
           </div>
-          <h3>3. Combined average · {periodName}</h3>
+          <h3>Combined map · {selected.length} saved year{selected.length === 1 ? "" : "s"}</h3>
           {combined ? <>
             <p><strong>{(combined.selected_years ?? []).join(", ")}</strong> · Mean NDVI: {fmt(combined.mean_ndvi)}</p>
             <SeasonalBoundaryMap grid={combined} title="Combined season relative zones" mode={mapMode} relative />
@@ -350,10 +459,14 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
             <p className="hz-explanation">This spatial map averages each year’s deviations from its own seasonal field mean, preventing greener or wetter years from automatically dominating the zone boundaries.</p>
             <p className="hz-stability"><strong>Cross-year spatial consistency:</strong> {combined.stable_relative_area_percent == null ? "Requires at least three comparable years" : combined.stable_relative_area_percent.toFixed(1) + "% of comparable cells"}</p>
             <p className="hz-explanation">{combined.notes}</p>
-          </> : <p className="hz-explanation">Select completed seasons above and click “Show average” to produce the combined zone map.</p>}
+          </> : <p className="hz-explanation">{
+            selected.length === 0 ? "No completed yearly averages available yet." :
+              combining ? "Loading the combined map from saved yearly averages…" :
+              "The combined map is unavailable. Individual yearly maps are below."
+          }</p>}
         </section>
         <section className="hz-section">
-          <h3>4. Individual yearly averages · {periodName}</h3>
+          <h3>Individual yearly maps</h3>
           <p>Each map is saved once as a small, aligned NDVI average. Raw source scenes are not saved.</p>
           <div className="hz-season-grid">
             {data.seasons.filter((r) => r.status === "completed" && r.result).map((r) => (
@@ -373,8 +486,11 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
             ))}
           </div>
           {!data.seasons.some((r) => r.status === "completed") &&
-            <p className="hz-explanation">No saved seasonal averages yet. Select years and use Calculate.</p>}
+            <p className="hz-explanation">No completed yearly averages yet. {pending ?
+              "The background worker is still processing this report." :
+              "Create an analysis and select Calculate to generate one."}</p>}
         </section>
+        </div>}
       </>}
       <p className="hz-disclaimer">Zone maps use continuous field-relative NDVI contrast and conservative variation checks, not measured yield, soil tests or evidence of disease. Each selected year contributes equally to the combined map. A field with fewer than three usable scenes is marked failed rather than given a fabricated seasonal average.</p>
     </section>

@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     # Commercial installations must supply a licensed Open-Meteo key.
     weather_api_key: SecretStr | None = None
 
+    # Entire WhatsApp integration is opt-in. Disabled in production and
+    # development unless explicitly enabled; secrets alone do not enable it.
+    whatsapp_enabled: bool = False
+
     # Integration remains disabled until Meta app secrets are configured.
     whatsapp_verify_token: SecretStr | None = None
     whatsapp_app_secret: SecretStr | None = None
