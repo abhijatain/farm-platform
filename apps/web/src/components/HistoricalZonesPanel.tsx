@@ -5,8 +5,35 @@ import "./HistoricalZonesPanel.css";
 
 type Props = { field: Field; cropCycle: CropCycle | null };
 
-function SeasonalBoundaryMap({ grid, title }: { grid: SeasonalZoneGrid; title: string }) {
+type MapMode = "contrast" | "zones";
+
+const CONTINUOUS: Array<[number, number, number]> = [
+  [159, 31, 65], [226, 69, 50], [243, 157, 46],
+  [244, 220, 77], [167, 217, 84], [54, 174, 107],
+  [9, 107, 96],
+];
+
+function colorRamp(t: number): [number, number, number] {
+  const position = Math.max(0, Math.min(1, t)) * (CONTINUOUS.length - 1);
+  const index = Math.min(CONTINUOUS.length - 2, Math.floor(position));
+  const fraction = position - index;
+  const a = CONTINUOUS[index], b = CONTINUOUS[index + 1];
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * fraction),
+    Math.round(a[1] + (b[1] - a[1]) * fraction),
+    Math.round(a[2] + (b[2] - a[2]) * fraction),
+  ];
+}
+
+function SeasonalBoundaryMap({ grid, title, mode, relative = false }: {
+  grid: SeasonalZoneGrid;
+  title: string;
+  mode: MapMode;
+  relative?: boolean;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const analysis = relative ? grid.relative_analysis : grid.spatial_analysis;
+  const values = relative && grid.relative_pixels ? grid.relative_pixels : grid.pixels;
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
@@ -15,29 +42,82 @@ function SeasonalBoundaryMap({ grid, title }: { grid: SeasonalZoneGrid; title: s
     const context = canvas.getContext("2d");
     if (!context) return;
     const pixels = context.createImageData(grid.width, grid.height);
-    const mean = grid.mean_ndvi;
+    const minimum = analysis?.display?.min ?? -0.04;
+    const maximum = analysis?.display?.max ?? 0.04;
+    const span = Math.max(0.001, maximum - minimum);
     for (let i = 0; i < grid.width * grid.height; i++) {
-      const value = grid.pixels[i], offset = i * 4;
-      if (!grid.mask[i] || value === null || mean == null) continue;
-      const relative = value - mean;
-      const rgb = relative < -0.08
-        ? [226, 119, 76] : relative > 0.08
-          ? [55, 143, 94] : [192, 206, 174];
+      const value = values[i], offset = i * 4;
+      if (!grid.mask[i] || value == null) continue;
+      let rgb: [number, number, number];
+      if (mode === "zones") {
+        const zone = analysis?.zone_classes[i];
+        rgb = zone === "low" ? [230, 105, 62] :
+          zone === "high" ? [40, 153, 97] : [212, 219, 167];
+      } else {
+        rgb = colorRamp((value - minimum) / span);
+      }
       pixels.data[offset] = rgb[0];
       pixels.data[offset + 1] = rgb[1];
       pixels.data[offset + 2] = rgb[2];
       pixels.data[offset + 3] = 255;
     }
     context.putImageData(pixels, 0, 0);
-  }, [grid]);
+  }, [grid, values, analysis, mode]);
+  const classified = analysis?.status === "zones_available";
   return (
     <div className="hz-map">
-      <canvas ref={ref} role="img" aria-label={title + ", NDVI average zones within field boundary"} />
+      <canvas ref={ref} role="img"
+        aria-label={title + (mode === "contrast" ? " continuous relative NDVI contrast" : " low/medium/high classified NDVI zones")} />
       <div className="hz-legend">
-        <span><i className="hz-weak" /> Below field average</span>
-        <span><i className="hz-middle" /> Near average</span>
-        <span><i className="hz-strong" /> Above average</span>
+        {mode === "contrast" ? <>
+          <span>Lower relative NDVI</span>
+          <div className="hz-gradient-bar" aria-hidden="true" />
+          <span>Higher relative NDVI</span>
+        </> : <>
+          <span><i className="hz-weak" /> Lower</span>
+          <span><i className="hz-middle" /> Medium</span>
+          <span><i className="hz-strong" /> Higher</span>
+        </>}
       </div>
+      {analysis && <p className="hz-map-caption">
+        {mode === "contrast"
+          ? "Enhanced field contrast for viewing only · " +
+            (analysis.zones?.p10_p90_spread?.toFixed(3) ?? "—") + " NDVI p10–p90 spread"
+          : classified ? "Relative categories meet the minimum variation screen."
+            : "Low spatial contrast: no defensible low/high zones at this resolution."}
+      </p>}
+    </div>
+  );
+}
+
+function ZoneBreakdown({ grid, relative = false }: {
+  grid: SeasonalZoneGrid;
+  relative?: boolean;
+}) {
+  const analysis = relative ? grid.relative_analysis : grid.spatial_analysis;
+  const zones = analysis?.zones;
+  if (!zones || analysis?.status !== "zones_available") {
+    return <p className="hz-variation-warning">
+      Not enough within-field NDVI variation to classify meaningful zones. The
+      heatmap is a contrast-enhanced visualization, not evidence of yield differences.
+    </p>;
+  }
+  const rows = [
+    ["Lower NDVI", zones.low_area_acres, zones.low_percent, "low"],
+    ["Medium NDVI", zones.medium_area_acres, zones.medium_percent, "medium"],
+    ["Higher NDVI", zones.high_area_acres, zones.high_percent, "high"],
+  ] as const;
+  return (
+    <div className="hz-distribution" aria-label="Field-relative NDVI zone distribution">
+      {rows.map(([label, acreage, percent, className]) => (
+        <div key={label} className={"hz-distribution-row " + className}>
+          <span>{label}</span>
+          <div className="hz-distribution-track"><i style={{ width: percent + "%" }} /></div>
+          <strong>{percent.toFixed(1)}%</strong>
+          <small>{acreage.toFixed(3)} ac</small>
+        </div>
+      ))}
+      <p>Field-relative classification, not predicted yield deviation or soil quality.</p>
     </div>
   );
 }
@@ -48,6 +128,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
   const [data, setData] = useState<SeasonalZonesResponse | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [combined, setCombined] = useState<SeasonalZoneGrid | null>(null);
+  const [mapMode, setMapMode] = useState<MapMode>("contrast");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,11 +253,23 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
             <p className="hz-error" key={r.year}>{r.year}: {r.error}. Select Calculate to retry.</p>)}
         </section>
         <section className="hz-section">
+          <div className="hz-view-selector">
+            <span>Zone-map display</span>
+            <div role="group" aria-label="Zone map display mode">
+              <button type="button" className={mapMode === "contrast" ? "active" : ""}
+                aria-pressed={mapMode === "contrast"} onClick={() => setMapMode("contrast")}>Continuous NDVI</button>
+              <button type="button" className={mapMode === "zones" ? "active" : ""}
+                aria-pressed={mapMode === "zones"} onClick={() => setMapMode("zones")}>Low / medium / high</button>
+            </div>
+          </div>
           <h3>Combined average of selected seasons</h3>
           {combined ? <>
             <p><strong>{(combined.selected_years ?? []).join(", ")}</strong> · Mean NDVI: {fmt(combined.mean_ndvi)}</p>
             <p className="hz-area-summary">Relative low: <strong>{fmt(combined.weak_area_acres ?? null)} ac</strong> · Relative high: <strong>{fmt(combined.strong_area_acres ?? null)} ac</strong></p>
-            <SeasonalBoundaryMap grid={combined} title="Combined season relative zones" />
+            <SeasonalBoundaryMap grid={combined} title="Combined season relative zones" mode={mapMode} relative />
+            <ZoneBreakdown grid={combined} relative />
+            <p className="hz-explanation">This spatial map averages each year\'s deviations from its own seasonal field mean, preventing greener or wetter years from automatically dominating the zone boundaries.</p>
+            <p className="hz-stability"><strong>Cross-year spatial consistency:</strong> {combined.stable_relative_area_percent == null ? "Requires at least three comparable years" : combined.stable_relative_area_percent.toFixed(1) + "% of comparable cells"}</p>
             <p className="hz-explanation">{combined.notes}</p>
           </> : <p className="hz-explanation">Select completed seasons above and click “Show average” to produce the combined zone map.</p>}
         </section>
@@ -192,7 +285,11 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
                 <p>Season mean NDVI: <strong>{fmt(r.result?.mean_ndvi)}</strong> · {r.result?.scene_count} clear dates</p>
                 {r.result && <>
                   <p className="hz-area-summary">Relative low: <strong>{fmt(r.result.weak_area_acres ?? null)} ac</strong> · Relative high: <strong>{fmt(r.result.strong_area_acres ?? null)} ac</strong></p>
-                  <SeasonalBoundaryMap grid={r.result} title={r.year + " NDVI season mean zones"} />
+                  <SeasonalBoundaryMap grid={r.result} title={r.year + " NDVI season mean zones"} mode={mapMode} />
+                  <ZoneBreakdown grid={r.result} />
+                  <details className="hz-dates"><summary>Show {r.result.scene_count ?? 0} image acquisition dates used</summary>
+                    <p>{(r.result.scene_dates ?? []).join(", ") || "Dates unavailable in this saved composite."}</p>
+                  </details>
                 </>}
               </article>
             ))}
@@ -201,7 +298,7 @@ function HistoricalZonesContent({ field, cropCycle }: Props) {
             <p className="hz-explanation">No saved seasonal averages yet. Select years and use Calculate.</p>}
         </section>
       </>}
-      <p className="hz-disclaimer">Zones are relative NDVI differences (±0.08 around each map’s field average), not measured yield, soil tests or evidence of disease. Each selected year contributes equally to the combined map. A field with fewer than three usable scenes is marked failed rather than given a fabricated seasonal average.</p>
+      <p className="hz-disclaimer">Zone maps use continuous field-relative NDVI contrast and conservative variation checks, not measured yield, soil tests or evidence of disease. Each selected year contributes equally to the combined map. A field with fewer than three usable scenes is marked failed rather than given a fabricated seasonal average.</p>
     </section>
   );
 }
