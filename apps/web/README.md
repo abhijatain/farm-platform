@@ -31,7 +31,9 @@ WhatsApp icon** near the bottom of the left navigation rail. In the dialog:
 2. Explicitly accept WhatsApp *service-message* consent.
 3. Click **Generate linking code**. Only the signed-in Firebase account may
    request a code.
-4. Click **Copy** and send the exact `LINK <code>` message within ten minutes
+4. Click **Open WhatsApp** to prefill the LINK message, when the business
+   receiving number is configured, or click **Copy** and send the exact
+   `LINK <code>` message within ten minutes
    from the phone number used at Firebase sign-in to your Meta business number.
 5. Use **Check now** (or wait for automatic status refresh) to see `Connected`.
 6. Click **Disconnect WhatsApp** to revoke consent and unlink; you can also
@@ -50,8 +52,9 @@ cancel and unlink. The backend CI integration tests cover full signed linking.
 "My farms", "My seasons" and "My fields", after a real signed inbound LINK
 event. It queues replies and sends them only through an explicitly enabled
 Meta Graph API outbox worker. See `services/api/README_WHATSAPP.md`.
-A Meta account marked **Account closed** cannot be used to verify live
-delivery until its restriction is resolved.
+Since the WABA is reportedly active again, use the read-only Meta token/phone
+check and then one authorized live recipient to validate the flow. An active
+account alone does not prove the specific sender number is registered.
 
 Avoid uploading secrets, access tokens, or one-time linking codes in screenshots.
 

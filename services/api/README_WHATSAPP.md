@@ -22,8 +22,10 @@ WHATSAPP_GRAPH_VERSION=v26.0
 WHATSAPP_OUTBOUND_ENABLED=false
 ```
 
-Keep `WHATSAPP_OUTBOUND_ENABLED=false` while the WABA is blocked or when
-testing without approved outbound messaging. App Secret verifies signatures;
+Keep `WHATSAPP_OUTBOUND_ENABLED=false` until the live sending token,
+approved sender number and webhook are verified locally. The developer
+reported the Meta WABA is now active; confirm its **specific sender phone
+number** is also active and permitted to send Cloud API messages. App Secret verifies signatures;
 access token is a separate credential used only by the outbox worker. They
 must never appear in `apps/web/.env` or screenshots.
 
@@ -176,6 +178,46 @@ To process just one queued message:
 uv run python -m app.channels.whatsapp.outbox --once
 ```
 
+Before enabling outbound, inspect the settings without displaying secrets
+or sending anything:
+
+```bash
+uv run python -m app.channels.whatsapp.outbox --check
+uv run python -m app.channels.whatsapp.outbox --verify-meta
+```
+
+`--check` confirms that verify token, app secret, numeric Phone Number ID,
+access token and outbound opt-in are configured; `--verify-meta` uses a
+read-only authenticated Graph API GET to validate the phone ID/token pair.
+`Meta connection: OK` does not guarantee that Meta can deliver messages;
+it only confirms that the token can read that phone ID.
+
+After that, start FastAPI + HTTPS ngrok, and make sure the Meta app webhook
+is subscribed to `messages`. Log in with your **real Firebase-authenticated
+mobile number** and use the Connect WhatsApp dialog:
+
+1. Consent, choose language, generate your temporary LINK code.
+2. Tap **Open WhatsApp** (if a public `WHATSAPP_BUSINESS_DISPLAY_PHONE`
+   was configured), or copy the command and send it manually from that
+   same phone to the sender's actual WhatsApp business number.
+3. Watch the ngrok/FastAPI log for `POST /api/v1/webhooks/whatsapp 200`.
+   In your local DB, confirm `whatsapp_links.verified_at` is non-null.
+4. Set `WHATSAPP_OUTBOUND_ENABLED=true` and start the outbox worker in its
+   own terminal. Use `--once` to send **one** queued welcome menu first.
+   Never point a development test at arbitrary real farmers.
+5. On the phone, select **My farms** → your farm → **My fields / My seasons**
+   → an item. Alternatively send `MENU` or `1`, `2`, `3`.
+6. Return to the web app: its WhatsApp dialog should report **Connected**.
+   Check the outbox SQL below. A `sent` status confirms Graph acceptance,
+   not delivery; `delivered` or `read` confirms a subsequent **signed Meta
+   receipt**; `failed` contains only a safe numeric Meta error code.
+
+If Meta Graph returns `HTTP 400` with `Meta error 131026`, check whether
+the recipient number is a registered WhatsApp account; `131047` indicates
+a session outside Meta's 24-hour window; `131056` is a pair rate limit.
+The session worker honors the original incoming WhatsApp timestamp and
+does not send unsolicited messages.
+
 When disabled or missing a sending token, the worker prints `disabled`
 and sends nothing. Keep the regular FastAPI process plus ngrok/backend
 public HTTPS webhook running separately. The queue and worker survive
@@ -207,16 +249,17 @@ The tests construct signed synthetic WhatsApp events, verify menu schema
 and owner authorization with two different farmers, exercise the durable
 outbox and verify that delivery is disabled by default.
 
-**Meta restriction:** Your developer dashboard previously displayed
-`Account closed` for the WhatsApp Business Account. A closed/restricted
-WABA cannot be treated as a live end-to-end test destination. Request review
-in Meta Business Support and do not turn on actual outbound sends until the
-account/phone has been reinstated or otherwise officially authorized.
-Passing the simulated tests does not remove this external blocker.
+**Meta account:** The developer reports the earlier account restriction has
+been resolved. This has not been independently verified by an authenticated
+Meta API connection from the running FastAPI environment. A 200 webhook
+handshake alone does not verify outbound sending or delivery. Confirm the
+currently selected WhatsApp Phone Number ID is registered/active and the
+sending access token has `whatsapp_business_messaging` permission, then do
+the single-recipient live test below.
 
 ## Next milestones
 
-1. Production Meta account review, signed live-delivery validation and monitoring.
+1. Signed live delivery, error receipts, throttling and number-account verification.
 2. Read-only weather and dated satellite summaries in the same verified menus.
 3. Deterministic activity capture with explicit field/date confirmation.
 4. Media scouting, plain-language reports and delivery-status observability.
