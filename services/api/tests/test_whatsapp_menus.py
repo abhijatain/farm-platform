@@ -23,7 +23,7 @@ from app.channels.whatsapp.events import incoming_envelopes
 from app.channels.whatsapp.delivery import update_delivery_receipts
 from app.channels.whatsapp.handler import schedule_session_reply
 from app.channels.whatsapp.menus import list_message, main_menu, menu_reply
-from app.channels.whatsapp.outbox import _valid_consent, dispatch_one, _send_graph_message, _graph_error, check_configuration
+from app.channels.whatsapp.outbox import _valid_consent, dispatch_one, _send_graph_message, _graph_error, check_configuration, verify_meta_connection
 from app.channels.whatsapp.linking import complete_link, request_link, stop_messaging
 from app.core.config import settings
 from app.db.session import SessionLocal
@@ -439,3 +439,17 @@ def test_meta_receipt_parser_does_not_raise_on_malformed_envelopes():
         ]}]},
     ):
         assert update_delivery_receipts(None, payload) == 0
+
+
+def test_meta_connection_check_only_makes_get_and_keeps_token_private(meta_config, monkeypatch):
+    def fake_get(req, timeout):
+        assert req.get_method() == "GET"
+        assert timeout <= 10
+        assert req.full_url.endswith("/1234567890?fields=id")
+        assert req.get_header("Authorization") == "Bearer not-a-real-access-token"
+        return io.BytesIO(b'{"id":"1234567890"}')
+
+    monkeypatch.setattr(outbox_module.urllib.request, "urlopen", fake_get)
+    result = verify_meta_connection()
+    assert result == "Meta connection: OK (sending still requires permission)"
+    assert "not-a-real-access-token" not in result
