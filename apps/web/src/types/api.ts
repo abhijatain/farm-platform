@@ -687,6 +687,7 @@ export type CropStageDefinition = {
   code: string;
   label: string;
   approx_days_after_planting: number | null;
+  bbch_reference: string | null;
 };
 
 export type CropStageObservation = {
