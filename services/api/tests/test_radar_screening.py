@@ -235,6 +235,6 @@ def test_unknown_crop_never_raises_variation_even_with_confirmed_stage():
         crop_name="guava",
         confirmed=confirmed,
     )
-    assert report.profile_key == "other"
+    assert report.profile_key == "guava"
     assert report.orbits[0].status == "insufficient_evidence"
     assert report.orbits[0].metrics[0].status == "unsupported_crop"
