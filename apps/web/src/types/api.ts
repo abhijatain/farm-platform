@@ -770,3 +770,86 @@ export type CropRadarScreening = {
   warnings: string[];
   statement: string;
 };
+
+
+/** Historical field-relative anomaly frequencies; NOT measured yield/productivity. */
+export type RelativeZone = {
+  id: string;
+  classification: string;
+  stability: string;
+  area_acres: number;
+  geometry: { type: "Polygon" | "MultiPolygon"; coordinates: number[][][] | number[][][][] };
+  interpretation: string;
+};
+export type TrackedZone = {
+  id: string;
+  anomaly_type: string;
+  transition: "new" | "persistent" | "resolved";
+  area_acres: number;
+  geometry: RelativeZone["geometry"];
+};
+export type FieldSpatialHistory = {
+  field_id: string;
+  metric_type: "ndvi" | "ndmi" | "ndre";
+  history_years: number;
+  status: "insufficient_history" | "short_history" | "candidate_zones";
+  observation_count: number;
+  year_count: number;
+  years: number[];
+  date_range: string[] | null;
+  minimum_valid_percent: number;
+  cell_size_m: number | null;
+  zone_model: string;
+  zones: RelativeZone[];
+  tracking: TrackedZone[];
+  warnings: string[];
+};
+
+export type SensorComparison = {
+  status: "complete" | "one_usable_date";
+  kind: "radar" | "optical";
+  metric_type: string;
+  source: string;
+  unit: string;
+  orbit_key: string | null;
+  latest_date: string;
+  latest_value: number;
+  latest_valid_percent: number;
+  previous_date: string | null;
+  previous_value: number | null;
+  days_between: number | null;
+  change: number | null;
+  interpretation: string;
+};
+export type FieldObservationIntelligence = {
+  field_id: string;
+  window_years: number;
+  comparisons: SensorComparison[];
+  suppressed_unidentified_radar_metrics: number;
+  notes: string[];
+};
+export type CropPhenologyIntelligence = {
+  crop_cycle_id: string;
+  field_id: string;
+  crop_name: string;
+  variety: string | null;
+  profile_key: string;
+  profile_version: string;
+  stage_code: string | null;
+  stage_source: "farmer_confirmed" | "provisional_calendar" | "unknown";
+  as_of: string;
+  days_after_planting: number | null;
+  recommended_indices: string[];
+  guidance: string;
+  historical_comparisons: {
+    crop_cycle_id: string;
+    crop: string;
+    variety: string | null;
+    observed_on: string;
+    days_after_planting: number;
+    ndvi_median: number | null;
+    valid_percent: number;
+    alignment: string;
+  }[];
+  warnings: string[];
+};
