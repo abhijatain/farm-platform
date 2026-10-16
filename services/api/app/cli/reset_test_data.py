@@ -27,6 +27,18 @@ ACKNOWLEDGEMENT = "PERMANENTLY ERASE ALL DEMO USERS DATA AND OBJECTS"
 ALLOWED_ENVIRONMENTS = frozenset({"development", "test", "testing", "demo", "staging"})
 PROTECTED_TABLES = frozenset({"alembic_version", "spatial_ref_sys"})
 
+# PR #16's WhatsApp outbox migration was run locally before that PR was
+# abandoned. The table is legitimately ours, but its ORM model/migration is
+# absent from main. Permit a DATA-ONLY reset of that exact known table if it
+# structurally matches the original migration; reject any other orphan table.
+LEGACY_OUTBOX_COLUMNS = frozenset({
+    "id", "inbound_message_id", "user_id", "recipient_wa_id",
+    "phone_number_id", "payload", "status", "attempts", "available_at",
+    "reply_before", "lease_until", "sent_at", "meta_message_id",
+    "last_error", "created_at",
+})
+
+
 
 @dataclass(frozen=True)
 class ResetTargets:
@@ -70,16 +82,50 @@ def validate_apply_targets(target: ResetTargets, args) -> None:
         raise RuntimeError("Irreversible erase acknowledgement is missing or incorrect.")
 
 
+def verify_legacy_whatsapp_outbox(inspector) -> bool:
+    """Verify the abandoned PR #16 outbox before allowing its rows to be erased.
+
+    Require the original migration's exact set of columns, UUID id PK,
+    and user_id -> users.id foreign key. This does NOT adopt its migration
+    or silently allow arbitrary unknown tables.
+    """
+    columns = {str(row["name"]) for row in inspector.get_columns(
+        "whatsapp_outbox", schema="public"
+    )}
+    primary = inspector.get_pk_constraint("whatsapp_outbox", schema="public")
+    foreign_keys = inspector.get_foreign_keys("whatsapp_outbox", schema="public")
+    owned_by_users = any(
+        fk.get("referred_table") == "users"
+        and fk.get("constrained_columns") == ["user_id"]
+        and fk.get("referred_columns") == ["id"]
+        for fk in foreign_keys
+    )
+    return (
+        columns == LEGACY_OUTBOX_COLUMNS
+        and primary.get("constrained_columns") == ["id"]
+        and owned_by_users
+    )
+
+
 def application_tables(engine):
-    """Refuse any unexpected ordinary tables; never truncate PostGIS or Alembic."""
+    """Only wipe registered app tables and structurally verified legacy outbox."""
     from sqlalchemy import inspect
     import app.models  # noqa: F401 — register all application models
     from app.db.base import Base
 
+    inspector = inspect(engine)
     expected = set(Base.metadata.tables.keys())
-    existing = set(inspect(engine).get_table_names(schema="public"))
+    existing = set(inspector.get_table_names(schema="public"))
     missing = expected - existing
-    unexpected = existing - expected - PROTECTED_TABLES
+    legacy: set[str] = set()
+    if "whatsapp_outbox" in existing and "whatsapp_outbox" not in expected:
+        if not verify_legacy_whatsapp_outbox(inspector):
+            raise RuntimeError(
+                "Unknown whatsapp_outbox schema; data reset refused. "
+                "Inspect the table and its foreign keys before proceeding."
+            )
+        legacy.add("whatsapp_outbox")
+    unexpected = existing - expected - PROTECTED_TABLES - legacy
     if missing or unexpected:
         raise RuntimeError(
             "Database schema mismatch; no tables will be cleared. "
@@ -87,7 +133,9 @@ def application_tables(engine):
         )
     if not expected:
         raise RuntimeError("No application tables found; refusing to erase.")
-    return sorted(expected)
+    if legacy:
+        print("Recognized legacy Farm Platform WhatsApp outbox; its rows will be included.")
+    return sorted(expected | legacy)
 
 
 def db_inventory(engine,tables):
