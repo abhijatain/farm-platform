@@ -1,6 +1,6 @@
 # WhatsApp-First Farmer Interface — Product and Architecture Plan
 
-**Status:** Secure Meta webhook Phase 0 merged; farmer account linking and explicit consent are in PR #15. No interactive replies or outbound sending yet. Last reviewed 2026-10-15.
+**Status:** Signed Meta webhook and Firebase account linking merged; PR #16 adds real-number onboarding guidance, owner-scoped interactive farm/season/field menus and an opt-in outbound worker. Live delivery remains blocked by the WABA account restriction. Reviewed 2026-10-15.
 **Strategy:** Treat WhatsApp as the everyday farmer interface, and the existing web interface as the deep-analysis, administration, map-editing and agronomist workspace. The product assumption that ~80% of farmers may prefer WhatsApp is a **target/hypothesis**, not a measured adoption percentage. Validate in a pilot.
 
 **Primary workflow:** capture actual farmer observations and activities → run the existing owner-authorized farm services → return field-specific, simple-language reports → collect field verification/corrections → learn over seasons. The same `farm_id`, `field_id`, `crop_cycle_id`, media and activity rows serve both interfaces; do not introduce a second farm database.
@@ -96,7 +96,7 @@ deliverability tracking, retries, rate and spend budgets
 - **Implemented in linking PR:** `whatsapp_links` stores one existing Firebase user, receiving phone ID, confirmed WhatsApp sender ID, short-lived hashed challenge, explicit consent timestamp, language and revocation state. Sender must match the Firebase-verified phone. Do not create a second farm/user database.
 - `whatsapp_conversation_states`: current farm/field/crop, expected answer, language/script, state TTL, handoff state and version (with opt-in).
 - **Implemented in webhook Phase 0:** `whatsapp_inbound_events` stores unique Meta message ID and sender/receiving numbers, type and timestamp for idempotency; no body/media. Processing outcome, expiration and retention cleanup are still future work.
-- `whatsapp_outbox`: recipient, requested kind, category/template ID, scheduled time, status, attempt count, delivery receipts, error and cost estimate.
+- **Implemented in PR #16:** `whatsapp_outbox` queues read-only, inbound-triggered, owner-authorized session replies with recipient, JSON menu payload, deduplicating inbound ID, 24-hour-window expiry, lease/retry/sent state. Approved templates, cost accounting, delivery status receipts and proactive notifications remain future work.
 - `whatsapp_opt_in_events`: scope, channel, source, explicit permission, notice version, opt-out, quiet hours.
 - `whatsapp_report_requests` / `whatsapp_feedback`: field-scoped report request, rendered artifacts, what was checked and farmer corrections.
 - New geotagged scout observations belong in canonical field/scouting tables, **not only** in WhatsApp message logs.

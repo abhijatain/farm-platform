@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     whatsapp_app_secret: SecretStr | None = None
     # Numeric receiving WhatsApp business phone ID from Meta API Setup.
     whatsapp_phone_number_id: str | None = None
+    # Graph API send credential is independent of the app/webhook signing secret.
+    whatsapp_access_token: SecretStr | None = None
+    whatsapp_graph_version: str = "v26.0"
+    # Public display number (+E.164) shown in the linking UI, never an access credential.
+    whatsapp_business_display_phone: str | None = None
+    # Opt-in flag: never contact real recipients during local testing by default.
+    whatsapp_outbound_enabled: bool = False
 
     ffmpeg_binary: str = "ffmpeg"
 

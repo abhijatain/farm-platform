@@ -95,3 +95,15 @@
   .whatsapp-code-row { flex-wrap: wrap; }
   .whatsapp-copy-button { min-height: 39px; }
 }
+
+/* A deliberate action: the one-time code is only passed to WhatsApp when tapped. */
+.whatsapp-open-link {
+  display: inline-block;
+  margin: 8px 0;
+  color: #146b3e;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.whatsapp-open-link:focus-visible { outline: 2px solid #16864a; outline-offset: 3px; }

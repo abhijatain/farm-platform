@@ -43,7 +43,7 @@ function formatExpiry(value: string): string {
 }
 
 export default function WhatsAppLinkDialog({ onClose }: Props) {
-  const { profile, user } = useAuth();
+  const { profile, user, logout } = useAuth();
 
   const [link, setLink] = useState<WhatsAppLinkStatus | null>(null);
   const [language, setLanguage] = useState<WhatsAppLanguage>("pa");
@@ -233,7 +233,7 @@ export default function WhatsAppLinkDialog({ onClose }: Props) {
           ) : pending ? (
             <div className="whatsapp-pending">
               <h3>One more step</h3>
-              <p>From <strong>{phone}</strong>, send the following message to the WhatsApp business number configured in Meta.</p>
+              <p>From <strong>{phone}</strong>, send the following message to <strong>{challenge?.business_phone_e164 ?? "the WhatsApp number configured in Meta"}</strong>.</p>
               {challenge ? (
                 <>
                   <label htmlFor="whatsapp-link-command">Your one-time linking message</label>
@@ -249,6 +249,16 @@ export default function WhatsAppLinkDialog({ onClose }: Props) {
                       <Copy size={16} aria-hidden="true" /> Copy
                     </button>
                   </div>
+                  {challenge.business_phone_e164 && /^\+[1-9]\d{7,14}$/.test(challenge.business_phone_e164) && (
+                    <a
+                      className="whatsapp-open-link"
+                      href={`https://wa.me/${challenge.business_phone_e164.slice(1)}?text=${encodeURIComponent(`LINK ${challenge.link_code}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open WhatsApp with the linking message
+                    </a>
+                  )}
                   {copyStatus && <p className="whatsapp-muted" role="status">{copyStatus}</p>}
                 </>
               ) : (
@@ -283,6 +293,13 @@ export default function WhatsAppLinkDialog({ onClose }: Props) {
                 For your safety, linking only succeeds when your incoming WhatsApp
                 message comes from that same number.
               </p>
+              <button
+                type="button"
+                className="whatsapp-refresh"
+                onClick={() => void logout()}
+              >
+                Is this a test number? Sign out and use my real phone
+              </button>
 
               <label className="whatsapp-form-label" htmlFor="whatsapp-language">Preferred message language</label>
               <select
@@ -328,7 +345,7 @@ export default function WhatsAppLinkDialog({ onClose }: Props) {
         </div>
 
         <footer className="whatsapp-dialog-footer">
-          <span>Development feature · automated replies are not available yet</span>
+          <span>Development preview · replies require Meta access and a running outbox worker</span>
           <button type="button" className="secondary-action" onClick={onClose}>Close</button>
         </footer>
       </section>

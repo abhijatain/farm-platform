@@ -21,6 +21,7 @@ export type WhatsAppLinkChallenge = {
   link_code: string;
   expires_at: string;
   instructions: string;
+  business_phone_e164: string | null;
 };
 
 const PATH = "/whatsapp/link";
