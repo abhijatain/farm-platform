@@ -50,7 +50,7 @@ def _template(
         end = cycle.harvested_on or cycle.expected_harvest_on or start + timedelta(days=120)
         calendar_key = f"{start.month:02d}-{start.day:02d}-{(end - start).days:03d}"
     duration = (end - start).days
-    if not 20 <= duration <= 240:
+    if not 20 <= duration <= (250 if custom else 240):
         raise HTTPException(status_code=422, detail="Select a historical window of 20–240 days (up to roughly eight months).")
     crop = " ".join(cycle.crop_name.strip().lower().split())
     boundary = db.scalar(select(func.ST_AsEWKB(Field.boundary)).where(Field.id == field_id))
@@ -86,7 +86,11 @@ def list_saved_zone_windows(
     db: DBSession, current_user: CurrentUser,
 ) -> list[dict]:
     """Previously calculated time periods; stored results are never auto-regenerated."""
-    _, _, _, crop, _, _ = _template(db, current_user, field_id, crop_cycle_id)
+    get_owned_field(db=db, user_id=current_user.id, field_id=field_id)
+    cycle = get_owned_crop_cycle(db=db, user_id=current_user.id, crop_cycle_id=crop_cycle_id)
+    if cycle.field_id != field_id:
+        raise HTTPException(status_code=404, detail="Crop cycle is not on this field.")
+    crop = " ".join(cycle.crop_name.strip().lower().split())
     rows = db.scalars(select(SeasonalZoneComposite).where(
         SeasonalZoneComposite.field_id == field_id,
         SeasonalZoneComposite.crop_key == crop,
