@@ -75,7 +75,7 @@ export default function FieldJourneyExplorer({
       if (begin && observation.observed_on < begin) continue;
       if (end && observation.observed_on > end) continue;
       const m = observation.metrics.find(item =>
-        item.metric_type===metricType && Boolean(item.raster_uri) &&
+        item.metric_type===metricType && item.has_raster &&
         (item.valid_pixel_percent == null || item.valid_pixel_percent >= 80));
       if (m && (m.median != null || m.mean != null)) {
         data.push({id:observation.id,date:observation.observed_on,
