@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     # Private loopback raster service; never expose its raw endpoint in ngrok.
     satellite_tiler_internal_url: str = "http://127.0.0.1:8081"
 
+    # Mandatory shared secret for every internal TiTiler raster request.
+    # Use the same high-entropy token in the tiler process.
+    satellite_tiler_shared_token: SecretStr | None = None
+
     # Commercial installations must supply a licensed Open-Meteo key.
     weather_api_key: SecretStr | None = None
 
