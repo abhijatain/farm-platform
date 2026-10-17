@@ -1298,7 +1298,7 @@ function MetricImageryStrip({
     .filter((observation) => {
       const value = getObservationMetric(observation, metric.metricType);
 
-      return Boolean(value?.raster_uri);
+      return Boolean(value?.has_raster);
     })
     .filter((observation) => {
       const value = getObservationMetric(observation, metric.metricType);
