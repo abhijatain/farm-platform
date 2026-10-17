@@ -89,8 +89,8 @@ pnpm install
 pnpm dev
 ```
 
-The web app requires `VITE_API_URL`, `VITE_TILER_URL`,
-`VITE_MAPTILER_KEY`, and Firebase web configuration.
+The web app requires `VITE_API_URL`, `VITE_MAPTILER_KEY`, and Firebase
+web configuration. The tiler is private and must not have a `VITE_TILER_URL`.
 
 ## Run the tiler
 
@@ -98,8 +98,13 @@ The web app requires `VITE_API_URL`, `VITE_TILER_URL`,
 cd services/tiler
 cp .env.example .env
 uv sync
-uv run uvicorn farm_tiler.main:app --host 0.0.0.0 --port 8081 --reload
+uv run uvicorn farm_tiler.main:app --app-dir src --host 127.0.0.1 --port 8081 --reload
 ```
+
+Set the same strong `SATELLITE_TILER_SHARED_TOKEN` in both `services/api/.env`
+and `services/tiler/.env`, never in the browser. Only the API may access
+the loopback tiler. See [secure tiler deployment](docs/SECURE_SATELLITE_TILER.md)
+before merging or exposing live farmer imagery.
 
 ## Automatic multi-source satellite ingestion
 
