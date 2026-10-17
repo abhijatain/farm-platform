@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from pydantic import SecretStr
+
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -11,17 +13,15 @@ from pydantic_settings import (
 class Settings(BaseSettings):
     gcs_project_id: str | None = None
 
+    # Deny all raster requests when unset: must match API shared token.
+    satellite_tiler_shared_token: SecretStr | None = None
+
     gcs_bucket_name: str
 
     gcs_credentials_path: Path | None = None
 
     # Used internally by TiTiler/GDAL for private HTTP range reads.
     gcs_read_url_expiry_minutes: int = 15
-
-    cors_origins: str = (
-        "http://localhost:5173,"
-        "http://127.0.0.1:5173"
-    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

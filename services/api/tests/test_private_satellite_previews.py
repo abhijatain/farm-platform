@@ -80,3 +80,79 @@ def test_change_preview_checks_both_observations(monkeypatch):
         previews.change_preview(ids[0], ids[1], ids[2], "ndvi", None, user, max_abs=0.25)
     assert exc.value.status_code == 404
     assert checked == [ids[1], ids[2]]
+
+
+
+def test_private_tile_requires_field_ownership_before_upstream(monkeypatch):
+    field_id, observation_id = uuid4(), uuid4()
+    user = SimpleNamespace(id=uuid4())
+    db = SimpleNamespace(scalar=lambda _: pytest.fail("Cannot load unowned raster"))
+    def reject(*_a,**_kw):
+        raise HTTPException(status_code=404, detail="Field not found.")
+    monkeypatch.setattr(previews, "get_owned_field", reject)
+    monkeypatch.setattr(previews, "_tiler_get", lambda *_a,**_kw: pytest.fail("No tiler call"))
+    with pytest.raises(HTTPException) as err:
+        previews.private_metric_tile(field_id, observation_id, "ndvi", 14, 123, 456, db, user)
+    assert err.value.status_code == 404
+
+
+def test_private_tile_resolves_canonical_path_and_metric_colormap(monkeypatch):
+    field_id, observation_id = uuid4(), uuid4()
+    user=SimpleNamespace(id=uuid4())
+    canonical="gs://private-bucket/users/owner/field/ndmi.tif"
+    db=SimpleNamespace(scalar=lambda _: SimpleNamespace(raster_uri=canonical))
+    monkeypatch.setattr(previews, "get_owned_field", lambda *_a, **_kw: None)
+    calls=[]
+    def fake(route, params, *, expect_png):
+        calls.append((route,params,expect_png))
+        return b"\x89PNG\r\n\x1a\n" + b"test"
+    monkeypatch.setattr(previews, "_tiler_get",fake)
+    response=previews.private_metric_tile(field_id,observation_id,"ndmi",14,123,456,db,user)
+    assert response.status_code==200
+    assert response.headers["cache-control"]=="private, no-store"
+    assert calls==[(
+        "/cog/tiles/WebMercatorQuad/14/123/456.png",
+        {"url":canonical,"rescale":"-0.6,0.8","colormap_name":"rdbu"},True,
+    )]
+
+
+def test_tile_rejects_bad_coordinate_without_db_access(monkeypatch):
+    db=SimpleNamespace(scalar=lambda _: pytest.fail("Invalid coordinates queried DB"))
+    with pytest.raises(HTTPException) as err:
+        previews.private_metric_tile(uuid4(),uuid4(),"ndvi",4,18,0,db,SimpleNamespace(id=uuid4()))
+    assert err.value.status_code==404
+
+
+
+def test_internal_tiler_request_never_sends_bearer_or_raw_response_to_browser(monkeypatch):
+    from pydantic import SecretStr
+    monkeypatch.setattr(previews.settings, "satellite_tiler_shared_token", SecretStr("test-secret"))
+    monkeypatch.setattr(previews.settings, "satellite_tiler_internal_url", "http://127.0.0.1:8081")
+    requests=[]
+    class Headers:
+        def get_content_type(self): return "image/png"
+    class Success:
+        status=200
+        headers=Headers()
+        def __enter__(self): return self
+        def __exit__(self, *_args): pass
+        def read(self, limit): return b"\x89PNG\r\n\x1a\n" + b"safe"
+    def fake_urlopen(request, *, timeout):
+        assert timeout==20
+        requests.append(request)
+        return Success()
+    monkeypatch.setattr(previews, "urlopen", fake_urlopen)
+    png=previews._tiler_get("/cog/preview.png",{"url":"gs://test/users/owner/ndvi.tif"},expect_png=True)
+    assert png.startswith(b"\x89PNG")
+    assert len(requests)==1
+    assert requests[0].get_header("X-farm-internal-token") == "test-secret"
+    assert "Authorization" not in requests[0].headers
+
+
+def test_internal_tiler_fails_closed_without_secret(monkeypatch):
+    monkeypatch.setattr(previews.settings, "satellite_tiler_internal_url", "http://127.0.0.1:8081")
+    monkeypatch.setattr(previews.settings, "satellite_tiler_shared_token", None)
+    monkeypatch.setattr(previews, "urlopen", lambda *_a, **_kw: pytest.fail("No network without token"))
+    with pytest.raises(HTTPException) as exc:
+        previews._tiler_get("/cog/preview.png",{"url":"gs://private"},expect_png=True)
+    assert exc.value.status_code==503

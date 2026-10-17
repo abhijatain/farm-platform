@@ -105,20 +105,10 @@ def write_hierarchy_manifests(
                         "user_id"
                     ]
                 ),
-            "name":
-                context.get(
-                    "user_name"
-                ),
-            "phone_e164":
-                context.get(
-                    "phone_e164"
-                ),
             "preferred_language":
                 context.get(
                     "preferred_language"
                 ),
-            "private_pii":
-                True,
             "updated_at":
                 now,
         },

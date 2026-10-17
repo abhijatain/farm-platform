@@ -8,16 +8,7 @@ import type {
   Field,
   SatelliteAnomalyFeatureCollection,
 } from "../../types/api";
-import { buildMetricTileJsonUrl, type SatelliteMetric } from "./satellite";
-
-const TILER_URL =
-  import.meta.env.VITE_TILER_URL;
-
-if (!TILER_URL) {
-  throw new Error(
-    "VITE_TILER_URL is missing.",
-  );
-}
+import type { SatelliteMetric } from "./satellite";
 
 export const FIELD_SOURCE_ID = "farm-fields";
 export const FIELD_FILL_LAYER_ID = "farm-fields-fill";
@@ -142,17 +133,23 @@ export function installMetricLayer(
   map: MapLibreMap,
   metric: SatelliteMetric | null,
   opacity: number,
+  fieldId: string | null,
+  bounds?: [number, number, number, number],
 ) {
   removeMetricLayer(map);
 
-  if (!metric) {
+  if (!metric?.has_raster || !fieldId) {
     return;
   }
 
+  const tiles = [`farmtile://private/fields/${fieldId}/satellite-observations/${metric.satellite_observation_id}/tiles/${metric.metric_type}/{z}/{x}/{y}.png`];
   map.addSource(METRIC_SOURCE_ID, {
     type: "raster",
-    // TileJSON supplies tile URL, bounds and tile size.
-    url: buildMetricTileJsonUrl(TILER_URL, metric),
+    tiles,
+    tileSize: 256,
+    minzoom: 0,
+    maxzoom: 22,
+    ...(bounds ? { bounds } : {}),
   });
 
   const layer = {

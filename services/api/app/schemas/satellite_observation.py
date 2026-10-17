@@ -3,7 +3,9 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_serializer
+
+from app.schemas.private_storage import public_metadata
 
 
 class SatelliteMetricResponse(BaseModel):
@@ -15,7 +17,13 @@ class SatelliteMetricResponse(BaseModel):
     satellite_observation_id: UUID
 
     metric_type: str
-    raster_uri: str
+    # Input-only ORM data. Never serialize a private object URI to clients.
+    raster_uri: str = Field(exclude=True)
+
+    @computed_field
+    @property
+    def has_raster(self) -> bool:
+        return bool(self.raster_uri)
 
     mean: float | None
     median: float | None
@@ -31,6 +39,10 @@ class SatelliteMetricResponse(BaseModel):
     valid_pixel_percent: float | None
 
     metadata_json: dict
+
+    @field_serializer("metadata_json")
+    def redact_storage_metadata(self, value: dict) -> dict:
+        return public_metadata(value)
 
 
 class SatelliteObservationResponse(BaseModel):
@@ -49,6 +61,10 @@ class SatelliteObservationResponse(BaseModel):
     cloud_cover_percent: float | None
 
     metadata_json: dict
+
+    @field_serializer("metadata_json")
+    def redact_storage_metadata(self, value: dict) -> dict:
+        return public_metadata(value)
 
     metrics: list[SatelliteMetricResponse] = Field(
         default_factory=list,
@@ -82,6 +98,11 @@ class SatelliteIngestionJobResponse(BaseModel):
     completed_at: datetime | None
 
     last_error: str | None
+
+    @field_serializer("last_error")
+    def redact_internal_job_error(self, value: str | None) -> str | None:
+        # Worker exception strings can contain private GCS paths.
+        return public_metadata(value)
 
     created_at: datetime
     updated_at: datetime

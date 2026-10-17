@@ -1,12 +1,7 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '')
-  // Never expose private-GCS tiler endpoints over a public tunnel by default.
-  // Opt in only for a short-lived development session with disposable data.
-  const enableDevTilerProxy = env.ENABLE_DEV_TILER_PROXY === 'true'
-
+export default defineConfig(() => {
   return {
     plugins: [react()],
     server: {
@@ -15,13 +10,6 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
         '/health': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-        ...(enableDevTilerProxy ? {
-          '/tiler': {
-            target: 'http://127.0.0.1:8081',
-            changeOrigin: true,
-            rewrite: (path: string) => path.replace(/^\/tiler/, ''),
-          },
-        } : {}),
       },
     },
   }

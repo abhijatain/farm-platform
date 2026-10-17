@@ -193,10 +193,8 @@ def write_media_manifests(
             "manifest_type": "user",
             "storage_layout_version": STORAGE_LAYOUT_VERSION,
             "user_id": str(user.id),
-            "name": user.name,
-            "phone_e164": user.phone_e164,
+            # Identity/phone remain only in Firebase and PostgreSQL.
             "preferred_language": user.preferred_language,
-            "private_pii": True,
             "updated_at": now,
         },
     )

@@ -24,7 +24,7 @@ VITE_FIREBASE_TEST_PHONE_AUTH=false
 
 Keep your existing `VITE_FIREBASE_*` project configuration and `VITE_MAPTILER_KEY`.
 Use real Firebase phone authentication only on a Firebase-authorized HTTPS domain.
-For local-only satellite tiles, start the tiler on `127.0.0.1:8081` and use `VITE_TILER_URL=http://localhost:8081`. The unprotected tiler must **not** be exposed over a public ngrok tunnel when it has access to private farm imagery.
+For satellite imagery, start the **private** tiler bound to `127.0.0.1:8081`, and put the same `SATELLITE_TILER_SHARED_TOKEN` in the API and tiler `.env` files. Never set `VITE_TILER_URL` or expose the tiler over ngrok.
 
 In a separate terminal run:
 
@@ -41,7 +41,7 @@ Firebase Authentication → Settings → Authorized domains as well.
 Routing from the **one public HTTPS origin**:
 - `/` → Vite UI on port 5173
 - `/api/v1/*` and `/health` → local FastAPI on port 8000
-- `/tiler/*` → disabled by default. The unsafe development-only opt-in `ENABLE_DEV_TILER_PROXY=true` forwards to port 8081; use only disposable test data and set `VITE_TILER_URL=/tiler` when opting in. Production needs a per-user authorized tile gateway.
+- Satellite raster tiles and previews are fetched only through the Firebase-authenticated `/api/v1/fields/...` gateway. There is no browser-accessible `/tiler/*` proxy.
 
 `curl -i https://stoneware-refining-flatfoot.ngrok-free.dev/health`
 should show a JSON 200 response from FastAPI. The bare
@@ -65,9 +65,8 @@ a short-lived local Blob URL rather than an unprotected GCS path.
 
 Run both FastAPI (port 8000) and the tiler (port 8081) for colored previews
 on your phone. The Vite proxy forwards the authenticated API calls over the
-same ngrok HTTPS origin. `VITE_TILER_URL` remains a **local-only** setting
-for legacy raster/map tile features; it is not used by these new protected
-field preview cards or pixel-change summaries.
+same ngrok HTTPS origin. Neither MapLibre nor previews use direct public TiTiler
+URLs. MapLibre uses its registered `farmtile:` protocol with a Firebase ID token.
 
 Mobile Safari issues fixed in this branch:
 - Cards and growth-stage summaries no longer set the whole page's intrinsic
@@ -76,10 +75,9 @@ Mobile Safari issues fixed in this branch:
   of an external `<image>` embedded inside SVG.
 - The drawing banner no longer retains the desktop centering transform.
 
-The MapLibre raster-tile overlay still uses the existing tiler integration,
-which is not yet behind this gateway and can remain unavailable via ngrok.
-Do not enable the raw development tiler proxy for private fields; an
-owner-authorized tile service is a separate production task.
+The MapLibre raster-tile overlay now uses the same owner-authorized gateway.
+For live fields, test image dates and metrics with a real Firebase user and
+verify raw object paths never appear in browser network requests.
 
 ## Phone layout and field reports
 
@@ -95,7 +93,7 @@ three-column.
 Smoke test on a real phone at around 360–430px wide, plus an iPad/tablet and
 desktop: login, farm/season switching, selecting a field, drawing polygon,
 scrolling satellite tabs, editing an activity, report loading and printing.
-Also test portrait/landscape orientation. Satellite tile rendering over HTTPS is not asserted until an authenticated tile gateway is added. The API proxy is testable locally;
+Also test portrait/landscape orientation. Satellite tile rendering over HTTPS must be verified against the newly added authenticated gateway. The API proxy is testable locally;
 end-to-end verification requires your running backend, Firebase credentials
 and ngrok session.
 

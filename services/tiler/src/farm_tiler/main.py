@@ -1,9 +1,8 @@
 """Create FastAPI/TiTiler routes for controlled field raster visualization."""
 
-from fastapi import FastAPI, HTTPException, Query, Response
-from fastapi.middleware.cors import (
-    CORSMiddleware,
-)
+from fastapi import FastAPI, HTTPException, Query, Response, Request
+from fastapi.responses import JSONResponse
+from hmac import compare_digest
 from titiler.core.errors import (
     DEFAULT_STATUS_CODES,
     add_exception_handlers,
@@ -28,29 +27,27 @@ app = FastAPI(
     title="Farm Platform Tiler",
 )
 
+@app.middleware("http")
+async def require_internal_api_token(request: Request, call_next):
+    """All raster/tile/change routes are API-internal, NEVER browser public.
 
-origins = [
-    value.strip()
-    for value
-    in settings
-    .cors_origins
-    .split(",")
-    if value.strip()
-]
+    Even accidental binding to 0.0.0.0 cannot expose gs:// paths. The local
+    /health check remains available for process supervision.
+    """
+    if request.url.path == "/health":
+        return await call_next(request)
+    shared = settings.satellite_tiler_shared_token
+    if shared is None or not shared.get_secret_value():
+        return JSONResponse({"detail": "Private tiler token not configured."}, status_code=503)
+    supplied = request.headers.get("X-Farm-Internal-Token", "")
+    if not compare_digest(supplied, shared.get_secret_value()):
+        return JSONResponse({"detail": "Unauthorized private tiler access."}, status_code=401)
+    return await call_next(request)
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=[
-        "GET",
-    ],
-    allow_headers=[
-        "*",
-    ],
-)
 
+# Internal API-to-tiler traffic is not a browser CORS workflow.
+# Deliberately do not allow cross-origin access from public web pages.
 
 cog = TilerFactory(
     router_prefix="/cog",
@@ -183,10 +180,5 @@ def change_preview(
     "/health",
 )
 def health():
-    return {
-        "status": "ok",
-        "storage": "private-gcs",
-        "bucket": (
-            settings.gcs_bucket_name
-        ),
-    }
+    # Public liveness response must not disclose internal GCS identifiers.
+    return {"status": "ok"}

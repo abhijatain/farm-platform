@@ -11,7 +11,8 @@ export type {
 export type SatelliteMetric = {
   id?: string;
   metric_type: SatelliteMetricType;
-  raster_uri: string;
+  satellite_observation_id: string;
+  has_raster: boolean;
   mean: number | null;
   median: number | null;
   min: number | null;
@@ -380,7 +381,7 @@ export function getObservationsForMetric(
   return observations
     .filter((observation) => {
       const metric = getMetricFromObservation(observation, metricType);
-      return Boolean(metric?.raster_uri);
+      return Boolean(metric?.has_raster);
     })
     .sort((a, b) => b.observed_on.localeCompare(a.observed_on));
 }
@@ -418,17 +419,3 @@ export function formatMetricValue(value: number | null, digits = 2) {
     : value.toFixed(digits);
 }
 
-export function buildMetricTileJsonUrl(
-  tilerUrl: string,
-  metric: SatelliteMetric,
-) {
-  const config = getMetricConfig(metric.metric_type);
-
-  const params = new URLSearchParams({
-    url: metric.raster_uri,
-    rescale: `${config.displayMin},${config.displayMax}`,
-    colormap_name: config.colormap,
-  });
-
-  return `${tilerUrl}/cog/WebMercatorQuad/tilejson.json?${params.toString()}`;
-}

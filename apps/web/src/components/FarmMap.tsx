@@ -4,6 +4,7 @@ import { GeocodingControl } from "@maptiler/geocoding-control/maplibregl";
 import type { TerraDraw } from "terra-draw";
 
 import { listSatelliteAnomalies, listSatelliteObservations } from "../lib/api";
+import { registerPrivateMapProtocol } from "../lib/private-map-protocol";
 import type {
   Field,
   PolygonGeometry,
@@ -131,6 +132,18 @@ export default function FarmMap({
     [anomalyData, selectedAnomalyId],
   );
 
+  function selectedFieldBounds(): [number, number, number, number] | undefined {
+    const field = fieldsRef.current.find(item => item.id === selectedFieldIdRef.current);
+    const ring = field?.boundary.coordinates[0];
+    if (!ring?.length) return undefined;
+    const lons = ring.map(point => point[0]);
+    const lats = ring.map(point => point[1]);
+    return [
+      Math.min(...lons), Math.min(...lats),
+      Math.max(...lons), Math.max(...lats),
+    ];
+  }
+
   function getCurrentMetricFromRefs() {
     return getMetricForObservation(
       satelliteObservationsRef.current,
@@ -159,6 +172,8 @@ export default function FarmMap({
       map,
       metricEnabledRef.current ? getCurrentMetricFromRefs() : null,
       metricOpacityRef.current,
+      selectedFieldIdRef.current,
+      selectedFieldBounds(),
     );
     installAnomalyLayers(
       map,
@@ -277,6 +292,8 @@ export default function FarmMap({
     if (!containerRef.current) {
       return;
     }
+
+    registerPrivateMapProtocol();
 
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -479,6 +496,8 @@ export default function FarmMap({
       map,
       metricEnabled ? selectedMetric : null,
       metricOpacity,
+      selectedFieldId,
+      selectedFieldBounds(),
     );
     applySelectedFieldStyle(map, selectedFieldId, metricEnabled);
   }, [
