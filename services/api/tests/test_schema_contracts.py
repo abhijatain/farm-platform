@@ -71,6 +71,12 @@ def test_legacy_ndvi_only_observation_is_valid() -> None:
         for metric in payload.metrics
     ] == ["ndvi"]
 
+    # API JSON must never expose raw private GCS URIs or signed storage paths.
+    document = payload.model_dump(mode="json")
+    assert document["metrics"][0]["has_raster"] is True
+    assert "raster_uri" not in document["metrics"][0]
+    assert "gs://" not in payload.model_dump_json()
+
 
 def test_harvest_timestamp_requires_timezone() -> None:
     with pytest.raises(
@@ -207,3 +213,47 @@ def test_new_field_queues_initial_satellite_backfill() -> None:
     finally:
         db.rollback()
         db.close()
+
+
+
+def test_raster_uri_absent_from_timeline_change_and_activity_responses():
+    from app.schemas.satellite_timeline import (
+        SatelliteTimelineMetricSummary, SatelliteTimelineSelectionMatch,
+    )
+    from app.schemas.satellite_change import SatelliteChangeObservation
+    from app.schemas.activity_satellite import ActivitySatelliteObservationMatch
+
+    uri = "gs://test-private-bucket/users/secret/ndvi.tif"
+    metric = SatelliteTimelineMetricSummary(
+        metric_type="ndvi", mean=0.5, median=0.51,
+        valid_pixel_percent=95, raster_uri=uri,
+    )
+    selected = SatelliteTimelineSelectionMatch(
+        observation_id=uuid4(), observed_on="2026-10-01",
+        days_from_target=0, source="sentinel-2", source_kind="optical",
+        metric_type="ndvi", median=0.51, mean=0.5,
+        valid_pixel_percent=95, raster_uri=uri,
+    )
+    changed = SatelliteChangeObservation(
+        observation_id=uuid4(), observed_on="2026-10-01",
+        source="sentinel-2", scene_id="test", orbit_state=None,
+        relative_orbit=None, platform=None, metric_type="ndvi",
+        valid_pixel_percent=95, mean=0.5, median=0.51,
+        minimum=0.1, maximum=0.8, std=0.12,
+        raster_uri=uri, native_resolution_m=10,
+        output_resolution_m=10,
+    )
+    activity = ActivitySatelliteObservationMatch(
+        observation_id=uuid4(), observed_on="2026-10-01",
+        days_from_activity=0, source="sentinel-2", scene_id="test",
+        metric_type="ndvi", valid_pixel_percent=95,
+        mean=0.5, median=0.51, minimum=0.1, maximum=0.8,
+        std=0.12, raster_uri=uri,
+        native_resolution_m=10, output_resolution_m=10,
+        anomaly_zone_count=0, anomaly_area_sqm=0, anomaly_area_acres=0,
+    )
+    for obj in (metric, selected, changed, activity):
+        serialized = obj.model_dump_json()
+        assert "gs://" not in serialized
+        assert "raster_uri" not in serialized
+        assert obj.model_dump()["has_raster"] is True
