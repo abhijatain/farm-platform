@@ -180,10 +180,5 @@ def change_preview(
     "/health",
 )
 def health():
-    return {
-        "status": "ok",
-        "storage": "private-gcs",
-        "bucket": (
-            settings.gcs_bucket_name
-        ),
-    }
+    # Public liveness response must not disclose internal GCS identifiers.
+    return {"status": "ok"}
