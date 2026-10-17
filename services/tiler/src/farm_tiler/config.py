@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from pydantic import SecretStr
+
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -10,6 +12,9 @@ from pydantic_settings import (
 
 class Settings(BaseSettings):
     gcs_project_id: str | None = None
+
+    # Deny all raster requests when unset: must match API shared token.
+    satellite_tiler_shared_token: SecretStr | None = None
 
     gcs_bucket_name: str
 
