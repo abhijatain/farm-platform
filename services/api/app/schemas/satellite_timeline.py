@@ -6,7 +6,7 @@ from datetime import date
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 SatelliteSourceKind = Literal[
@@ -39,7 +39,12 @@ class SatelliteTimelineMetricSummary(BaseModel):
 
     valid_pixel_percent: float | None
 
-    raster_uri: str
+    raster_uri: str = Field(exclude=True)
+
+    @computed_field
+    @property
+    def has_raster(self) -> bool:
+        return bool(self.raster_uri)
 
 
 class SatelliteTimelineEvent(BaseModel):
