@@ -259,3 +259,30 @@ def test_raster_uri_absent_from_timeline_change_and_activity_responses():
         assert "gs://" not in serialized
         assert "raster_uri" not in serialized
         assert obj.model_dump()["has_raster"] is True
+
+
+def test_ingestion_job_error_does_not_reveal_private_raster_path():
+    """Satellite worker exceptions may include private object names."""
+    from app.schemas.satellite_observation import SatelliteIngestionJobResponse
+
+    timestamp = datetime.now(timezone.utc)
+    job = SatelliteIngestionJobResponse(
+        id=uuid4(),
+        field_id=uuid4(),
+        job_type="initial_backfill",
+        start_date="2026-10-01",
+        end_date="2026-10-17",
+        status="failed",
+        attempts=3,
+        max_attempts=3,
+        available_at=timestamp,
+        started_at=timestamp,
+        completed_at=timestamp,
+        last_error="Read failed: gs://private-bucket/users/owner/raster.tif",
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    serialized = job.model_dump_json()
+    assert "gs://" not in serialized
+    assert "private-bucket" not in serialized
+    assert job.model_dump()["last_error"] == "[private storage path]"
