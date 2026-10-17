@@ -23,4 +23,7 @@ def test_tiler_fails_closed_if_shared_secret_missing(monkeypatch):
     monkeypatch.setattr(settings, "satellite_tiler_shared_token", None)
     with TestClient(app) as client:
         assert client.get("/cog/info", headers={"X-Farm-Internal-Token": "anything"}).status_code == 503
-        assert client.get("/health").status_code == 200
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+        assert "bucket" not in response.text
