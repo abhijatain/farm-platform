@@ -3,7 +3,9 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_serializer
+
+from app.schemas.private_storage import public_metadata
 
 
 class SatelliteMetricResponse(BaseModel):
@@ -38,6 +40,10 @@ class SatelliteMetricResponse(BaseModel):
 
     metadata_json: dict
 
+    @field_serializer("metadata_json")
+    def redact_storage_metadata(self, value: dict) -> dict:
+        return public_metadata(value)
+
 
 class SatelliteObservationResponse(BaseModel):
     model_config = ConfigDict(
@@ -55,6 +61,10 @@ class SatelliteObservationResponse(BaseModel):
     cloud_cover_percent: float | None
 
     metadata_json: dict
+
+    @field_serializer("metadata_json")
+    def redact_storage_metadata(self, value: dict) -> dict:
+        return public_metadata(value)
 
     metrics: list[SatelliteMetricResponse] = Field(
         default_factory=list,
