@@ -91,7 +91,12 @@ class SatelliteTimelineSelectionMatch(BaseModel):
 
     valid_pixel_percent: float | None
 
-    raster_uri: str
+    raster_uri: str = Field(exclude=True)
+
+    @computed_field
+    @property
+    def has_raster(self) -> bool:
+        return bool(self.raster_uri)
 
 
 class SatelliteTimelineSelection(BaseModel):
