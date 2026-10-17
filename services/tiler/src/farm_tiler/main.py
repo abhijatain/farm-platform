@@ -3,9 +3,6 @@
 from fastapi import FastAPI, HTTPException, Query, Response, Request
 from fastapi.responses import JSONResponse
 from hmac import compare_digest
-from fastapi.middleware.cors import (
-    CORSMiddleware,
-)
 from titiler.core.errors import (
     DEFAULT_STATUS_CODES,
     add_exception_handlers,
@@ -49,28 +46,8 @@ async def require_internal_api_token(request: Request, call_next):
 
 
 
-origins = [
-    value.strip()
-    for value
-    in settings
-    .cors_origins
-    .split(",")
-    if value.strip()
-]
-
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=[
-        "GET",
-    ],
-    allow_headers=[
-        "*",
-    ],
-)
-
+# Internal API-to-tiler traffic is not a browser CORS workflow.
+# Deliberately do not allow cross-origin access from public web pages.
 
 cog = TilerFactory(
     router_prefix="/cog",
