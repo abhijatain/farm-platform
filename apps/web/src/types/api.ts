@@ -149,7 +149,7 @@ export type SatelliteMetric = {
 
   metric_type: SatelliteMetricType;
 
-  raster_uri: string;
+  has_raster: boolean;
 
   mean: number | null;
   median: number | null;
@@ -210,7 +210,7 @@ export type SatelliteTimelineMetricSummary = {
 
   valid_pixel_percent: number | null;
 
-  raster_uri: string;
+  has_raster: boolean;
 };
 
 export type SatelliteTimelineEvent = {
@@ -253,7 +253,7 @@ export type SatelliteTimelineSelectionMatch = {
 
   valid_pixel_percent: number | null;
 
-  raster_uri: string;
+  has_raster: boolean;
 };
 
 export type SatelliteTimelineSelection = {
@@ -321,7 +321,7 @@ export type SatelliteChangeObservation = {
   maximum: number | null;
   std: number | null;
 
-  raster_uri: string;
+  has_raster: boolean;
 
   native_resolution_m: number | null;
   output_resolution_m: number | null;
@@ -584,7 +584,7 @@ export type ActivitySatelliteObservationMatch = {
   maximum: number | null;
   std: number | null;
 
-  raster_uri: string;
+  has_raster: boolean;
 
   native_resolution_m: number | null;
   output_resolution_m: number | null;
