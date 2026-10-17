@@ -35,6 +35,7 @@ def test_legacy_ndvi_only_observation_is_valid() -> None:
         cloud_cover_percent=8.5,
         metadata_json={
             "processing_version": "legacy-ndvi",
+            "private": {"object": "gs://not-for-browser/users/test/secret.tif"},
         },
         metrics=[
             SatelliteMetricResponse(
@@ -76,6 +77,7 @@ def test_legacy_ndvi_only_observation_is_valid() -> None:
     assert document["metrics"][0]["has_raster"] is True
     assert "raster_uri" not in document["metrics"][0]
     assert "gs://" not in payload.model_dump_json()
+    assert payload.model_dump()["metadata_json"]["private"]["object"] == "[private storage path]"
 
 
 def test_harvest_timestamp_requires_timezone() -> None:
