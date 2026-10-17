@@ -86,8 +86,16 @@ def _tiler_get(route: str, params: dict[str, str], *, expect_png: bool) -> bytes
     uri = f"{base}{route}?{urlencode(params)}"
     expected_type = "image/png" if expect_png else "application/json"
     limit = MAX_PREVIEW_BYTES if expect_png else MAX_SUMMARY_BYTES
+    token = settings.satellite_tiler_shared_token
+    if token is None or not token.get_secret_value():
+        raise HTTPException(status_code=503, detail="Internal tiler authentication is not configured.")
     try:
-        with urlopen(Request(uri, headers={"Accept": expected_type}), timeout=20) as result:
+        with urlopen(
+            Request(uri, headers={
+                "Accept": expected_type,
+                "X-Farm-Internal-Token": token.get_secret_value(),
+            }), timeout=20
+        ) as result:
             if result.status != 200 or result.headers.get_content_type() != expected_type:
                 raise HTTPException(status_code=502, detail="Tiler returned an invalid response.")
             data = result.read(limit + 1)
@@ -124,6 +132,32 @@ def metric_preview(
         "max_size": "600",
     }, expect_png=True)
     return _no_store_response(png, content_type="image/png")
+
+
+
+@router.get("/fields/{field_id}/satellite-observations/{observation_id}/tiles/{metric_type}/{z}/{x}/{y}.png")
+def private_metric_tile(
+    field_id: UUID,
+    observation_id: UUID,
+    metric_type: str,
+    z: int,
+    x: int,
+    y: int,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> Response:
+    """Authorized tile for an owned raster; browser never chooses gs:// URI."""
+    # Check coordinate ranges before hitting the database or tiler.
+    if z < 0 or z > 22 or x < 0 or y < 0 or x >= 2 ** z or y >= 2 ** z:
+        raise HTTPException(status_code=404, detail="Tile not found.")
+    metric = _owned_metric(db, current_user, field_id, observation_id, metric_type)
+    lo, hi, cmap = DISPLAY[metric_type]
+    tile = _tiler_get(f"/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png", {
+        "url": metric.raster_uri,
+        "rescale": f"{lo},{hi}",
+        "colormap_name": cmap,
+    }, expect_png=True)
+    return _no_store_response(tile, content_type="image/png")
 
 
 def _change_metrics(
