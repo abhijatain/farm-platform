@@ -80,3 +80,44 @@ def test_change_preview_checks_both_observations(monkeypatch):
         previews.change_preview(ids[0], ids[1], ids[2], "ndvi", None, user, max_abs=0.25)
     assert exc.value.status_code == 404
     assert checked == [ids[1], ids[2]]
+
+
+
+def test_private_tile_requires_field_ownership_before_upstream(monkeypatch):
+    field_id, observation_id = uuid4(), uuid4()
+    user = SimpleNamespace(id=uuid4())
+    db = SimpleNamespace(scalar=lambda _: pytest.fail("Cannot load unowned raster"))
+    def reject(*_a,**_kw):
+        raise HTTPException(status_code=404, detail="Field not found.")
+    monkeypatch.setattr(previews, "get_owned_field", reject)
+    monkeypatch.setattr(previews, "_tiler_get", lambda *_a,**_kw: pytest.fail("No tiler call"))
+    with pytest.raises(HTTPException) as err:
+        previews.private_metric_tile(field_id, observation_id, "ndvi", 14, 123, 456, db, user)
+    assert err.value.status_code == 404
+
+
+def test_private_tile_resolves_canonical_path_and_metric_colormap(monkeypatch):
+    field_id, observation_id = uuid4(), uuid4()
+    user=SimpleNamespace(id=uuid4())
+    canonical="gs://private-bucket/users/owner/field/ndmi.tif"
+    db=SimpleNamespace(scalar=lambda _: SimpleNamespace(raster_uri=canonical))
+    monkeypatch.setattr(previews, "get_owned_field", lambda *_a, **_kw: None)
+    calls=[]
+    def fake(route, params, *, expect_png):
+        calls.append((route,params,expect_png))
+        return b"\x89PNG\r\n\x1a\n" + b"test"
+    monkeypatch.setattr(previews, "_tiler_get",fake)
+    response=previews.private_metric_tile(field_id,observation_id,"ndmi",14,123,456,db,user)
+    assert response.status_code==200
+    assert response.headers["cache-control"]=="private, no-store"
+    assert calls==[(
+        "/cog/tiles/WebMercatorQuad/14/123/456.png",
+        {"url":canonical,"rescale":"-0.6,0.8","colormap_name":"rdbu"},True,
+    )]
+
+
+def test_tile_rejects_bad_coordinate_without_db_access(monkeypatch):
+    db=SimpleNamespace(scalar=lambda _: pytest.fail("Invalid coordinates queried DB"))
+    with pytest.raises(HTTPException) as err:
+        previews.private_metric_tile(uuid4(),uuid4(),"ndvi",4,18,0,db,SimpleNamespace(id=uuid4()))
+    assert err.value.status_code==404
