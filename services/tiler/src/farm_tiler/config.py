@@ -23,11 +23,6 @@ class Settings(BaseSettings):
     # Used internally by TiTiler/GDAL for private HTTP range reads.
     gcs_read_url_expiry_minutes: int = 15
 
-    cors_origins: str = (
-        "http://localhost:5173,"
-        "http://127.0.0.1:5173"
-    )
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
