@@ -1,6 +1,8 @@
 """Create FastAPI/TiTiler routes for controlled field raster visualization."""
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Response, Request
+from fastapi.responses import JSONResponse
+from hmac import compare_digest
 from fastapi.middleware.cors import (
     CORSMiddleware,
 )
@@ -27,6 +29,24 @@ from farm_tiler.storage.gcs_path import (
 app = FastAPI(
     title="Farm Platform Tiler",
 )
+
+@app.middleware("http")
+async def require_internal_api_token(request: Request, call_next):
+    """All raster/tile/change routes are API-internal, NEVER browser public.
+
+    Even accidental binding to 0.0.0.0 cannot expose gs:// paths. The local
+    /health check remains available for process supervision.
+    """
+    if request.url.path == "/health":
+        return await call_next(request)
+    shared = settings.satellite_tiler_shared_token
+    if shared is None or not shared.get_secret_value():
+        return JSONResponse({"detail": "Private tiler token not configured."}, status_code=503)
+    supplied = request.headers.get("X-Farm-Internal-Token", "")
+    if not compare_digest(supplied, shared.get_secret_value()):
+        return JSONResponse({"detail": "Unauthorized private tiler access."}, status_code=401)
+    return await call_next(request)
+
 
 
 origins = [
