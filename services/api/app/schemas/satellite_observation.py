@@ -99,5 +99,10 @@ class SatelliteIngestionJobResponse(BaseModel):
 
     last_error: str | None
 
+    @field_serializer("last_error")
+    def redact_internal_job_error(self, value: str | None) -> str | None:
+        # Worker exception strings can contain private GCS paths.
+        return public_metadata(value)
+
     created_at: datetime
     updated_at: datetime
