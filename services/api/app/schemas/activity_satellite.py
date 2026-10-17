@@ -6,7 +6,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, computed_field
 
 ComparisonStatus = Literal[
     "complete",
@@ -35,7 +35,12 @@ class ActivitySatelliteObservationMatch(BaseModel):
     maximum: float | None
     std: float | None
 
-    raster_uri: str
+    raster_uri: str = Field(exclude=True)
+
+    @computed_field
+    @property
+    def has_raster(self) -> bool:
+        return bool(self.raster_uri)
 
     native_resolution_m: float | None
     output_resolution_m: float | None
